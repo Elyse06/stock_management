@@ -1,0 +1,57 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
+}
+.sidebar {
+  width: 220px;
+  background: #1f2937;
+  color: white;
+  padding: 1rem;
+}
+.sidebar-title {
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.nav-link {
+  color: #d1d5db;
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+.nav-link:hover {
+  background: #374151;
+}
+.nav-link.active {
+  background: #2563eb;
+  color: white;
+}
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.badge {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+.content {
+  padding: 1.5rem;
+}
