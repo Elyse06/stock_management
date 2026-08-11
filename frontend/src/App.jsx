@@ -26,7 +26,7 @@ function App() {
             }
           >
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/catalogue" element={<CataloguePage />} />
+            <Route path="/catalogue/*" element={<CataloguePage />} />
             <Route path="/stock" element={<StockPage />} />
             <Route path="/achats" element={<AchatsPage />} />
             <Route
