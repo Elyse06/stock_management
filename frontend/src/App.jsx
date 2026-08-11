@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CataloguePage } from "./pages/CataloguePage";
 import { StockPage } from "./pages/StockPage";
+import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 import { AchatsPage } from "./pages/AchatsPage";
 import { UtilisateursPage } from "./pages/UtilisateursPage";
 import "./App.css";
@@ -28,6 +29,7 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/catalogue/*" element={<CataloguePage />} />
             <Route path="/stock" element={<StockPage />} />
+            <Route path="/fournisseur" element={<FournisseursPage />} />
             <Route path="/achats" element={<AchatsPage />} />
             <Route
               path="/utilisateurs"
