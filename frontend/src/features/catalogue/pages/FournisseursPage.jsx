@@ -45,8 +45,8 @@ export function FournisseursPage() {
   const enregistrer = async (e) => {
     e.preventDefault();
     try {
-      if (editing.id) {
-        await updateFournisseur(editing.id, champs);
+      if (editing.fournisseur_id) {
+        await updateFournisseur(editing.fournisseur_id, champs);
       } else {
         await createFournisseur(champs);
       }
@@ -60,7 +60,7 @@ export function FournisseursPage() {
   const supprimer = async (f) => {
     if (!window.confirm(`Supprimer le fournisseur "${f.nom}" ?`)) return;
     try {
-      await deleteFournisseur(f.id);
+      await deleteFournisseur(f.fournisseur_id);
       charger();
     } catch {
       setError("Suppression impossible (des articles y sont probablement lies).");
