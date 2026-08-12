@@ -5,20 +5,38 @@ import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { Notification } from "../../../components/common/Notification";
 import { useAuth } from "../../../context/AuthContext";
+import { ArticleModal } from "../components/articleModal";
 
 export function ArticleListPage() {
   const { hasProfil } = useAuth();
-  const canEdit = hasProfil("Administrateur","Gestionnaire", "Magasinier");
+  const canEdit = hasProfil("Administrateur", "Gestionnaire", "Magasinier");
 
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [categorieFiltre, setCategorieFiltre] = useState("");
   const [page, setPage] = useState(1);
-  const [pageInfo, setPageInfo] = useState({ count: 0, next: null, previous: null });
+  const [pageInfo, setPageInfo] = useState({
+    count: 0,
+    next: null,
+    previous: null,
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedArticle, setSelectedArticle] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Ouvrir et fermer le model
+  const openModal = (article) => {
+    setSelectedArticle(article);
+    setIsModalOpen(true);
+  };
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedArticle(null);
+  };
+
+  // chargement de donnée
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -28,7 +46,11 @@ export function ArticleListPage() {
       if (categorieFiltre) params.categorie = categorieFiltre;
       const data = await listArticles(params);
       setArticles(data.results ?? data);
-      setPageInfo({ count: data.count, next: data.next, previous: data.previous });
+      setPageInfo({
+        count: data.count,
+        next: data.next,
+        previous: data.previous,
+      });
     } catch (err) {
       setError("Impossible de charger les articles.");
     } finally {
@@ -44,36 +66,53 @@ export function ArticleListPage() {
     charger();
   }, [charger]);
 
+  // fonction de recherche
   const handleSearchChange = (value) => {
     setSearch(value);
     setPage(1);
   };
 
+  // fonction de suppression
   const handleDelete = async (article) => {
-    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`)) return;
+    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`))
+      return;
     try {
       await deleteArticle(article.code_article);
       charger();
     } catch (err) {
-      setError("Suppression impossible (article probablement reference ailleurs).");
+      setError(
+        "Suppression impossible (article probablement reference ailleurs).",
+      );
     }
   };
 
+  // Tableaux des articles
   const columns = [
     { key: "code_article", label: "Code" },
     { key: "designation", label: "Designation" },
     { key: "categorie_nom", label: "Categorie" },
-    { key: "mode_suivi", label: "Suivi" },
     {
       key: "actions",
       label: "",
       render: (row) =>
         canEdit && (
           <div style={{ display: "flex", gap: "0.4rem" }}>
-            <Link className="btn btn-sm btn-secondary" to={`/catalogue/${row.code_article}/modifier`}>
+            <button
+              className="btn btn-sm btn-info"
+              onClick={() => openModal(row)}
+            >
+              Détails
+            </button>
+            <Link
+              className="btn btn-sm btn-secondary"
+              to={`/catalogue/${row.code_article}/modifier`}
+            >
               Modifier
             </Link>
-            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(row)}>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => handleDelete(row)}
+            >
               Supprimer
             </button>
           </div>
@@ -81,6 +120,7 @@ export function ArticleListPage() {
     },
   ];
 
+  // affichage des élements sur le navigateur
   return (
     <div>
       <div className="toolbar">
@@ -118,7 +158,11 @@ export function ArticleListPage() {
         <p>Chargement...</p>
       ) : (
         <>
-          <DataTable columns={columns} rows={articles} emptyMessage="Aucun article trouve." />
+          <DataTable
+            columns={columns}
+            rows={articles}
+            emptyMessage="Aucun article trouve."
+          />
           <Pagination
             page={page}
             setPage={setPage}
@@ -128,6 +172,13 @@ export function ArticleListPage() {
           />
         </>
       )}
+
+      {/* Charger le model */}
+      <ArticleModal
+        article={selectedArticle}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+      />
     </div>
   );
 }
