@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { listArticles, listCategories, deleteArticle } from "../api";
+import React, { useEffect, useState, useCallback } from "react";
+import { listArticles, listCategories, deleteArticle, getArticle } from "../api";
 import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { Notification } from "../../../components/common/Notification";
 import { useAuth } from "../../../context/AuthContext";
 import { ArticleModal } from "../components/articleModal";
+import { ArticleFormModal } from "../components/articleFormModal";
 
 export function ArticleListPage() {
   const { hasProfil } = useAuth();
@@ -23,10 +23,15 @@ export function ArticleListPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // Modale de détail
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Ouvrir et fermer le model
+  // Modale Formulaire (Création & Modification)
+  const [articleToEdit, setArticleToEdit] = useState(null);
+  const [isModalFormOpen, setIsModalFormOpen] = useState(false);
+
   const openModal = (article) => {
     setSelectedArticle(article);
     setIsModalOpen(true);
@@ -36,7 +41,29 @@ export function ArticleListPage() {
     setSelectedArticle(null);
   };
 
-  // chargement de donnée
+  // Ouvrir le formulaire en mode CRÉATION
+  const openFormModalForCreate = () => {
+    setArticleToEdit(null);
+    setIsModalFormOpen(true);
+  };
+
+  // Ouvrir le formulaire en mode ÉDITION
+  const openFormModalForEdit = async (article) => {
+    try {
+      // Charger la donnée complète pour avoir les fournisseurs attachés
+      const fullArticle = await getArticle(article.code_article);
+      setArticleToEdit(fullArticle);
+      setIsModalFormOpen(true);
+    } catch (err) {
+      setError("Impossible de charger les détails de l'article à modifier.");
+    }
+  };
+
+  const closeFormModal = () => {
+    setIsModalFormOpen(false);
+    setArticleToEdit(null);
+  };
+
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -58,6 +85,10 @@ export function ArticleListPage() {
     }
   }, [page, search, categorieFiltre]);
 
+  const handleSavedSuccess = () => {
+    charger(); // Recharger la liste instantanément après un ajout ou une mise à jour
+  };
+
   useEffect(() => {
     listCategories().then((data) => setCategories(data.results ?? data));
   }, []);
@@ -66,53 +97,41 @@ export function ArticleListPage() {
     charger();
   }, [charger]);
 
-  // fonction de recherche
   const handleSearchChange = (value) => {
     setSearch(value);
     setPage(1);
   };
 
-  // fonction de suppression
   const handleDelete = async (article) => {
-    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`))
-      return;
+    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`)) return;
     try {
       await deleteArticle(article.code_article);
       charger();
     } catch (err) {
-      setError(
-        "Suppression impossible (article probablement reference ailleurs).",
-      );
+      setError("Suppression impossible (article probablement référencé ailleurs).");
     }
   };
 
-  // Tableaux des articles
   const columns = [
     { key: "code_article", label: "Code" },
-    { key: "designation", label: "Designation" },
-    { key: "categorie_nom", label: "Categorie" },
+    { key: "designation", label: "Désignation" },
+    { key: "categorie_nom", label: "Catégorie" },
     {
       key: "actions",
       label: "",
       render: (row) =>
         canEdit && (
           <div style={{ display: "flex", gap: "0.4rem" }}>
-            <button
-              className="btn btn-sm btn-info"
-              onClick={() => openModal(row)}
-            >
+            <button className="btn btn-sm btn-info" onClick={() => openModal(row)}>
               Détails
             </button>
-            <Link
+            <button
               className="btn btn-sm btn-secondary"
-              to={`/catalogue/${row.code_article}/modifier`}
+              onClick={() => openFormModalForEdit(row)}
             >
               Modifier
-            </Link>
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={() => handleDelete(row)}
-            >
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(row)}>
               Supprimer
             </button>
           </div>
@@ -120,13 +139,12 @@ export function ArticleListPage() {
     },
   ];
 
-  // affichage des élements sur le navigateur
   return (
     <div>
       <div className="toolbar">
         <input
           type="text"
-          placeholder="Rechercher (code, designation, code-barre)..."
+          placeholder="Rechercher (code, désignation, code-barre)..."
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
@@ -137,7 +155,7 @@ export function ArticleListPage() {
             setPage(1);
           }}
         >
-          <option value="">Toutes categories</option>
+          <option value="">Toutes catégories</option>
           {categories.map((c) => (
             <option key={c.categorie_id} value={c.categorie_id}>
               {c.nom}
@@ -145,10 +163,11 @@ export function ArticleListPage() {
           ))}
         </select>
         <div className="spacer" />
+
         {canEdit && (
-          <Link className="btn btn-primary" to="/catalogue/nouveau">
+          <button className="btn btn-primary" onClick={openFormModalForCreate}>
             + Nouvel article
-          </Link>
+          </button>
         )}
       </div>
 
@@ -158,11 +177,7 @@ export function ArticleListPage() {
         <p>Chargement...</p>
       ) : (
         <>
-          <DataTable
-            columns={columns}
-            rows={articles}
-            emptyMessage="Aucun article trouve."
-          />
+          <DataTable columns={columns} rows={articles} emptyMessage="Aucun article trouvé." />
           <Pagination
             page={page}
             setPage={setPage}
@@ -173,11 +188,15 @@ export function ArticleListPage() {
         </>
       )}
 
-      {/* Charger le model */}
-      <ArticleModal
-        article={selectedArticle}
-        isOpen={isModalOpen}
-        onClose={closeModal}
+      {/* Modale de Détail */}
+      <ArticleModal article={selectedArticle} isOpen={isModalOpen} onClose={closeModal} />
+
+      {/* Modale de Formulaire (Création & Modification) */}
+      <ArticleFormModal
+        isOpen={isModalFormOpen}
+        onClose={closeFormModal}
+        onSuccess={handleSavedSuccess}
+        articleToEdit={articleToEdit}
       />
     </div>
   );
