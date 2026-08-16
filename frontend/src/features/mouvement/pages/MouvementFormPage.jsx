@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createMouvement, listMagasins } from "../api";
+import { createMouvement } from "../api";
+import { listMagasins } from "../../stock/api";
 import { listArticles } from "../../catalogue/api";
 import { ArticleLignesEditor } from "../../../components/common/ArticleLignesEditor";
 import { Notification } from "../../../components/common/Notification";
