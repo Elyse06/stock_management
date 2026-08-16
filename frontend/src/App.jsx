@@ -9,6 +9,7 @@ import { StockPage } from "./pages/StockPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 import { AchatsPage } from "./pages/AchatsPage";
 import { UtilisateursPage } from "./pages/UtilisateursPage";
+import { OperationEntreePage, OperationSortiePage, OperationTransfertPage } from "./pages/OperationPage";
 import "./App.css";
 import "./components/common/common.css";
 
@@ -28,9 +29,12 @@ function App() {
           >
             <Route path="/" element={<DashboardPage />} />
             <Route path="/catalogue/*" element={<CataloguePage />} />
-            <Route path="/stock" element={<StockPage />} />
+            <Route path="/stock/*" element={<StockPage />} />
             <Route path="/fournisseur" element={<FournisseursPage />} />
-            <Route path="/achats" element={<AchatsPage />} />
+            <Route path="/achats/*" element={<AchatsPage />} />
+            <Route path="/operations/entree/*" element={<OperationEntreePage />} />
+            <Route path="/operations/sortie/*" element={<OperationSortiePage />} />
+            <Route path="/operations/transfert/*" element={<OperationTransfertPage />} />
             <Route
               path="/utilisateurs"
               element={
