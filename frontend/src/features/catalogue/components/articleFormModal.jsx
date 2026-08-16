@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { ArticleFournisseurEditor } from "./ArticleFournisseurEditor";
 import { Notification } from "../../../components/common/Notification";
+import "./article.css";
 
 const MODES_SUIVI = [
   { value: "QUANTITE", label: "Quantité simple" },
@@ -32,7 +33,7 @@ const CHAMPS_VIDES = {
 export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = null }) {
   const [champs, setChamps] = useState(CHAMPS_VIDES);
   const [lignesFournisseurs, setLignesFournisseurs] = useState([]);
-  const [lignesInitiales, setLignesInitiales] = useState([]); // Pour traquer les suppressions
+  const [lignesInitiales, setLignesInitiales] = useState([]);
   const [categories, setCategories] = useState([]);
   const [fournisseurs, setFournisseurs] = useState([]);
   const [error, setError] = useState("");
@@ -40,7 +41,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
 
   const isEditMode = Boolean(articleToEdit);
 
-  // Charger les référentiels
   useEffect(() => {
     if (isOpen) {
       listCategories().then((d) => setCategories(d.results ?? d));
@@ -48,7 +48,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     }
   }, [isOpen]);
 
-  // Préremplir le formulaire si mode ÉDITION
   useEffect(() => {
     if (isOpen && articleToEdit) {
       setChamps({
@@ -73,7 +72,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     }
   }, [isOpen, articleToEdit]);
 
-  // Fermeture par la touche Echap
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") handleClose();
@@ -101,19 +99,16 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     setChamps({ ...champs, [field]: e.target.value });
   };
 
-  // Synchronisation des fournisseurs (Ajout / Modification / Suppression)
   const synchroniserFournisseurs = async (codeArticle) => {
     const idsInitiaux = new Set(lignesInitiales.filter((l) => l.id).map((l) => l.id));
     const idsActuels = new Set(lignesFournisseurs.filter((l) => l.id).map((l) => l.id));
 
-    // 1. Supprimer les fournisseurs retirés
     for (const l of lignesInitiales) {
       if (l.id && !idsActuels.has(l.id)) {
         await removeArticleFournisseur(l.id);
       }
     }
 
-    // 2. Ajouter ou mettre à jour les fournisseurs
     for (const l of lignesFournisseurs) {
       if (l.id && idsInitiaux.has(l.id)) {
         await updateArticleFournisseur(l.id, { prix_achat: l.prix_achat });
@@ -136,11 +131,9 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
       const payload = { ...champs, categorie: Number(champs.categorie) };
 
       if (isEditMode) {
-        // Mode ÉDITION
         await updateArticle(articleToEdit.code_article, payload);
         await synchroniserFournisseurs(articleToEdit.code_article);
       } else {
-        // Mode CRÉATION
         await createArticle(payload);
         for (const l of lignesFournisseurs) {
           await addArticleFournisseur({
@@ -164,102 +157,84 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     }
   };
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) handleClose();
+  };
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1050,
-        padding: "1.5rem",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          padding: "2rem",
-          borderRadius: "10px",
-          width: "90vw",
-          maxWidth: "1000px",
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>
-          {isEditMode ? `Modifier l'article "${articleToEdit.designation}"` : "Nouvel Article"}
-        </h2>
+    <div className="modal-overlay-form" onClick={handleOverlayClick}>
+      <div className="modal-card-form">
+        {/* Header */}
+        <div className="modal-header-form">
+          <div className="modal-title-group-form">
+            <span className={`modal-badge-form ${isEditMode ? "edit" : "create"}`}>
+              {isEditMode ? "Édition" : "Création"}
+            </span>
+            <h2 className="modal-title-form">
+              {isEditMode ? `Modifier l'article` : "Nouvel Article"}
+            </h2>
+          </div>
+          <button className="modal-close-form" onClick={handleClose} aria-label="Fermer">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-        <Notification type="error" message={error} />
+        {/* Body */}
+        <div className="modal-body-form">
+          <Notification type="error" message={error} />
 
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            flex: 1,
-          }}
-        >
-          <div style={{ overflowY: "auto", paddingRight: "0.5rem", flex: 1 }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem 1.5rem",
-                marginBottom: "1.5rem",
-              }}
-            >
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Code article *</label>
+          <form onSubmit={handleSubmit} className="form-modern">
+            <div className="form-grid">
+              <div className="form-field">
+                <label className="form-label">
+                  Code article <span className="required">*</span>
+                </label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.code_article}
                   onChange={handleChange("code_article")}
                   required
-                  disabled={isEditMode} // Le code ne doit généralement pas être modifiable
-                  style={{
-                    padding: "0.5rem",
-                    borderRadius: "4px",
-                    border: "1px solid #ccc",
-                    backgroundColor: isEditMode ? "#e9ecef" : "#fff",
-                  }}
+                  disabled={isEditMode}
+                  placeholder="ART-XXX"
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Code-barre</label>
+              <div className="form-field">
+                <label className="form-label">Code-barre</label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.code_barre}
                   onChange={handleChange("code_barre")}
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
+                  placeholder="Scannez ou saisissez..."
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Désignation *</label>
+              <div className="form-field">
+                <label className="form-label">
+                  Désignation <span className="required">*</span>
+                </label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.designation}
                   onChange={handleChange("designation")}
                   required
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Catégorie *</label>
+              <div className="form-field">
+                <label className="form-label">
+                  Catégorie <span className="required">*</span>
+                </label>
                 <select
+                  className="form-select"
                   value={champs.categorie}
                   onChange={handleChange("categorie")}
                   required
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 >
                   <option value="">Choisir...</option>
                   {categories.map((c) => (
@@ -270,40 +245,43 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
                 </select>
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Marque</label>
+              <div className="form-field">
+                <label className="form-label">Marque</label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.marque}
                   onChange={handleChange("marque")}
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Modèle</label>
+              <div className="form-field">
+                <label className="form-label">Modèle</label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.modele}
                   onChange={handleChange("modele")}
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Unité</label>
+              <div className="form-field">
+                <label className="form-label">Unité</label>
                 <input
+                  type="text"
+                  className="form-input"
                   value={champs.unite}
                   onChange={handleChange("unite")}
                   placeholder="unité, kg, boîte..."
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
 
-              <div className="form-field" style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Mode de suivi</label>
+              <div className="form-field">
+                <label className="form-label">Mode de suivi</label>
                 <select
+                  className="form-select"
                   value={champs.mode_suivi}
                   onChange={handleChange("mode_suivi")}
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 >
                   {MODES_SUIVI.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -313,51 +291,63 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
                 </select>
               </div>
 
-              <div
-                className="form-field"
-                style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: "0.25rem" }}
-              >
-                <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Description</label>
+              <div className="form-field full-width">
+                <label className="form-label">Description</label>
                 <textarea
+                  className="form-textarea"
                   value={champs.description}
                   onChange={handleChange("description")}
-                  rows={2}
-                  style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc", resize: "vertical" }}
+                  rows={3}
+                  placeholder="Description détaillée de l'article..."
                 />
               </div>
             </div>
 
-            <hr style={{ border: "0", borderTop: "1px solid #eee", margin: "1.5rem 0" }} />
-
-            <label style={{ fontWeight: 600, fontSize: "0.95rem", display: "block", marginBottom: "0.75rem" }}>
-              Fournisseurs et prix d'achat
-            </label>
+            <div className="section-divider">
+              <span className="section-divider-text">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Fournisseurs et prix d'achat
+              </span>
+            </div>
 
             <ArticleFournisseurEditor
               lignes={lignesFournisseurs}
               setLignes={setLignesFournisseurs}
               fournisseurs={fournisseurs}
             />
-          </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "0.75rem",
-              marginTop: "1.5rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid #eee",
-            }}
-          >
-            <button type="button" className="btn btn-secondary" onClick={handleClose}>
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? "Enregistrement..." : isEditMode ? "Mettre à jour" : "Enregistrer"}
-            </button>
-          </div>
-        </form>
+            {/* Footer */}
+            <div className="modal-footer-form">
+              <button type="button" className="btn-modal-form btn-modal-cancel" onClick={handleClose}>
+                Annuler
+              </button>
+              <button type="submit" className="btn-modal-form btn-modal-save" disabled={saving}>
+                {saving ? (
+                  <>
+                    <span className="btn-spinner-form" />
+                    Enregistrement...
+                  </>
+                ) : isEditMode ? (
+                  <>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Mettre à jour
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Enregistrer
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

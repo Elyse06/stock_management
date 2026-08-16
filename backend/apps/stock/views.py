@@ -23,7 +23,7 @@ class MouvementViewSet(viewsets.ModelViewSet):
     serializer_class = MouvementSerializer
     permission_classes = [HasProfil.for_profils("Administrateur", "Magasinier", "Gestionnaire")]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["type", "magasin_source", "magasin_destination"]
+    filterset_fields = ["type_mouvement", "magasin_source", "magasin_destination"]
 
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
