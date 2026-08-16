@@ -37,18 +37,18 @@ export function CommandeListPage() {
   }, [charger]);
 
   const columns = [
-    { key: "id", label: "#" },
+    { key: "commande_id", label: "#" },
     { key: "objet", label: "Objet" },
     { key: "statut", label: "Statut", render: (row) => <StatusBadge value={row.statut} /> },
     { key: "demandeur_username", label: "Demandeur" },
     {
-      key: "date_demande", label: "Date demande",
-      render: (row) => new Date(row.date_demande).toLocaleDateString("fr-FR"),
+      key: "date_comande", label: "Date demande",
+      render: (row) => new Date(row.date_comande).toLocaleDateString("fr-FR"),
     },
     {
       key: "actions", label: "",
       render: (row) => (
-        <Link className="btn btn-sm btn-secondary" to={`/achats/${row.id}`}>
+        <Link className="btn btn-sm btn-secondary" to={`/achats/${row.commande_id}`}>
           Voir
         </Link>
       ),
