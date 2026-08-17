@@ -26,7 +26,7 @@ class MouvementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mouvement
         fields = [
-            "mouvement_id", "date", "type", "origine", "motif",
+            "mouvement_id", "date", "type_mouvement", "origine", "motif",
             "magasin_source", "magasin_source_nom",
             "magasin_destination", "magasin_destination_nom",
             "details",
@@ -34,7 +34,7 @@ class MouvementSerializer(serializers.ModelSerializer):
         read_only_fields = ["date"]
 
     def validate(self, attrs):
-        type_mouvement = attrs.get("type")
+        type_mouvement = attrs.get("type_mouvement")
         source = attrs.get("magasin_source")
         destination = attrs.get("magasin_destination")
 
