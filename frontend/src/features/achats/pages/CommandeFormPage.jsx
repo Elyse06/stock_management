@@ -1,74 +1,107 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createCommande } from "../api";
-import { listArticles } from "../../catalogue/api";
-import { ArticleLignesEditor } from "../../../components/common/ArticleLignesEditor";
-import { Notification } from "../../../components/common/Notification";
+export function ArticleLignesEditor({ lignes, setLignes, articles }) {
+  const handleAddLigne = () => {
+    setLignes([...lignes, { article: "", quantite: 1, stock_calcule: 0 }]);
+  };
 
-export function CommandeFormPage() {
-  const navigate = useNavigate();
-  const [objet, setObjet] = useState("");
-  const [lignes, setLignes] = useState([]);
-  const [articles, setArticles] = useState([]);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const handleRemoveLigne = (index) => {
+    setLignes(lignes.filter((_, i) => i !== index));
+  };
 
-  useEffect(() => {
-    listArticles({ page_size: 200 }).then((d) => setArticles(d.results ?? d));
-  }, []);
+  const handleChangeArticle = (index, articleId) => {
+    const selectedArticle = articles.find((a) => String(a.article_id ?? a.id) === String(articleId));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (lignes.length === 0) {
-      setError("Ajoutez au moins un article a la demande.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await createCommande({
-        objet,
-        details: lignes.map((l) => ({
-          article: l.article,
-          designation: l.article_designation,
-          quantite: l.quantite,
-        })),
-      });
-      navigate("/achats");
-    } catch (err) {
-      setError(
-        err.response?.data ? JSON.stringify(err.response.data) : "Erreur lors de la creation."
-      );
-    } finally {
-      setSaving(false);
-    }
+    const updated = [...lignes];
+    updated[index] = {
+      ...updated[index],
+      article: articleId,
+      article_designation: selectedArticle?.designation ?? "",
+      stock_calcule: selectedArticle?.stock_calcule ?? 0,
+    };
+    setLignes(updated);
+  };
+
+  const handleChangeQuantite = (index, quantite) => {
+    const updated = [...lignes];
+    updated[index] = {
+      ...updated[index],
+      quantite: quantite,
+    };
+    setLignes(updated);
   };
 
   return (
-    <div>
-      <h1>Nouvelle demande</h1>
-      <Notification type="error" message={error} />
+    <div className="article-lignes-editor">
+      {lignes.map((ligne, index) => (
+        <div
+          key={index}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginBottom: "0.75rem",
+            background: "#f9f9f9",
+            padding: "0.5rem",
+            borderRadius: "4px",
+          }}
+        >
+          {/* Sélection de l'article fournisseur avec indication du stock */}
+          <div style={{ flex: 2 }}>
+            <select
+              value={ligne.article}
+              onChange={(e) => handleChangeArticle(index, e.target.value)}
+              required
+              style={{ width: "100%", padding: "0.5rem" }}
+            >
+              <option value="">-- Sélectionner un article --</option>
+              {articles.map((art) => {
+                const id = art.article_id ?? art.id;
+                return (
+                  <option key={id} value={id}>
+                    {art.designation} (En stock : {art.stock_calcule})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 560 }}>
-        <div className="form-field">
-          <label>Objet de la demande</label>
-          <input value={objet} onChange={(e) => setObjet(e.target.value)} required />
-        </div>
+          {/* Badge récapitulatif du stock actuel en magasin */}
+          <div style={{ minWidth: "100px", fontSize: "0.85rem", color: "#555" }}>
+            Stock actuel : <strong>{ligne.stock_calcule ?? 0}</strong>
+          </div>
 
-        <label style={{ fontSize: "0.9rem", fontWeight: 600, display: "block", marginBottom: "0.5rem" }}>
-          Articles demandes
-        </label>
-        <ArticleLignesEditor lignes={lignes} setLignes={setLignes} articles={articles} />
+          {/* Champ pour la quantité voulue dans la demande d'achat */}
+          <div style={{ flex: 1 }}>
+            <input
+              type="number"
+              min="1"
+              placeholder="Qté voulue"
+              value={ligne.quantite}
+              onChange={(e) => handleChangeQuantite(index, e.target.value)}
+              required
+              style={{ width: "100%", padding: "0.5rem" }}
+            />
+          </div>
 
-        <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={() => navigate("/achats")}>
-            Annuler
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => handleRemoveLigne(index)}
+            title="Supprimer la ligne"
+            style={{ padding: "0.4rem 0.75rem" }}
+          >
+            &times;
           </button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? "Envoi..." : "Envoyer la demande"}
-          </button>
         </div>
-      </form>
+      ))}
+
+      <button
+        type="button"
+        className="btn btn-secondary"
+        onClick={handleAddLigne}
+        style={{ marginTop: "0.5rem" }}
+      >
+        + Ajouter un article
+      </button>
     </div>
   );
 }
