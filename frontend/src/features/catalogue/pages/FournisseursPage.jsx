@@ -10,7 +10,7 @@ const CHAMPS_VIDES = { nom: "", adresse: "", contact: "" };
 
 export function FournisseursPage() {
   const { hasProfil } = useAuth();
-  const canEdit = hasProfil("Administrateur", "Magasinier");
+  const canEdit = hasProfil("Administrateur", "Magasinier", "Gestionnaire");
 
   const [fournisseurs, setFournisseurs] = useState([]);
   const [search, setSearch] = useState("");

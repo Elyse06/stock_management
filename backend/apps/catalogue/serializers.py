@@ -31,6 +31,11 @@ class ArticleSerializer(serializers.ModelSerializer):
             "categorie", "categorie_nom", "fournisseurs",
         ]
 
+    def validate_code_barre(self, value):
+        if value is not None and value.strip() == "":
+            return None
+        return value
+
 
 class FournisseurSerializer(serializers.ModelSerializer):
     class Meta:
