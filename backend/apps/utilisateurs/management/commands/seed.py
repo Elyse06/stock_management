@@ -3,6 +3,7 @@ from django.db import transaction
 
 from apps.utilisateurs.models import Profil, Employe, Utilisateur
 from apps.catalogue.models import Categorie
+from apps.stock.models import Magasin
 
 
 class Command(BaseCommand):
@@ -100,6 +101,13 @@ class Command(BaseCommand):
             {"nom": "Fourniture", "description": "Articles de bureau et fournitures diverses"},
         ]
 
+        data_seed_magasin = [
+            {"nom": "Magasin Central", "localite": "Siège Ankorondrano"},
+            {"nom": "Magasin Annexe F", "localite": "Agence Fianarantsoa"},
+            {"nom": "Magasin Annexe T", "localite": "Agence Toamasina"},
+            {"nom": "Magasin Annexe A", "localite": "Agence Antsiranana"},
+        ]
+
         password_defaut = "1234"
 
         # Création des catégories
@@ -107,6 +115,13 @@ class Command(BaseCommand):
             Categorie.objects.get_or_create(
                 nom=category_data["nom"],
                 defaults={"description": category_data["description"]},
+            )
+
+        # Création des magasins
+        for magasin_data in data_seed_magasin: 
+            Magasin.objects.get_or_create(
+                nom=magasin_data["nom"],
+                defaults={"localite": magasin_data["localite"]},
             )
 
         for entry in data_seed:

@@ -10,7 +10,7 @@ export function CommandeDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { hasProfil } = useAuth();
-  const peutTraiter = hasProfil("Administrateur", "Agent");
+  const peutTraiter = hasProfil("Administrateur", "Gestionnaire");
 
   const [commande, setCommande] = useState(null);
   const [commentaire, setCommentaire] = useState("");
@@ -22,7 +22,6 @@ export function CommandeDetailPage() {
 
   useEffect(() => {
     charger();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const traiter = async (statut) => {
