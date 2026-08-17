@@ -13,8 +13,11 @@ export function MouvementFormModal({
   const [magasins, setMagasins] = useState([]);
   const [articles, setArticles] = useState([]);
   
+  const [origine, setOrigine] = useState("");
+  const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
+  
   const [details, setDetails] = useState([
     { article: "", quantite: 1 },
   ]);
@@ -22,9 +25,15 @@ export function MouvementFormModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Charger les magasins et articles au montage si le modal est ouvert
   useEffect(() => {
     if (isOpen) {
+      setOrigine("");
+      setMotif("");
+      setMagasinSource("");
+      setMagasinDestination("");
+      setDetails([{ article: "", quantite: 1 }]);
+      setError("");
+
       Promise.all([listMagasins(), listArticles()])
         .then(([magasinsData, articlesData]) => {
           setMagasins(magasinsData.results ?? magasinsData);
@@ -32,18 +41,16 @@ export function MouvementFormModal({
         })
         .catch(() => setError("Impossible de charger les données initiales."));
     }
-  }, [isOpen]);
+  }, [isOpen, type]);
 
   if (!isOpen) return null;
 
-  // Titres adaptés selon le type
   const titles = {
     ENTREE: "Nouvelle Entrée de stock",
     SORTIE: "Nouvelle Sortie de stock",
     TRANSFERT: "Nouveau Transfert de stock",
   };
 
-  // Gestion des lignes d'articles
   const handleDetailChange = (index, field, value) => {
     const updated = [...details];
     updated[index] = { ...updated[index], [field]: value };
@@ -64,39 +71,54 @@ export function MouvementFormModal({
     e.preventDefault();
     setError("");
 
-    // Validations selon le type
-    if (type === "SORTIE" || type === "TRANSFERT") {
-      if (!magasinSource) return setError("Le magasin source est requis.");
-    }
-    if (type === "ENTREE" || type === "TRANSFERT") {
-      if (!magasinDestination) return setError("Le magasin destination est requis.");
-    }
-    if (type === "TRANSFERT" && magasinSource === magasinDestination) {
-      return setError("Le magasin source et destination doivent être différents.");
+    const hasInvalidArticle = details.some((d) => !d.article || String(d.article).trim() === "");
+    if (hasInvalidArticle) {
+      return setError("Veuillez sélectionner un article valide pour chaque ligne.");
     }
 
+    if (type === "ENTREE" && !magasinDestination) {
+      return setError("Le magasin destination est requis.");
+    }
+
+    if (type === "SORTIE" && !magasinSource) {
+      return setError("Le magasin source est requis.");
+    }
+
+    if (type === "TRANSFERT") {
+      if (!magasinSource) return setError("Le magasin source est requis.");
+      if (!magasinDestination) return setError("Le magasin destination est requis.");
+      if (magasinSource === magasinDestination) {
+        return setError("Le magasin source et destination doivent être différents.");
+      }
+    }
+
+    // Le backend Django gère la 'date' et 'mouvement_id' automatiquement
     const payload = {
       type_mouvement: type,
       details: details.map((d) => ({
-        article: Number(d.article),
-        quantite: Number(d.quantite),
+        article: String(d.article),
+        quantite: parseInt(d.quantite, 10),
       })),
     };
 
-    if (type === "SORTIE" || type === "TRANSFERT") {
+    if (type === "ENTREE") {
+      payload.magasin_destination = Number(magasinDestination);
+      payload.origine = origine.trim();
+    } else if (type === "SORTIE") {
       payload.magasin_source = Number(magasinSource);
-    }
-    if (type === "ENTREE" || type === "TRANSFERT") {
+      payload.motif = motif.trim();
+    } else if (type === "TRANSFERT") {
+      payload.magasin_source = Number(magasinSource);
       payload.magasin_destination = Number(magasinDestination);
     }
 
     setLoading(true);
     try {
       await createMouvement(payload);
-      onSuccess(); // Rafraîchit le tableau principal
-      onClose();   // Ferme le modal
-    } catch {
-      setError("Erreur lors de la création du mouvement.");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Erreur lors de l'enregistrement du mouvement.");
     } finally {
       setLoading(false);
     }
@@ -107,7 +129,7 @@ export function MouvementFormModal({
       <div className="modal-content" style={modalStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2>{titles[type]}</h2>
-          <button type="button" onClick={onClose} className="btn-close" style={{ cursor: "pointer" }}>
+          <button type="button" onClick={onClose} className="btn-close" style={{ cursor: "pointer", border: "none", background: "none", fontSize: "1.5rem" }}>
             &times;
           </button>
         </div>
@@ -115,7 +137,23 @@ export function MouvementFormModal({
         <Notification type="error" message={error} />
 
         <form onSubmit={handleSubmit}>
-          {/* Champ Magasin Source : Uniquement pour SORTIE et TRANSFERT */}
+          {/* Origine (ENTREE) */}
+          {type === "ENTREE" && (
+            <div className="form-group" style={{ marginBottom: "1rem" }}>
+              <label>Origine / Provenance</label>
+              <input
+                type="text"
+                maxLength={50}
+                placeholder="Ex: Fournisseur XYZ, Achat direct..."
+                value={origine}
+                onChange={(e) => setOrigine(e.target.value)}
+                className="form-control"
+                style={{ width: "100%", padding: "0.5rem" }}
+              />
+            </div>
+          )}
+
+          {/* Magasin Source (SORTIE / TRANSFERT) */}
           {(type === "SORTIE" || type === "TRANSFERT") && (
             <div className="form-group" style={{ marginBottom: "1rem" }}>
               <label>Magasin Source *</label>
@@ -124,18 +162,19 @@ export function MouvementFormModal({
                 onChange={(e) => setMagasinSource(e.target.value)}
                 required
                 className="form-control"
+                style={{ width: "100%", padding: "0.5rem" }}
               >
                 <option value="">Sélectionner un magasin</option>
                 {magasins.map((m) => (
                   <option key={m.magasin_id} value={m.magasin_id}>
-                    {m.nom}
+                    {m.nom} {m.localite ? `(${m.localite})` : ""}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Champ Magasin Destination : Uniquement pour ENTREE et TRANSFERT */}
+          {/* Magasin Destination (ENTREE / TRANSFERT) */}
           {(type === "ENTREE" || type === "TRANSFERT") && (
             <div className="form-group" style={{ marginBottom: "1rem" }}>
               <label>Magasin Destination *</label>
@@ -144,42 +183,64 @@ export function MouvementFormModal({
                 onChange={(e) => setMagasinDestination(e.target.value)}
                 required
                 className="form-control"
+                style={{ width: "100%", padding: "0.5rem" }}
               >
                 <option value="">Sélectionner un magasin</option>
                 {magasins.map((m) => (
                   <option key={m.magasin_id} value={m.magasin_id}>
-                    {m.nom}
+                    {m.nom} {m.localite ? `(${m.localite})` : ""}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Liste des articles */}
-          <h3>Articles concernés</h3>
+          {/* Motif (SORTIE) */}
+          {type === "SORTIE" && (
+            <div className="form-group" style={{ marginBottom: "1rem" }}>
+              <label>Motif de la sortie</label>
+              <input
+                type="text"
+                maxLength={50}
+                placeholder="Ex: Affectation agent, Panne, Perte..."
+                value={motif}
+                onChange={(e) => setMotif(e.target.value)}
+                className="form-control"
+                style={{ width: "100%", padding: "0.5rem" }}
+              />
+            </div>
+          )}
+
+          {/* Liste des Articles */}
+          <h3 style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>Articles concernés</h3>
           {details.map((row, index) => (
-            <div key={index} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <div key={index} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", alignItems: "center" }}>
               <select
                 value={row.article}
                 onChange={(e) => handleDetailChange(index, "article", e.target.value)}
                 required
-                style={{ flex: 2 }}
+                style={{ flex: 3, padding: "0.5rem" }}
               >
-                <option value="">Sélectionner un article</option>
-                {articles.map((a) => (
-                  <option key={a.article_id} value={a.article_id}>
-                    {a.designation}
-                  </option>
-                ))}
+                <option value="">-- Sélectionner un article --</option>
+                {articles.map((a) => {
+                  // Récupère l'identifiant exact de l'article (ex: a.code_article, a.code, ou a.id)
+                  const articleKey = a.code_article || a.code || a.article_id || a.id;
+                  return (
+                    <option key={articleKey} value={articleKey}>
+                      {articleKey} - {a.designation}
+                    </option>
+                  );
+                })}
               </select>
 
               <input
                 type="number"
                 min="1"
+                placeholder="Qté"
                 value={row.quantite}
                 onChange={(e) => handleDetailChange(index, "quantite", e.target.value)}
                 required
-                style={{ flex: 1 }}
+                style={{ flex: 1, padding: "0.5rem" }}
               />
 
               {details.length > 1 && (
@@ -187,6 +248,7 @@ export function MouvementFormModal({
                   type="button"
                   onClick={() => removeDetailRow(index)}
                   className="btn btn-danger"
+                  style={{ padding: "0.5rem 0.75rem" }}
                 >
                   &times;
                 </button>
@@ -194,11 +256,16 @@ export function MouvementFormModal({
             </div>
           ))}
 
-          <button type="button" onClick={addDetailRow} className="btn btn-secondary" style={{ marginTop: "0.5rem" }}>
+          <button 
+            type="button" 
+            onClick={addDetailRow} 
+            className="btn btn-secondary" 
+            style={{ marginTop: "0.5rem" }}
+          >
             + Ajouter une ligne
           </button>
 
-          {/* Boutons d'action */}
+          {/* Actions */}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
             <button type="button" onClick={onClose} className="btn" disabled={loading}>
               Annuler
