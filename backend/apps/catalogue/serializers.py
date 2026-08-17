@@ -22,14 +22,24 @@ class ArticleSerializer(serializers.ModelSerializer):
     fournisseurs = ArticleFournisseurSerializer(
         source="fournisseurs_liaison", many=True, read_only=True
     )
+    stock_calcule = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = [
             "code_article", "code_barre", "designation", "description",
             "marque", "modele", "unite", "mode_suivi",
-            "categorie", "categorie_nom", "fournisseurs",
+            "categorie", "categorie_nom", "fournisseurs", "stock_calcule",
         ]
+
+    def get_stock_calcule(self, obj):
+        stock = 0
+        for detail in obj.details_mouvement.select_related("mouvement"): 
+            if detail.mouvement.type_mouvement == "ENTREE":
+                stock += detail.quantite
+            elif detail.mouvement.type_mouvement == "SORTIE":
+                stock -= detail.quantite
+        return stock
 
     def validate_code_barre(self, value):
         if value is not None and value.strip() == "":
