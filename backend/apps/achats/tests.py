@@ -56,7 +56,8 @@ class CommandeTraitementSerializerTests(TestCase):
 
         sortie = Mouvement.objects.filter(
             type_mouvement=Mouvement.Type.SORTIE,
-            motif=f"Commande #{self.commande.pk}",
+            origine=f"Commande de {self.demandeur.nom_user}",
+            motif=self.commande.objet,
         ).first()
 
         self.assertIsNotNone(sortie)
