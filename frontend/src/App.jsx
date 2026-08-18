@@ -9,7 +9,7 @@ import { InventairePage } from "./features/stock/pages/InventairePage";
 import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 import { AchatsPage } from "./pages/AchatsPage";
-import { UtilisateursPage } from "./pages/UtilisateursPage";
+import { UserListPage } from "./features/user/pages/UserListPage";
 import { EntreeListPage } from "./features/mouvement/pages/EntreeListPage";
 import { SortieListPage } from "./features/mouvement/pages/SortieListPage";
 import { TransfertListPage } from "./features/mouvement/pages/TransfertListPage";
@@ -43,7 +43,7 @@ function App() {
               path="/utilisateurs"
               element={
                 <ProtectedRoute profils={["Administrateur"]}>
-                  <UtilisateursPage />
+                  <UserListPage />
                 </ProtectedRoute>
               }
             />
