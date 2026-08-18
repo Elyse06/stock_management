@@ -18,7 +18,7 @@ class Profil(models.Model):
 class Employe(models.Model):
     employee_id = models.BigAutoField(primary_key=True)
     nom = models.CharField(max_length=100)
-    matricule = models.CharField(max_length=20, blank=True)
+    matricule = models.CharField(max_length=20, unique=True)
     departement = models.CharField(max_length=50, blank=True)
     fonction = models.CharField(max_length=100, blank=True)
     telephone = models.CharField(max_length=30, blank=True)

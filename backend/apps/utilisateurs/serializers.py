@@ -18,12 +18,13 @@ class EmployeSerializer(serializers.ModelSerializer):
 class UtilisateurSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
     profil_nom = serializers.CharField(source="profil.nom", read_only=True)
+    employe_matricule = serializers.CharField(source="employe.matricule", read_only=True)
 
     class Meta:
         model = Utilisateur
         fields = [
             "id", "nom_user", "email",
-            "profil", "profil_nom", "employe", "password", "date_creation",
+            "profil", "profil_nom", "employe", "employe_matricule", "password", "date_creation",
         ]
         read_only_fields = ["date_creation"]
 
