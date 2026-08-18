@@ -9,7 +9,7 @@ const CHAMPS_VIDES = { nom: "", localite: "" };
 
 export function MagasinsPage() {
   const { hasProfil } = useAuth();
-  const canEdit = hasProfil("Administrateur", "Magasinier");
+  const canEdit = hasProfil("Administrateur", "Magasinier", "Gestionnaire");
 
   const [magasins, setMagasins] = useState([]);
   const [error, setError] = useState("");
