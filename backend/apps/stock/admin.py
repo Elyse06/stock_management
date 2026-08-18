@@ -23,6 +23,6 @@ class MouvementAdmin(admin.ModelAdmin):
 
 @admin.register(Inventaire)
 class InventaireAdmin(admin.ModelAdmin):
-    list_display = ("inventaire_id", "mouvement", "magasin", "quantite_theorique", "quantite_physique", "ecart", "date")
-    list_filter = ("magasin",)
+    list_display = ("inventaire_id", "article", "mouvement", "magasin", "quantite_theorique", "quantite_physique", "ecart", "date")
+    list_filter = ("magasin", "article")
     readonly_fields = ("ecart",)

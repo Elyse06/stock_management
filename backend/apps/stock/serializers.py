@@ -1,5 +1,9 @@
+from decimal import Decimal
+
+from django.db.models import Q
 from rest_framework import serializers
 
+from apps.catalogue.models import Article
 from .models import Magasin, Mouvement, DetailMouvement, Inventaire
 
 
@@ -57,6 +61,7 @@ class MouvementSerializer(serializers.ModelSerializer):
 
 
 class InventaireSerializer(serializers.ModelSerializer):
+    article = serializers.PrimaryKeyRelatedField(queryset=Article.objects.all())
     article_designation = serializers.CharField(source="article.designation", read_only=True)
     magasin_nom = serializers.CharField(source="magasin.nom", read_only=True)
     mouvement_details = MouvementSerializer(read_only=True)
@@ -68,4 +73,42 @@ class InventaireSerializer(serializers.ModelSerializer):
             "mouvement", "mouvement_details",
             "quantite_theorique", "quantite_physique", "ecart", "date",
         ]
-        read_only_fields = ["ecart", "date"]
+        read_only_fields = ["ecart", "date", "mouvement", "mouvement_details"]
+
+    def _calculer_quantite_theorique(self, article, magasin):
+        totale = Decimal("0")
+        details = DetailMouvement.objects.filter(article=article).select_related("mouvement")
+
+        for detail in details:
+            mouvement = detail.mouvement
+            quantite = Decimal(detail.quantite)
+
+            if mouvement.type_mouvement == Mouvement.Type.ENTREE and mouvement.magasin_destination_id == magasin.id:
+                totale += quantite
+            elif mouvement.type_mouvement == Mouvement.Type.SORTIE and mouvement.magasin_source_id == magasin.id:
+                totale -= quantite
+            elif mouvement.type_mouvement == Mouvement.Type.TRANSFERT:
+                if mouvement.magasin_destination_id == magasin.id:
+                    totale += quantite
+                if mouvement.magasin_source_id == magasin.id:
+                    totale -= quantite
+
+        return totale
+
+    def validate(self, attrs):
+        article = attrs.get("article")
+        magasin = attrs.get("magasin")
+        if article and magasin and "quantite_theorique" not in attrs:
+            attrs["quantite_theorique"] = self._calculer_quantite_theorique(article, magasin)
+        if "quantite_theorique" in attrs and "quantite_physique" in attrs:
+            attrs["ecart"] = attrs["quantite_physique"] - attrs["quantite_theorique"]
+        return attrs
+
+    def create(self, validated_data):
+        mouvement = Mouvement.objects.create(
+            type_mouvement=Mouvement.Type.INVENTAIRE,
+            magasin_destination=validated_data["magasin"],
+            origine="Inventaire",
+            motif="Inventaire du magasin",
+        )
+        return Inventaire.objects.create(mouvement=mouvement, **validated_data)

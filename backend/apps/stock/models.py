@@ -20,6 +20,7 @@ class Mouvement(models.Model):
         ENTREE = "ENTREE", "Entrée"
         SORTIE = "SORTIE", "Sortie"
         TRANSFERT = "TRANSFERT", "Transfert"
+        INVENTAIRE = "INVENTAIRE", "Inventaire"
 
     mouvement_id = models.BigAutoField(primary_key=True)
     date = models.DateTimeField(auto_now_add=True)
@@ -51,8 +52,11 @@ class Mouvement(models.Model):
 
 
 class Inventaire(models.Model):
+    article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, related_name="inventaires"
+    )
     mouvement = models.ForeignKey(
-        Mouvement, on_delete=models.CASCADE, related_name="inventaires"
+        Mouvement, on_delete=models.CASCADE, related_name="inventaires", null=True, blank=True
     )
     magasin = models.ForeignKey(
         Magasin, on_delete=models.CASCADE, related_name="inventaires"
@@ -60,20 +64,20 @@ class Inventaire(models.Model):
     inventaire_id = models.BigAutoField(primary_key=True)
     quantite_theorique = models.DecimalField(max_digits=12, decimal_places=2)
     quantite_physique = models.DecimalField(max_digits=12, decimal_places=2)
-    ecart = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    ecart = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
     date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Inventaire"
         verbose_name_plural = "Inventaires"
-        unique_together = ("mouvement", "magasin", "date")
+        unique_together = ("mouvement", "article", "magasin")
 
     def save(self, *args, **kwargs):
         self.ecart = self.quantite_physique - self.quantite_theorique
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Inventaire {self.article_id} @ {self.magasin} ({self.date:%Y-%m-%d})"
+        return f"Inventaire {self.article} @ {self.magasin} ({self.date:%Y-%m-%d})"
 
 
 class DetailMouvement(models.Model):
