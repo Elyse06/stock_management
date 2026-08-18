@@ -25,6 +25,7 @@ class CommandeTraitementSerializerTests(TestCase):
             password="secret123",
         )
         self.magasin = Magasin.objects.create(nom="Magasin principal", localite="Antananarivo")
+        self.magasin_autre = Magasin.objects.create(nom="Magasin secondaire", localite="Toamasina")
         self.categorie = Categorie.objects.create(nom="Matériel")
         self.article = Article.objects.create(
             code_article="ART-001",
@@ -44,7 +45,11 @@ class CommandeTraitementSerializerTests(TestCase):
     def test_valider_commande_cree_une_sortie_de_stock(self):
         request = type("RequestStub", (), {"user": self.traitant})()
         serializer = CommandeTraitementSerializer(
-            data={"statut": Commande.Statut.VALIDEE, "commentaire_agent": "OK"},
+            data={
+                "statut": Commande.Statut.VALIDEE,
+                "commentaire_agent": "OK",
+                "magasin_source": self.magasin_autre.magasin_id,
+            },
             context={"commande": self.commande, "request": request},
         )
 
@@ -61,7 +66,7 @@ class CommandeTraitementSerializerTests(TestCase):
         ).first()
 
         self.assertIsNotNone(sortie)
-        self.assertEqual(sortie.magasin_source, self.magasin)
+        self.assertEqual(sortie.magasin_source, self.magasin_autre)
         self.assertEqual(sortie.details.count(), 1)
         self.assertEqual(
             sortie.details.get(article=self.article).quantite,
