@@ -12,7 +12,7 @@ class ProfilSerializer(serializers.ModelSerializer):
 class EmployeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employe
-        fields = ["employee_id", "nom", "fonction", "telephone", "adresse", "chef_hierarchique"]
+        fields = ["employee_id", "nom", "matricule", "departement", "fonction", "telephone", "adresse", "chef_hierarchique"]
 
 
 class UtilisateurSerializer(serializers.ModelSerializer):
