@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.utils import timezone
 
+from apps.stock.models import DetailMouvement, Magasin, Mouvement
+
 from .models import Commande, DetailCommande
 
 
@@ -54,12 +56,45 @@ class CommandeTraitementSerializer(serializers.Serializer):
     )
     commentaire_agent = serializers.CharField(required=False, allow_blank=True)
 
+    def _creer_sortie_stock(self, commande):
+        magasin_source = Magasin.objects.order_by("magasin_id").first()
+        if magasin_source is None:
+            raise serializers.ValidationError("Aucun magasin n'est disponible pour enregistrer la sortie de stock.")
+
+        if Mouvement.objects.filter(
+            type_mouvement=Mouvement.Type.SORTIE,
+            motif=f"Commande #{commande.pk}",
+        ).exists():
+            return None
+
+        mouvement = Mouvement.objects.create(
+            type_mouvement=Mouvement.Type.SORTIE,
+            magasin_source=magasin_source,
+            origine="Commande interne",
+            motif=f"Commande #{commande.pk}",
+        )
+
+        for detail in commande.details.select_related("article"):
+            DetailMouvement.objects.create(
+                mouvement=mouvement,
+                article=detail.article,
+                quantite=int(detail.quantite),
+            )
+
+        return mouvement
+
     def save(self, **kwargs):
         commande = self.context["commande"]
         request = self.context["request"]
-        commande.statut = self.validated_data["statut"]
+        nouveau_statut = self.validated_data["statut"]
+
+        commande.statut = nouveau_statut
         commande.commentaire_agent = self.validated_data.get("commentaire_agent", "")
         commande.utilisateur_traitant = request.user
         commande.date_traitement = timezone.now()
         commande.save()
+
+        if nouveau_statut == Commande.Statut.VALIDEE:
+            self._creer_sortie_stock(commande)
+
         return commande
