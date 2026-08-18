@@ -55,10 +55,15 @@ class CommandeTraitementSerializer(serializers.Serializer):
         choices=[Commande.Statut.VALIDEE, Commande.Statut.REJETEE]
     )
     commentaire_agent = serializers.CharField(required=False, allow_blank=True)
+    magasin_source = serializers.PrimaryKeyRelatedField(
+        queryset=Magasin.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
-    def _creer_sortie_stock(self, commande):
-        magasin_source = Magasin.objects.order_by("magasin_id").first()
-        if magasin_source is None:
+    def _creer_sortie_stock(self, commande, magasin_source=None):
+        magasin_selectionne = magasin_source or Magasin.objects.order_by("magasin_id").first()
+        if magasin_selectionne is None:
             raise serializers.ValidationError("Aucun magasin n'est disponible pour enregistrer la sortie de stock.")
 
         origine = f"Commande de {commande.utilisateur_demandeur.nom_user}"
@@ -66,6 +71,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
 
         if Mouvement.objects.filter(
             type_mouvement=Mouvement.Type.SORTIE,
+            magasin_source=magasin_selectionne,
             origine=origine,
             motif=motif,
         ).exists():
@@ -73,7 +79,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
 
         mouvement = Mouvement.objects.create(
             type_mouvement=Mouvement.Type.SORTIE,
-            magasin_source=magasin_source,
+            magasin_source=magasin_selectionne,
             origine=origine,
             motif=motif,
         )
@@ -99,6 +105,9 @@ class CommandeTraitementSerializer(serializers.Serializer):
         commande.save()
 
         if nouveau_statut == Commande.Statut.VALIDEE:
-            self._creer_sortie_stock(commande)
+            self._creer_sortie_stock(
+                commande,
+                self.validated_data.get("magasin_source"),
+            )
 
         return commande

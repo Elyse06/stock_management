@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getCommande, traiterCommande } from "../api";
+import { listMagasins } from "../../stock/api";
 import { DataTable } from "../../../components/common/DataTable";
 import { StatusBadge } from "../../../components/common/StatusBadge";
 import { Notification } from "../../../components/common/Notification";
@@ -14,14 +15,22 @@ export function CommandeDetailPage() {
 
   const [commande, setCommande] = useState(null);
   const [commentaire, setCommentaire] = useState("");
+  const [magasins, setMagasins] = useState([]);
+  const [magasinSource, setMagasinSource] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [traitement, setTraitement] = useState(false);
 
-  const charger = () => getCommande(id).then(setCommande).catch(() => setError("Commande introuvable."));
+  const charger = () =>
+    getCommande(id)
+      .then(setCommande)
+      .catch(() => setError("Commande introuvable."));
 
   useEffect(() => {
     charger();
+    listMagasins({ page_size: 100 })
+      .then((data) => setMagasins(data.results ?? data))
+      .catch(() => setMagasins([]));
   }, [id]);
 
   const traiter = async (statut) => {
@@ -29,7 +38,16 @@ export function CommandeDetailPage() {
     setError("");
     setSuccess("");
     try {
-      const updated = await traiterCommande(id, { statut, commentaire_agent: commentaire });
+      const payload = {
+        statut,
+        commentaire_agent: commentaire,
+      };
+
+      if (statut === "VALIDEE" && magasinSource) {
+        payload.magasin_source = Number(magasinSource);
+      }
+
+      const updated = await traiterCommande(id, payload);
       setCommande(updated);
       setSuccess(statut === "VALIDEE" ? "Commande validee." : "Commande rejetee.");
     } catch {
@@ -71,6 +89,21 @@ export function CommandeDetailPage() {
       {peutTraiter && commande.statut === "EN_ATTENTE" && (
         <div style={{ marginTop: "1.5rem", maxWidth: 480 }}>
           <div className="form-field">
+            <label>Magasin source pour la sortie</label>
+            <select
+              value={magasinSource}
+              onChange={(e) => setMagasinSource(e.target.value)}
+              className="form-control"
+            >
+              <option value="">Sélectionner un magasin</option>
+              {magasins.map((magasin) => (
+                <option key={magasin.magasin_id} value={magasin.magasin_id}>
+                  {magasin.nom} {magasin.localite ? `(${magasin.localite})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
             <label>Commentaire (optionnel)</label>
             <textarea
               value={commentaire}
@@ -79,7 +112,11 @@ export function CommandeDetailPage() {
             />
           </div>
           <div className="form-actions" style={{ justifyContent: "flex-start" }}>
-            <button className="btn btn-primary" disabled={traitement} onClick={() => traiter("VALIDEE")}>
+            <button
+              className="btn btn-primary"
+              disabled={traitement || !magasinSource}
+              onClick={() => traiter("VALIDEE")}
+            >
               Valider
             </button>
             <button className="btn btn-danger" disabled={traitement} onClick={() => traiter("REJETEE")}>
