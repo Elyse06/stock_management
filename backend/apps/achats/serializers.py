@@ -61,17 +61,21 @@ class CommandeTraitementSerializer(serializers.Serializer):
         if magasin_source is None:
             raise serializers.ValidationError("Aucun magasin n'est disponible pour enregistrer la sortie de stock.")
 
+        origine = f"Commande de {commande.utilisateur_demandeur.nom_user}"
+        motif = commande.objet or "Commande interne"
+
         if Mouvement.objects.filter(
             type_mouvement=Mouvement.Type.SORTIE,
-            motif=f"Commande #{commande.pk}",
+            origine=origine,
+            motif=motif,
         ).exists():
             return None
 
         mouvement = Mouvement.objects.create(
             type_mouvement=Mouvement.Type.SORTIE,
             magasin_source=magasin_source,
-            origine="Commande interne",
-            motif=f"Commande #{commande.pk}",
+            origine=origine,
+            motif=motif,
         )
 
         for detail in commande.details.select_related("article"):
