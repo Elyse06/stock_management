@@ -17,6 +17,8 @@ class Command(BaseCommand):
                 "profil": {"nom": "Administrateur", "description": "Accès complet"},
                 "employe": {
                     "nom": "Claude",
+                    "matricule": "STG25",
+                    "departement": "DSI",
                     "fonction": "Responsable IT",
                     "telephone": "0333030301",
                     "adresse": "67h",
@@ -31,6 +33,8 @@ class Command(BaseCommand):
                 "profil": {"nom": "Gestionnaire", "description": "Gestion du stock"},
                 "employe": {
                     "nom": "Jean",
+                    "matricule": "STG20",
+                    "departement": "RMG",
                     "fonction": "Gestionnaire de Stock",
                     "telephone": "0333030302",
                     "adresse": "Ankorondrano",
@@ -48,6 +52,8 @@ class Command(BaseCommand):
                 },
                 "employe": {
                     "nom": "Marc",
+                    "matricule": "STG15",
+                    "departement": "DAF",
                     "fonction": "Magasinier Senior",
                     "telephone": "0333030303",
                     "adresse": "Isoraka",
@@ -65,6 +71,8 @@ class Command(BaseCommand):
                 },
                 "employe": {
                     "nom": "Sophie",
+                    "matricule": "STG22",
+                    "departement": "DRH",
                     "fonction": "Assistante RH",
                     "telephone": "0333030304",
                     "adresse": "Analakely",
@@ -82,6 +90,8 @@ class Command(BaseCommand):
                 },
                 "employe": {
                     "nom": "Claire",
+                    "matricule": "STG23",
+                    "departement": "DRH",
                     "fonction": "Auditeur Interne",
                     "telephone": "0333030305",
                     "adresse": "Ivandry",
@@ -131,16 +141,32 @@ class Command(BaseCommand):
                 defaults={"description": entry["profil"]["description"]},
             )
 
-            # 2. Création de l'Employé
+            # 2. Création de l'Employé - CORRECTION ICI
             employe_data = entry["employe"]
-            employe, _ = Employe.objects.get_or_create(
-                nom=employe_data["nom"],
+            # Utilisation du matricule comme clé unique pour get_or_create
+            employe, created = Employe.objects.get_or_create(
+                matricule=employe_data["matricule"],  # <-- AJOUT DU MATRICULE COMME CLÉ
                 defaults={
+                    "nom": employe_data["nom"],
                     "fonction": employe_data["fonction"],
                     "telephone": employe_data["telephone"],
                     "adresse": employe_data["adresse"],
+                    "departement": employe_data.get("departement", ""),  # Ajout du champ departement
                 },
             )
+            
+            if created:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Employé '{employe_data['nom']}' (matricule: {employe_data['matricule']}) créé"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Employé avec matricule {employe_data['matricule']} existe déjà, utilisation existant"
+                    )
+                )
 
             # 3. Création de l'Utilisateur
             user_data = entry["user"]
@@ -173,6 +199,12 @@ class Command(BaseCommand):
                             f"Utilisateur '{username}' créé (mdp: {password_defaut})"
                         )
                     )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"L'utilisateur '{username}' existe déjà, ignoré"
+                    )
+                )
 
         self.stdout.write(
             self.style.SUCCESS("Données de démonstration installées avec succès.")
