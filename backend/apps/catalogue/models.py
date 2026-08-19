@@ -27,6 +27,7 @@ class Article(models.Model):
     marque = models.CharField(max_length=30, blank=True)
     modele = models.CharField(max_length=30, blank=True)
     unite = models.CharField(max_length=20, blank=True)
+    seuil = models.PositiveIntegerField(default=0)
     mode_suivi = models.CharField(
         max_length=20, choices=ModeSuivi.choices, default=ModeSuivi.QUANTITE
     )
