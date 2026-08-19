@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getCommande, traiterCommande } from "../api";
-import { listMagasins } from "../../stock/api";
+import { listMagasins } from "../../stock/api"; 
+import { listArticles } from "../../catalogue/api"
 import { DataTable } from "../../../components/common/DataTable";
 import { StatusBadge } from "../../../components/common/StatusBadge";
 import { Notification } from "../../../components/common/Notification";
@@ -16,6 +17,7 @@ export function CommandeDetailPage() {
   const [commande, setCommande] = useState(null);
   const [commentaire, setCommentaire] = useState("");
   const [magasins, setMagasins] = useState([]);
+  const [articles, setArticles] = useState([]); // Stockage des articles avec stock_calcule
   const [magasinSource, setMagasinSource] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -28,12 +30,41 @@ export function CommandeDetailPage() {
 
   useEffect(() => {
     charger();
+    
+    // Récupération des magasins
     listMagasins({ page_size: 100 })
       .then((data) => setMagasins(data.results ?? data))
       .catch(() => setMagasins([]));
+
+    // Récupération de la liste des articles pour connaître le stock_calcule
+    listArticles({ page_size: 1000 })
+      .then((data) => setArticles(data.results ?? data))
+      .catch(() => setArticles([]));
   }, [id]);
 
+  // Associer à chaque ligne de détail de la commande le stock disponible correspondant
+  const detailsAvecStock = (commande?.details || []).map((item) => {
+    const articleInfo = articles.find((a) => a.code_article === item.article);
+    const stockDispo = articleInfo ? Number(articleInfo.stock_calcule) : 0;
+    const quantiteDemandee = Number(item.quantite);
+
+    return {
+      ...item,
+      stock_disponible: stockDispo,
+      est_insuffisant: quantiteDemandee > stockDispo,
+    };
+  });
+
+  // Vérifier si un des articles a une quantité demandée > au stock disponible
+  const stockInsuffisantGlobal = detailsAvecStock.some((item) => item.est_insuffisant);
+
   const traiter = async (statut) => {
+    // Si la validation est demandée mais que le stock est insuffisant, bloquer
+    if (statut === "VALIDEE" && stockInsuffisantGlobal) {
+      setError("Impossible de valider : la quantité demandée dépasse le stock disponible pour un ou plusieurs articles.");
+      return;
+    }
+
     setTraitement(true);
     setError("");
     setSuccess("");
@@ -51,8 +82,8 @@ export function CommandeDetailPage() {
       setCommande(updated);
       const messages = {
         EN_COURS: "Commande mise en cours.",
-        VALIDEE: "Commande validee.",
-        REJETEE: "Commande rejetee.",
+        VALIDEE: "Commande validée.",
+        REJETEE: "Commande rejetée.",
       };
       setSuccess(messages[statut]);
     } catch {
@@ -66,7 +97,16 @@ export function CommandeDetailPage() {
 
   const columns = [
     { key: "article_designation", label: "Article" },
-    { key: "quantite", label: "Quantite" },
+    { key: "quantite", label: "Quantité demandée" },
+    {
+      key: "stock_disponible",
+      label: "Stock disponible",
+      render: (row) => (
+        <span style={{ color: row.est_insuffisant ? "red" : "inherit", fontWeight: row.est_insuffisant ? "bold" : "normal" }}>
+          {row.stock_disponible} {row.est_insuffisant && "(Insuffisant)"}
+        </span>
+      ),
+    },
   ];
 
   return (
@@ -79,20 +119,27 @@ export function CommandeDetailPage() {
       <p><strong>Demandeur :</strong> {commande.demandeur_username}</p>
       <p><strong>Date de demande :</strong> {new Date(commande.date_comande).toLocaleString("fr-FR")}</p>
       {commande.traitant_username && (
-        <p><strong>Traite par :</strong> {commande.traitant_username}</p>
+        <p><strong>Traité par :</strong> {commande.traitant_username}</p>
       )}
       {commande.commentaire_agent && (
         <p><strong>Commentaire :</strong> {commande.commentaire_agent}</p>
       )}
 
-      <h2 style={{ fontSize: "1.05rem", marginTop: "1.5rem" }}>Articles demandes</h2>
-      <DataTable columns={columns} rows={commande.details} />
+      <h2 style={{ fontSize: "1.05rem", marginTop: "1.5rem" }}>Articles demandés</h2>
+      <DataTable columns={columns} rows={detailsAvecStock} />
 
       <Notification type="error" message={error} />
       <Notification type="success" message={success} />
 
       {peutTraiter && ["EN_ATTENTE", "EN_COURS"].includes(commande.statut) && (
         <div style={{ marginTop: "1.5rem", maxWidth: 480 }}>
+          {stockInsuffisantGlobal && (
+            <Notification
+              type="error"
+              message="Attention : Le stock est insuffisant pour valider cette commande."
+            />
+          )}
+
           <div className="form-field">
             <label>Magasin source pour la sortie</label>
             <select
@@ -108,6 +155,7 @@ export function CommandeDetailPage() {
               ))}
             </select>
           </div>
+
           <div className="form-field">
             <label>Commentaire (optionnel)</label>
             <textarea
@@ -116,11 +164,13 @@ export function CommandeDetailPage() {
               rows={2}
             />
           </div>
+
           <div className="form-actions" style={{ justifyContent: "flex-start" }}>
             <button
               className="btn btn-primary"
-              disabled={traitement}
+              disabled={traitement || stockInsuffisantGlobal || !magasinSource}
               onClick={() => traiter("VALIDEE")}
+              title={stockInsuffisantGlobal ? "Stock disponible insuffisant" : ""}
             >
               Valider
             </button>
