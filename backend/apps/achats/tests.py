@@ -73,3 +73,17 @@ class CommandeTraitementSerializerTests(TestCase):
             3,
         )
         self.assertTrue(DetailMouvement.objects.filter(mouvement=sortie, article=self.article).exists())
+
+    def test_mettre_commande_en_cours_ne_cree_pas_de_sortie(self):
+        request = type("RequestStub", (), {"user": self.traitant})()
+        serializer = CommandeTraitementSerializer(
+            data={"statut": Commande.Statut.EN_COURS},
+            context={"commande": self.commande, "request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.commande.refresh_from_db()
+        self.assertEqual(self.commande.statut, Commande.Statut.EN_COURS)
+        self.assertFalse(Mouvement.objects.filter(type_mouvement=Mouvement.Type.SORTIE).exists())

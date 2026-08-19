@@ -1,5 +1,5 @@
-from rest_framework import serializers
 from django.utils import timezone
+from rest_framework import serializers
 
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
 
@@ -11,8 +11,8 @@ class DetailCommandeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DetailCommande
-        fields = ["id", "commande", "article", "article_designation", "quantite"]
-        read_only_fields = ["commande"]
+        fields = ["id", "commande", "article", "article_designation", "quantite"] # noqa: RUF012
+        read_only_fields = ["commande"]  # noqa: RUF012
 
 
 class CommandeSerializer(serializers.ModelSerializer):
@@ -26,12 +26,12 @@ class CommandeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Commande
-        fields = [
+        fields = [  # noqa: RUF012
             "commande_id", "objet", "statut", "date_comande", "date_traitement",
             "commentaire_agent", "utilisateur_demandeur", "demandeur_username",
             "utilisateur_traitant", "traitant_username", "details",
         ]
-        read_only_fields = [
+        read_only_fields = [  # noqa: RUF012
             "date_comande", "date_traitement", "utilisateur_demandeur", "utilisateur_traitant",
         ]
 
@@ -52,7 +52,11 @@ class CommandeTraitementSerializer(serializers.Serializer):
     (transition de statut, distincte d'une simple mise a jour de champs).
     """
     statut = serializers.ChoiceField(
-        choices=[Commande.Statut.VALIDEE, Commande.Statut.REJETEE]
+        choices=[
+            Commande.Statut.EN_COURS,
+            Commande.Statut.VALIDEE,
+            Commande.Statut.REJETEE,
+        ]
     )
     commentaire_agent = serializers.CharField(required=False, allow_blank=True)
     magasin_source = serializers.PrimaryKeyRelatedField(

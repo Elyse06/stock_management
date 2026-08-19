@@ -44,6 +44,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             <th>Article</th>
             <th style={{ textAlign: "center" }}>Stock Actuel</th>
             <th style={{ textAlign: "center" }}>Quantité Demandée</th>
+            <th style={{ textAlign: "center" }}>Observations</th>
             <th />
           </tr>
         </thead>
@@ -63,6 +64,13 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
               <td style={{ textAlign: "center" }}>{ligne.stock_calcule ?? 0}</td>
               <td style={{ textAlign: "center" }}>
                 <strong>{ligne.quantite}</strong>
+              </td>
+              <td style={{ textAlign: "center" }}>
+                {ligne.stock_calcule !== undefined && ligne.quantite > ligne.stock_calcule ? (
+                  <span style={{ color: "red", fontWeight: 600 }}>Stock insuffisant, achat à faire {ligne.quantite - ligne.stock_calcule}</span>
+                ) : (
+                  <span style={{ color: "green", fontWeight: 600 }}>Stock suffisant</span>
+                )}
               </td>
               <td style={{ textAlign: "right" }}>
                 <button

@@ -33,7 +33,7 @@ class CommandeViewSet(viewsets.ModelViewSet):
     def traiter(self, request, pk=None):
         """
         POST /api/achats/commandes/{id}/traiter/
-        body: {"statut": "VALIDEE" | "REJETEE", "commentaire_agent": "..."}
+        body: {"statut": "EN_COURS" | "VALIDEE" | "REJETEE", "commentaire_agent": "..."}
         """
         commande = self.get_object()
         serializer = CommandeTraitementSerializer(
