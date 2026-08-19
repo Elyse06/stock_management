@@ -49,7 +49,12 @@ export function CommandeDetailPage() {
 
       const updated = await traiterCommande(id, payload);
       setCommande(updated);
-      setSuccess(statut === "VALIDEE" ? "Commande validee." : "Commande rejetee.");
+      const messages = {
+        EN_COURS: "Commande mise en cours.",
+        VALIDEE: "Commande validee.",
+        REJETEE: "Commande rejetee.",
+      };
+      setSuccess(messages[statut]);
     } catch {
       setError("Erreur lors du traitement de la commande.");
     } finally {
@@ -67,12 +72,12 @@ export function CommandeDetailPage() {
   return (
     <div>
       <Link to="/achats">&larr; Retour aux commandes</Link>
-      <h1>Commande #{commande.id}</h1>
+      <h1>Commande #{commande.commande_id}</h1>
 
       <p><strong>Objet :</strong> {commande.objet}</p>
       <p><strong>Statut :</strong> <StatusBadge value={commande.statut} /></p>
       <p><strong>Demandeur :</strong> {commande.demandeur_username}</p>
-      <p><strong>Date de demande :</strong> {new Date(commande.date_demande).toLocaleString("fr-FR")}</p>
+      <p><strong>Date de demande :</strong> {new Date(commande.date_comande).toLocaleString("fr-FR")}</p>
       {commande.traitant_username && (
         <p><strong>Traite par :</strong> {commande.traitant_username}</p>
       )}
@@ -86,7 +91,7 @@ export function CommandeDetailPage() {
       <Notification type="error" message={error} />
       <Notification type="success" message={success} />
 
-      {peutTraiter && commande.statut === "EN_ATTENTE" && (
+      {peutTraiter && ["EN_ATTENTE", "EN_COURS"].includes(commande.statut) && (
         <div style={{ marginTop: "1.5rem", maxWidth: 480 }}>
           <div className="form-field">
             <label>Magasin source pour la sortie</label>
@@ -114,11 +119,20 @@ export function CommandeDetailPage() {
           <div className="form-actions" style={{ justifyContent: "flex-start" }}>
             <button
               className="btn btn-primary"
-              disabled={traitement || !magasinSource}
+              disabled={traitement}
               onClick={() => traiter("VALIDEE")}
             >
               Valider
             </button>
+            {commande.statut === "EN_ATTENTE" && (
+              <button
+                className="btn btn-primary"
+                disabled={traitement || !magasinSource}
+                onClick={() => traiter("EN_COURS")}
+              >
+                Mettre en cours
+              </button>
+            )}
             <button className="btn btn-danger" disabled={traitement} onClick={() => traiter("REJETEE")}>
               Rejeter
             </button>
