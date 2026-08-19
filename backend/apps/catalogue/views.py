@@ -1,3 +1,5 @@
+from django.db.models import Sum, Q
+from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -25,6 +27,23 @@ class ArticleViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["categorie", "mode_suivi"]
     search_fields = ["code_article", "designation", "code_barre"]
+
+    def get_queryset(self):
+        return Article.objects.select_related("categorie").prefetch_related(
+            "fournisseurs_liaison__fournisseur"
+        ).annotate(
+            stock_calcule=Coalesce(
+                Sum(
+                    'details_mouvement__quantite',
+                    filter=Q(details_mouvement__mouvement__type_mouvement='ENTREE')
+                ), 0
+            ) - Coalesce(
+                Sum(
+                    'details_mouvement__quantite',
+                    filter=Q(details_mouvement__mouvement__type_mouvement='SORTIE')
+                ), 0
+            )
+        )
 
 
 class FournisseurViewSet(viewsets.ModelViewSet):
