@@ -16,6 +16,7 @@ export function InventairePage() {
   const [magasin, setMagasin] = useState("");
   const [inventaireLignes, setInventaireLignes] = useState([]);
   const [chargementStock, setChargementStock] = useState(false);
+  const [groupeSelectionne, setGroupeSelectionne] = useState(null);
 
   const charger = () => listInventaires({ page_size: 50 }).then((d) => setInventaires(d.results ?? d));
 
@@ -142,22 +143,36 @@ export function InventairePage() {
     }
   };
 
+  const groupesInventaires = Object.values(
+    inventaires.reduce((groupes, inventaire) => {
+      const date = new Date(inventaire.date).toLocaleDateString("fr-FR");
+      const cle = `${inventaire.magasin}-${date}`;
+
+      if (!groupes[cle]) {
+        groupes[cle] = {
+          id: cle,
+          magasin_nom: inventaire.magasin_nom,
+          date,
+          lignes: [],
+        };
+      }
+
+      groupes[cle].lignes.push(inventaire);
+      return groupes;
+    }, {})
+  );
+
   const columns = [
-    { key: "article_designation", label: "Article" },
     { key: "magasin_nom", label: "Magasin" },
-    { key: "quantite_theorique", label: "Théorique" },
-    { key: "quantite_physique", label: "Physique" },
+    { key: "date", label: "Date" },
     {
-      key: "ecart", label: "Ecart",
+      key: "actions",
+      label: "Actions",
       render: (row) => (
-        <span style={{ color: Number(row.ecart) === 0 ? "#166534" : "#991b1b", fontWeight: 600 }}>
-          {row.ecart}
-        </span>
+        <button className="btn btn-secondary" onClick={() => setGroupeSelectionne(row)}>
+          Détails
+        </button>
       ),
-    },
-    {
-      key: "date", label: "Date",
-      render: (row) => new Date(row.date).toLocaleDateString("fr-FR"),
     },
   ];
 
@@ -170,7 +185,34 @@ export function InventairePage() {
       </div>
 
       <Notification type="error" message={error} />
-      <DataTable columns={columns} rows={inventaires} emptyMessage="Aucun inventaire enregistré." />
+      <DataTable columns={columns} rows={groupesInventaires} emptyMessage="Aucun inventaire enregistré." />
+
+      {groupeSelectionne && (
+        <Modal
+          title={`Détails de l'inventaire du ${groupeSelectionne.date}`}
+          onClose={() => setGroupeSelectionne(null)}
+        >
+          <p><strong>Magasin :</strong> {groupeSelectionne.magasin_nom}</p>
+          <DataTable
+            columns={[
+              { key: "article_designation", label: "Article" },
+              { key: "quantite_theorique", label: "Théorique" },
+              { key: "quantite_physique", label: "Physique" },
+              {
+                key: "ecart",
+                label: "Ecart",
+                render: (row) => (
+                  <span style={{ color: Number(row.ecart) === 0 ? "#166534" : "#991b1b", fontWeight: 600 }}>
+                    {row.ecart}
+                  </span>
+                ),
+              },
+            ]}
+            rows={groupeSelectionne.lignes}
+            emptyMessage="Aucun article dans cet inventaire."
+          />
+        </Modal>
+      )}
 
       {ouvert && (
         <Modal title="Nouvel inventaire" onClose={() => setOuvert(false)}>
