@@ -17,6 +17,8 @@ export function InventairePage() {
   const [inventaireLignes, setInventaireLignes] = useState([]);
   const [chargementStock, setChargementStock] = useState(false);
   const [groupeSelectionne, setGroupeSelectionne] = useState(null);
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
 
   const charger = () => listInventaires({ page_size: 50 }).then((d) => setInventaires(d.results ?? d));
 
@@ -153,6 +155,7 @@ export function InventairePage() {
           id: cle,
           magasin_nom: inventaire.magasin_nom,
           date,
+          dateObj: new Date(inventaire.date),
           lignes: [],
         };
       }
@@ -160,7 +163,26 @@ export function InventairePage() {
       groupes[cle].lignes.push(inventaire);
       return groupes;
     }, {})
-  );
+  ).filter((groupe) => {
+    if (!dateDebut && !dateFin) return true;
+
+    const groupeDate = new Date(groupe.dateObj);
+    groupeDate.setHours(0, 0, 0, 0);
+
+    if (dateDebut) {
+      const debut = new Date(dateDebut);
+      debut.setHours(0, 0, 0, 0);
+      if (groupeDate < debut) return false;
+    }
+
+    if (dateFin) {
+      const fin = new Date(dateFin);
+      fin.setHours(23, 59, 59, 999);
+      if (groupeDate > fin) return false;
+    }
+
+    return true;
+  });
 
   const columns = [
     { key: "magasin_nom", label: "Magasin" },
@@ -180,6 +202,38 @@ export function InventairePage() {
     <div>
       <h1>Inventaires</h1>
       <div className="toolbar">
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Du</label>
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Au</label>
+            <input
+              type="date"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          {(dateDebut || dateFin) && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setDateDebut("");
+                setDateFin("");
+              }}
+              style={{ padding: "0.5rem 1rem", height: "fit-content" }}
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
         <div className="spacer" />
         {canEdit && <button className="btn btn-primary" onClick={ouvrirCreation}>+ Nouvel inventaire</button>}
       </div>
