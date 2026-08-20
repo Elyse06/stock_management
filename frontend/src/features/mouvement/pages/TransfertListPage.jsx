@@ -3,6 +3,7 @@ import { listMouvements } from "../api";
 import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { Notification } from "../../../components/common/Notification";
+import { Modal } from "../../../components/common/Modal";
 import { MouvementFormModal } from "./MouvementFormPage";
 
 export function TransfertListPage() {
@@ -14,6 +15,7 @@ export function TransfertListPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
+  const [transfertSelectionne, setTransfertSelectionne] = useState(null);
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -55,7 +57,6 @@ export function TransfertListPage() {
   });
 
   const columns = [
-    { key: "mouvement_id", label: "#" },
     { key: "magasin_source_nom", label: "Source" },
     { key: "magasin_destination_nom", label: "Destination" },
     {
@@ -65,8 +66,20 @@ export function TransfertListPage() {
     },
     {
       key: "nb_lignes",
-      label: "Articles",
+      label: "Nombre d'articles",
       render: (row) => row.details?.length ?? 0,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <button
+          className="btn btn-secondary"
+          onClick={() => setTransfertSelectionne(row)}
+        >
+          Détails
+        </button>
+      ),
     },
   ];
 
@@ -127,6 +140,25 @@ export function TransfertListPage() {
             count={pageInfo.count}
           />
         </>
+      )}
+
+      {transfertSelectionne && (
+        <Modal
+          title={`Détails du transfert #${transfertSelectionne.mouvement_id}`}
+          onClose={() => setTransfertSelectionne(null)}
+        >
+          <p><strong>Source :</strong> {transfertSelectionne.magasin_source_nom}</p>
+          <p><strong>Destination :</strong> {transfertSelectionne.magasin_destination_nom}</p>
+          <p><strong>Date :</strong> {new Date(transfertSelectionne.date).toLocaleString("fr-FR")}</p>
+          <DataTable
+            columns={[
+              { key: "article_designation", label: "Article" },
+              { key: "quantite", label: "Quantité" },
+            ]}
+            rows={transfertSelectionne.details ?? []}
+            emptyMessage="Aucun article dans ce transfert."
+          />
+        </Modal>
       )}
 
       <MouvementFormModal

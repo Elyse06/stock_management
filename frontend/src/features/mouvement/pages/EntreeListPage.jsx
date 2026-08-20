@@ -3,6 +3,7 @@ import { listMouvements } from "../api";
 import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { Notification } from "../../../components/common/Notification";
+import { Modal } from "../../../components/common/Modal";
 import { MouvementFormModal } from "./MouvementFormPage";
 
 export function EntreeListPage() {
@@ -149,29 +150,22 @@ export function EntreeListPage() {
       )}
 
       {entreeDetail && (
-            <div
-              style={{
-                marginTop: "1.5rem",
-                padding: "1rem",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-              }}
-            >
-              <h3 style={{ marginTop: 0 }}>Détails de l'entrée #{entreeDetail.mouvement_id}</h3>
-              {
-                entreeDetail.details && entreeDetail.details.length > 0 ? (
-                  <DataTable
-                    columns={[
-                      { key: "article_designation", label: "Article" },
-                      { key: "quantite", label: "Quantité" },
-                    ]}
-                    rows={entreeDetail.details ?? []}
-                    emptyMessage="Aucune ligne dans cette entrée."
-                  />
-                ) : null
-              }
-            </div>
-          )}
+        <Modal
+          title={`Détails de l'entrée #${entreeDetail.mouvement_id}`}
+          onClose={() => setEntreeSelectionnee(null)}
+        >
+          <p><strong>Destination :</strong> {entreeDetail.magasin_destination_nom}</p>
+          <p><strong>Date :</strong> {new Date(entreeDetail.date).toLocaleString("fr-FR")}</p>
+          <DataTable
+            columns={[
+              { key: "article_designation", label: "Article" },
+              { key: "quantite", label: "Quantité" },
+            ]}
+            rows={entreeDetail.details ?? []}
+            emptyMessage="Aucune ligne dans cette entrée."
+          />
+        </Modal>
+      )}
 
       <MouvementFormModal
         isOpen={isModalOpen}
