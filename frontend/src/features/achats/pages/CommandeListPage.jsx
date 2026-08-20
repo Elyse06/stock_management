@@ -8,9 +8,52 @@ import { Notification } from "../../../components/common/Notification";
 
 const STATUTS = ["EN_ATTENTE", "EN_COURS", "VALIDEE", "REJETEE"];
 
+const PERIODES = [
+  { id: "tous", label: "Tous les commandes" },
+  { id: "semaine", label: "Cette semaine" },
+  { id: "mois", label: "Ce mois" },
+  { id: "annee", label: "Cette année" },
+];
+
+function getDateRangeForPeriode(periodeId) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (periodeId === "tous") {
+    return { debut: null, fin: null };
+  }
+
+  if (periodeId === "semaine") {
+    const debut = new Date(today);
+    const jour = debut.getDay();
+    debut.setDate(debut.getDate() - (jour === 0 ? 6 : jour - 1));
+    const fin = new Date(debut);
+    fin.setDate(fin.getDate() + 6);
+    fin.setHours(23, 59, 59, 999);
+    return { debut, fin };
+  }
+
+  if (periodeId === "mois") {
+    const debut = new Date(today.getFullYear(), today.getMonth(), 1);
+    const fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    fin.setHours(23, 59, 59, 999);
+    return { debut, fin };
+  }
+
+  if (periodeId === "annee") {
+    const debut = new Date(today.getFullYear(), 0, 1);
+    const fin = new Date(today.getFullYear(), 11, 31);
+    fin.setHours(23, 59, 59, 999);
+    return { debut, fin };
+  }
+
+  return { debut: null, fin: null };
+}
+
 export function CommandeListPage() {
   const [commandes, setCommandes] = useState([]);
   const [statutFiltre, setStatutFiltre] = useState("");
+  const [periodeFiltre, setPeriodeFiltre] = useState("tous");
   const [page, setPage] = useState(1);
   const [pageInfo, setPageInfo] = useState({ count: 0, next: null, previous: null });
   const [error, setError] = useState("");
@@ -23,14 +66,24 @@ export function CommandeListPage() {
       const params = { page };
       if (statutFiltre) params.statut = statutFiltre;
       const data = await listCommandes(params);
-      setCommandes(data.results ?? data);
+      const allCommandes = data.results ?? data;
+      
+      const { debut, fin } = getDateRangeForPeriode(periodeFiltre);
+      const commandesFiltrees = allCommandes.filter((commande) => {
+        if (!debut || !fin) return true;
+        const commandeDate = new Date(commande.date_comande);
+        commandeDate.setHours(0, 0, 0, 0);
+        return commandeDate >= debut && commandeDate <= fin;
+      });
+      
+      setCommandes(commandesFiltrees);
       setPageInfo({ count: data.count, next: data.next, previous: data.previous });
     } catch {
       setError("Impossible de charger les commandes.");
     } finally {
       setLoading(false);
     }
-  }, [page, statutFiltre]);
+  }, [page, statutFiltre, periodeFiltre]);
 
   useEffect(() => {
     charger();
@@ -59,13 +112,21 @@ export function CommandeListPage() {
     <div>
       <h1>Commandes</h1>
       <div className="toolbar">
-        <select
-          value={statutFiltre}
-          onChange={(e) => { setStatutFiltre(e.target.value); setPage(1); }}
-        >
-          <option value="">Tous statuts</option>
-          {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <select
+            value={periodeFiltre}
+            onChange={(e) => { setPeriodeFiltre(e.target.value); setPage(1); }}
+          >
+            {PERIODES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+          <select
+            value={statutFiltre}
+            onChange={(e) => { setStatutFiltre(e.target.value); setPage(1); }}
+          >
+            <option value="">Tous statuts</option>
+            {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
         <div className="spacer" />
         <Link className="btn btn-primary" to="/achats/nouveau">+ Nouvelle demande</Link>
       </div>
