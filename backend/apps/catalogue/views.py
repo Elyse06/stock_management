@@ -29,22 +29,36 @@ class ArticleViewSet(viewsets.ModelViewSet):
     search_fields = ["code_article", "designation", "code_barre"]
 
     def get_queryset(self):
-        return Article.objects.select_related("categorie").prefetch_related(
+        queryset = Article.objects.select_related("categorie").prefetch_related(
             "fournisseurs_liaison__fournisseur"
-        ).annotate(
+        )
+        
+        magasin_id = self.request.query_params.get("magasin_id")
+
+        if magasin_id:
+            filtre_entree = Q(
+                details_mouvement__mouvement__magasin_destination_id=magasin_id,
+                details_mouvement__mouvement__type_mouvement__in=["ENTREE", "TRANSFERT"],
+            )
+            filtre_sortie = Q(
+                details_mouvement__mouvement__magasin_source_id=magasin_id,
+                details_mouvement__mouvement__type_mouvement__in=["SORTIE", "TRANSFERT"],
+            )
+        else:
+            filtre_entree = Q(
+                details_mouvement__mouvement__type_mouvement__in=["ENTREE", "TRANSFERT"]
+            )
+            filtre_sortie = Q(
+                details_mouvement__mouvement__type_mouvement__in=["SORTIE", "TRANSFERT"]
+            )
+
+        return queryset.annotate(
             stock_calcule=Coalesce(
-                Sum(
-                    'details_mouvement__quantite',
-                    filter=Q(details_mouvement__mouvement__type_mouvement='ENTREE')
-                ), 0
+                Sum("details_mouvement__quantite", filter=filtre_entree), 0
             ) - Coalesce(
-                Sum(
-                    'details_mouvement__quantite',
-                    filter=Q(details_mouvement__mouvement__type_mouvement='SORTIE')
-                ), 0
+                Sum("details_mouvement__quantite", filter=filtre_sortie), 0
             )
         )
-
 
 class FournisseurViewSet(viewsets.ModelViewSet):
     queryset = Fournisseur.objects.all()
