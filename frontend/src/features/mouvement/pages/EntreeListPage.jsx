@@ -13,6 +13,8 @@ export function EntreeListPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entreeSelectionnee, setEntreeSelectionnee] = useState(null);
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -62,14 +64,67 @@ export function EntreeListPage() {
     },
   ];
 
+  const mouvementsFiltres = mouvements.filter((mouvement) => {
+    if (!dateDebut && !dateFin) return true;
+
+    const mouvementDate = new Date(mouvement.date);
+    mouvementDate.setHours(0, 0, 0, 0);
+
+    if (dateDebut) {
+      const debut = new Date(dateDebut);
+      debut.setHours(0, 0, 0, 0);
+      if (mouvementDate < debut) return false;
+    }
+
+    if (dateFin) {
+      const fin = new Date(dateFin);
+      fin.setHours(23, 59, 59, 999);
+      if (mouvementDate > fin) return false;
+    }
+
+    return true;
+  });
+
   const entreeDetail =
     entreeSelectionnee &&
-    mouvements.find((m) => m.mouvement_id === entreeSelectionnee.mouvement_id);
+    mouvementsFiltres.find((m) => m.mouvement_id === entreeSelectionnee.mouvement_id);
 
   return (
     <div>
       <h1>Entrées de stock</h1>
       <div className="toolbar">
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Du</label>
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Au</label>
+            <input
+              type="date"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          {(dateDebut || dateFin) && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setDateDebut("");
+                setDateFin("");
+              }}
+              style={{ padding: "0.5rem 1rem", height: "fit-content" }}
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
         <div className="spacer" />
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           + Nouvelle entrée
@@ -82,7 +137,7 @@ export function EntreeListPage() {
         <p>Chargement...</p>
       ) : (
         <>
-          <DataTable columns={columns} rows={mouvements} emptyMessage="Aucune entrée." />
+          <DataTable columns={columns} rows={mouvementsFiltres} emptyMessage="Aucune entrée." />
           <Pagination
             page={page}
             setPage={setPage}

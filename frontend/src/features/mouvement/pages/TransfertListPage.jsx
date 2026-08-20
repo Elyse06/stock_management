@@ -12,6 +12,8 @@ export function TransfertListPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -30,6 +32,27 @@ export function TransfertListPage() {
   useEffect(() => {
     charger();
   }, [charger]);
+
+  const mouvementsFiltres = mouvements.filter((mouvement) => {
+    if (!dateDebut && !dateFin) return true;
+
+    const mouvementDate = new Date(mouvement.date);
+    mouvementDate.setHours(0, 0, 0, 0);
+
+    if (dateDebut) {
+      const debut = new Date(dateDebut);
+      debut.setHours(0, 0, 0, 0);
+      if (mouvementDate < debut) return false;
+    }
+
+    if (dateFin) {
+      const fin = new Date(dateFin);
+      fin.setHours(23, 59, 59, 999);
+      if (mouvementDate > fin) return false;
+    }
+
+    return true;
+  });
 
   const columns = [
     { key: "mouvement_id", label: "#" },
@@ -51,6 +74,38 @@ export function TransfertListPage() {
     <div>
       <h1>Transferts de stock</h1>
       <div className="toolbar">
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Du</label>
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          <div className="form-field" style={{ margin: 0 }}>
+            <label style={{ display: "block", marginBottom: "0.25rem" }}>Au</label>
+            <input
+              type="date"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            />
+          </div>
+          {(dateDebut || dateFin) && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setDateDebut("");
+                setDateFin("");
+              }}
+              style={{ padding: "0.5rem 1rem", height: "fit-content" }}
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
         <div className="spacer" />
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           + Nouveau transfert
@@ -63,7 +118,7 @@ export function TransfertListPage() {
         <p>Chargement...</p>
       ) : (
         <>
-          <DataTable columns={columns} rows={mouvements} emptyMessage="Aucun transfert." />
+          <DataTable columns={columns} rows={mouvementsFiltres} emptyMessage="Aucun transfert." />
           <Pagination
             page={page}
             setPage={setPage}
