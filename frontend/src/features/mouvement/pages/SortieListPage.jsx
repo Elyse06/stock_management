@@ -4,6 +4,7 @@ import { listMouvements } from "../api";
 import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { Notification } from "../../../components/common/Notification";
+import { Modal } from "../../../components/common/Modal";
 
 export function SortieListPage() {
   const navigate = useNavigate();
@@ -52,13 +53,9 @@ export function SortieListPage() {
       render: (row) => (
         <button
           className="btn btn-secondary"
-          onClick={() =>
-            setSortieSelectionnee((current) =>
-              current?.mouvement_id === row.mouvement_id ? null : row
-            )
-          }
+          onClick={() => setSortieSelectionnee(row)}
         >
-          {sortieSelectionnee?.mouvement_id === row.mouvement_id ? "Masquer" : "Détails"}
+          Détails
         </button>
       ),
     },
@@ -140,21 +137,14 @@ export function SortieListPage() {
           <DataTable columns={columns} rows={mouvementsFiltres} emptyMessage="Aucune sortie." />
 
           {sortieDetail && (
-            <div
-              style={{
-                marginTop: "1.5rem",
-                padding: "1rem",
-                border: "1px solid #ddd",
-                borderRadius: 8,
-              }}
+            <Modal
+              title={`Détails de la sortie #${sortieDetail.mouvement_id}`}
+              onClose={() => setSortieSelectionnee(null)}
             >
-              <h3 style={{ marginTop: 0 }}>Détails de la sortie #{sortieDetail.mouvement_id}</h3>
-              <p>
-                <strong>Origine :</strong> {sortieDetail.origine || "-"}
-              </p>
-              <p>
-                <strong>Motif :</strong> {sortieDetail.motif || "-"}
-              </p>
+              <p><strong>Source :</strong> {sortieDetail.magasin_source_nom}</p>
+              <p><strong>Origine :</strong> {sortieDetail.origine || "-"}</p>
+              <p><strong>Motif :</strong> {sortieDetail.motif || "-"}</p>
+              <p><strong>Date :</strong> {new Date(sortieDetail.date).toLocaleString("fr-FR")}</p>
               <DataTable
                 columns={[
                   { key: "article_designation", label: "Article" },
@@ -163,7 +153,7 @@ export function SortieListPage() {
                 rows={sortieDetail.details ?? []}
                 emptyMessage="Aucune ligne dans cette sortie."
               />
-            </div>
+            </Modal>
           )}
 
           <Pagination
