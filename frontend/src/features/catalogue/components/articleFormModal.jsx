@@ -26,6 +26,7 @@ const CHAMPS_VIDES = {
   marque: "",
   modele: "",
   unite: "",
+  seuil: "",
   mode_suivi: "QUANTITE",
   categorie: "",
 };
@@ -58,6 +59,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         marque: articleToEdit.marque ?? "",
         modele: articleToEdit.modele ?? "",
         unite: articleToEdit.unite ?? "",
+        seuil: articleToEdit.seuil ?? "",
         mode_suivi: articleToEdit.mode_suivi ?? "QUANTITE",
         categorie: articleToEdit.categorie ?? "",
       });
@@ -273,6 +275,17 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
                   value={champs.unite}
                   onChange={handleChange("unite")}
                   placeholder="unité, kg, boîte..."
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="form-label">Seuil</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={champs.seuil}
+                  onChange={handleChange("seuil")}
+                  placeholder="Seuil de réapprovisionnement..."
                 />
               </div>
 
