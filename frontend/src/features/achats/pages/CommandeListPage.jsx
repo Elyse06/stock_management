@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { listCommandes } from "../api";
 import { DataTable } from "../../../components/common/DataTable";
 import { Pagination } from "../../../components/common/Pagination";
 import { StatusBadge } from "../../../components/common/StatusBadge";
 import { Notification } from "../../../components/common/Notification";
+import { Modal } from "../../../components/common/Modal";
+import { CommandeFormPage } from "./CommandeFormPage";
+import { CommandeDetailPage } from "./CommandeDetailPage";
 
 const STATUTS = ["EN_ATTENTE", "EN_COURS", "VALIDEE", "REJETEE"];
 
@@ -58,6 +60,7 @@ export function CommandeListPage() {
   const [pageInfo, setPageInfo] = useState({ count: 0, next: null, previous: null });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null);
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -101,9 +104,9 @@ export function CommandeListPage() {
     {
       key: "actions", label: "",
       render: (row) => (
-        <Link className="btn btn-sm btn-secondary" to={`/achats/${row.commande_id}`}>
+        <button className="btn btn-sm btn-secondary" onClick={() => setModal({ type: "detail", id: row.commande_id })}>
           Voir
-        </Link>
+        </button>
       ),
     },
   ];
@@ -128,7 +131,9 @@ export function CommandeListPage() {
           </select>
         </div>
         <div className="spacer" />
-        <Link className="btn btn-primary" to="/achats/nouveau">+ Nouvelle demande</Link>
+        <button className="btn btn-primary" onClick={() => setModal({ type: "nouveau" })}>
+          + Nouvelle demande
+        </button>
       </div>
 
       <Notification type="error" message={error} />
@@ -141,6 +146,25 @@ export function CommandeListPage() {
             hasNext={!!pageInfo.next} hasPrevious={!!pageInfo.previous} count={pageInfo.count}
           />
         </>
+      )}
+
+      {modal?.type === "nouveau" && (
+        <Modal title="Nouvelle demande" onClose={() => setModal(null)} className="modal-box-wide">
+          <CommandeFormPage
+            onClose={() => setModal(null)}
+            onCreated={() => { setModal(null); charger(); }}
+          />
+        </Modal>
+      )}
+
+      {modal?.type === "detail" && (
+        <Modal title={`Commande #${modal.id}`} onClose={() => setModal(null)} className="modal-box-wide">
+          <CommandeDetailPage
+            commandeId={modal.id}
+            onClose={() => setModal(null)}
+            onUpdated={charger}
+          />
+        </Modal>
       )}
     </div>
   );
