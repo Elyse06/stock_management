@@ -5,6 +5,13 @@ import { listArticles } from "../../catalogue/api";
 import { ArticleLignesEditor } from "../../../components/common/ArticleLignesEditor";
 import { Notification } from "../../../components/common/Notification";
 
+const OBJETS_DEMANDE = [
+  "Utilisation simple",
+  "Nouveau membres",
+  "Remplacement de matériel",
+  "Autre",
+];
+
 export function CommandeFormPage({ onClose, onCreated }) {
   const navigate = useNavigate();
   const [objet, setObjet] = useState("");
@@ -50,12 +57,18 @@ export function CommandeFormPage({ onClose, onCreated }) {
 
     return (
     <div>
-      <h1>Nouvelle demande</h1>
       <Notification type="error" message={error} />
       <form onSubmit={handleSubmit} style={{ maxWidth: 560 }}>
         <div className="form-field">
           <label>Objet de la demande</label>
-          <input value={objet} onChange={(e) => setObjet(e.target.value)} required />
+          <select value={objet} onChange={(e) => setObjet(e.target.value)} required>
+            <option value="">Objet</option>
+            {OBJETS_DEMANDE.map((objetOption) => (
+              <option key={objetOption} value={objetOption}>
+                {objetOption}
+              </option>
+            ))}
+          </select>
         </div>
         <label style={{ fontSize: "0.9rem", fontWeight: 600, display: "block", marginBottom: "0.5rem" }}>
           Articles demandes
