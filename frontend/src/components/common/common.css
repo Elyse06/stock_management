@@ -52,6 +52,9 @@
   max-height: 85vh;
   overflow-y: auto;
 }
+.modal-box-wide {
+  width: 760px;
+}
 .modal-header {
   display: flex;
   justify-content: space-between;

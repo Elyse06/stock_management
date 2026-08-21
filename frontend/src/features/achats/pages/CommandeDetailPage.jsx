@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { getCommande, traiterCommande } from "../api";
 import { listMagasins } from "../../stock/api";
 import { listArticles } from "../../catalogue/api";
@@ -8,9 +8,9 @@ import { StatusBadge } from "../../../components/common/StatusBadge";
 import { Notification } from "../../../components/common/Notification";
 import { useAuth } from "../../../context/AuthContext";
 
-export function CommandeDetailPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+export function CommandeDetailPage({ commandeId, onClose, onUpdated }) {
+  const { id: routeId } = useParams();
+  const id = commandeId ?? routeId;
   const { hasProfil } = useAuth();
   const peutTraiter = hasProfil("Administrateur", "Gestionnaire");
 
@@ -22,11 +22,6 @@ export function CommandeDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [traitement, setTraitement] = useState(false);
-
-  const charger = () =>
-    getCommande(id)
-      .then(setCommande)
-      .catch(() => setError("Commande introuvable."));
 
   useEffect(() => {
     getCommande(id).then(setCommande);
@@ -90,6 +85,7 @@ export function CommandeDetailPage() {
 
       const updated = await traiterCommande(id, payload);
       setCommande(updated);
+      onUpdated?.();
       const messages = {
         EN_COURS: "Commande mise en cours.",
         VALIDEE: "Commande validée.",
@@ -126,8 +122,7 @@ export function CommandeDetailPage() {
 
   return (
     <div>
-      <Link to="/achats">&larr; Retour aux commandes</Link>
-      <h1>Commande #{commande.commande_id}</h1>
+      <p>Commande de {commande.demandeur_username}</p>
 
       <p>
         <strong>Objet :</strong> {commande.objet}
@@ -227,6 +222,11 @@ export function CommandeDetailPage() {
             >
               Rejeter
             </button>
+            {onClose ? (
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Fermer</button>
+            ) : (
+              <Link to="/achats">&larr; Retour aux commandes</Link>
+            )}
           </div>
         </div>
       )}

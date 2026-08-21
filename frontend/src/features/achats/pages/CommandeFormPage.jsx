@@ -5,7 +5,7 @@ import { listArticles } from "../../catalogue/api";
 import { ArticleLignesEditor } from "../../../components/common/ArticleLignesEditor";
 import { Notification } from "../../../components/common/Notification";
 
-export function CommandeFormPage() {
+export function CommandeFormPage({ onClose, onCreated }) {
   const navigate = useNavigate();
   const [objet, setObjet] = useState("");
   const [lignes, setLignes] = useState([]);
@@ -34,7 +34,11 @@ export function CommandeFormPage() {
           quantite: l.quantite,
         })),
       });
-      navigate("/achats");
+      if (onCreated) {
+        onCreated();
+      } else {
+        navigate("/achats");
+      }
     } catch (err) {
       setError(
         err.response?.data ? JSON.stringify(err.response.data) : "Erreur lors de la creation."
@@ -58,7 +62,7 @@ export function CommandeFormPage() {
         </label>
         <ArticleLignesEditor lignes={lignes} setLignes={setLignes} articles={articles} />
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={() => navigate("/achats")}>
+          <button type="button" className="btn btn-secondary" onClick={onClose || (() => navigate("/achats"))}>
             Annuler
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
