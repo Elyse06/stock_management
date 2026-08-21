@@ -13,7 +13,7 @@ import { Notification } from "../../../components/common/Notification";
 import { Pagination } from "../../../components/common/Pagination";
 import { useAuth } from "../../../context/AuthContext";
 
-const CHAMPS_VIDES = { nom_user: "", email: "", employe: "", profil: "" };
+const CHAMPS_VIDES = { nom_user: "", email: "", employe: "", profil: "", password: "" };
 
 const getIdFromRelation = (value) => {
   if (!value) return "";
@@ -99,6 +99,8 @@ export function UserListPage() {
     setChamps({
       nom_user: u.nom_user ?? "",
       email: u.email ?? "",
+      password: "",
+      password_confirmation: "",
       employe: getIdFromRelation(u.employe),
       profil: getIdFromRelation(u.profil),
     });
@@ -229,6 +231,26 @@ export function UserListPage() {
                 value={champs.email}
                 onChange={(e) => setChamps({ ...champs, email: e.target.value })}
                 required
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Mot de passe</label>
+              <input
+                type="password"
+                value={champs.password}
+                onChange={(e) => setChamps({ ...champs, password: e.target.value })}
+                required={!editing?.id}
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Confirmation du mot de passe</label>
+              <input
+                type="password"
+                value={champs.password_confirmation}
+                onChange={(e) => setChamps({ ...champs, password_confirmation: e.target.value })}
+                required={!editing?.id}
               />
             </div>
 

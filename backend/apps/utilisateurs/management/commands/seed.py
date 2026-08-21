@@ -104,6 +104,49 @@ class Command(BaseCommand):
             },
         ]
 
+        data_seed_employes = [
+            {
+                "nom": "James",
+                "matricule": "D001",
+                "departement": "DSI",
+                "fonction": "Responsable IT",
+                "telephone": "0333030301",
+                "adresse": "67h",
+            },
+            {
+                "nom": "Miora",
+                "matricule": "D002",
+                "departement": "RMG",
+                "fonction": "Responsable de Stock",
+                "telephone": "0333030302",
+                "adresse": "Ankorondrano",
+            },
+            {
+                "nom": "Melanie",
+                "matricule": "D003",
+                "departement": "DAF",
+                "fonction": "Responsable Financier",
+                "telephone": "0333030303",
+                "adresse": "Isoraka",
+            },
+            {
+                "nom": "Ardi",
+                "matricule": "D004",
+                "departement": "DRH",
+                "fonction": "RH",
+                "telephone": "0333030304",
+                "adresse": "Analakely",
+            },
+            {
+                "nom": "Grey",
+                "matricule": "D005",
+                "departement": "DRH",
+                "fonction": "RH",
+                "telephone": "0333030305",
+                "adresse": "Ivandry",
+            },
+        ]
+
         data_seed_categories = [
             {"nom": "Informatique", "description": "Appareils et accessoires informatiques"},
             {"nom": "Mobilier", "description": "Meubles et accessoires pour la maison"},
@@ -134,6 +177,18 @@ class Command(BaseCommand):
                 defaults={"localite": magasin_data["localite"]},
             )
 
+        for entry in data_seed_employes:
+            Employe.objects.get_or_create(
+                matricule=entry["matricule"],
+                defaults={
+                    "nom": entry["nom"],
+                    "departement": entry["departement"],
+                    "fonction": entry["fonction"],
+                    "telephone": entry["telephone"],
+                    "adresse": entry["adresse"],
+                },
+            )
+
         for entry in data_seed:
             # 1. Création du Profil
             profil, _ = Profil.objects.get_or_create(
@@ -143,9 +198,8 @@ class Command(BaseCommand):
 
             # 2. Création de l'Employé - CORRECTION ICI
             employe_data = entry["employe"]
-            # Utilisation du matricule comme clé unique pour get_or_create
             employe, created = Employe.objects.get_or_create(
-                matricule=employe_data["matricule"],  # <-- AJOUT DU MATRICULE COMME CLÉ
+                matricule=employe_data["matricule"], 
                 defaults={
                     "nom": employe_data["nom"],
                     "fonction": employe_data["fonction"],
