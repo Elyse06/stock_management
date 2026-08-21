@@ -104,20 +104,22 @@ export function CommandeDetailPage({ commandeId, onClose, onUpdated }) {
   const columns = [
     { key: "article_designation", label: "Article" },
     { key: "quantite", label: "Quantité demandée" },
-    {
-      key: "stock_disponible",
-      label: "Stock disponible",
-      render: (row) => (
-        <span
-          style={{
-            color: row.est_insuffisant ? "red" : "inherit",
-            fontWeight: row.est_insuffisant ? "bold" : "normal",
-          }}
-        >
-          {row.stock_disponible} {row.est_insuffisant && "(Insuffisant)"}
-        </span>
-      ),
-    },
+    ...(commande.statut !== "VALIDEE"
+      ? [{
+          key: "stock_disponible",
+          label: "Stock disponible",
+          render: (row) => (
+            <span
+              style={{
+                color: row.est_insuffisant ? "red" : "inherit",
+                fontWeight: row.est_insuffisant ? "bold" : "normal",
+              }}
+            >
+              {row.stock_disponible} {row.est_insuffisant && "(Insuffisant)"}
+            </span>
+          ),
+        }]
+      : []),
   ];
 
   return (
