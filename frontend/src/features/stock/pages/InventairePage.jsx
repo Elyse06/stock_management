@@ -54,6 +54,7 @@ export function InventairePage() {
               article: articleCode,
               designation: articleDesignation,
               quantite_theorique: 0,
+              commentaire: "",
             };
 
             if (mouvement.type_mouvement === "ENTREE" && magasinDestination === Number(magasin)) {
@@ -78,6 +79,7 @@ export function InventairePage() {
             ...ligne,
             quantite_theorique: Number(ligne.quantite_theorique) || 0,
             quantite_physique: "",
+            commentaire: "",
           }))
           .sort((a, b) => a.designation.localeCompare(b.designation));
 
@@ -100,13 +102,13 @@ export function InventairePage() {
     setOuvert(true);
   };
 
-  const majLigne = (articleCode, value) => {
+  const majLigne = (articleCode, champ, value) => {
     setInventaireLignes((prev) =>
       prev.map((ligne) =>
         ligne.article === articleCode
           ? {
               ...ligne,
-              quantite_physique: value,
+              [champ]: value,
             }
           : ligne
       )
@@ -127,12 +129,14 @@ export function InventairePage() {
 
     try {
       for (const ligne of lignesValides) {
-        await createInventaire({
+        const payload = {
           article: ligne.article,
           magasin: Number(magasin),
           quantite_theorique: Number(ligne.quantite_theorique),
           quantite_physique: Number(ligne.quantite_physique),
-        });
+          commentaire: ligne.commentaire || "",
+        };
+        await createInventaire(payload);
       }
 
       setOuvert(false);
@@ -261,6 +265,7 @@ export function InventairePage() {
                   </span>
                 ),
               },
+              { key: "commentaire", label: "Commentaire" },
             ]}
             rows={groupeSelectionne.lignes}
             emptyMessage="Aucun article dans cet inventaire."
@@ -296,6 +301,7 @@ export function InventairePage() {
                           <th>Théorique</th>
                           <th>Physique</th>
                           <th>Ecart</th>
+                          <th>Commentaire</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -312,12 +318,20 @@ export function InventairePage() {
                                   min="0"
                                   step="0.01"
                                   value={ligne.quantite_physique}
-                                  onChange={(e) => majLigne(ligne.article, e.target.value)}
+                                  onChange={(e) => majLigne(ligne.article, "quantite_physique", e.target.value)}
                                   style={{ width: "100%" }}
                                 />
                               </td>
                               <td style={{ color: ecart === 0 ? "#166534" : "#991b1b", fontWeight: 600 }}>
                                 {ecart}
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  value={ligne.commentaire}
+                                  onChange={(e) => majLigne(ligne.article, "commentaire", e.target.value)}
+                                  style={{ width: "100%" }}
+                                />
                               </td>
                             </tr>
                           );

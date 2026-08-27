@@ -4,7 +4,8 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from apps.catalogue.models import Article
-from .models import Magasin, Mouvement, DetailMouvement, Inventaire
+
+from .models import DetailMouvement, Inventaire, Magasin, Mouvement
 
 
 class MagasinSerializer(serializers.ModelSerializer):
@@ -71,7 +72,7 @@ class InventaireSerializer(serializers.ModelSerializer):
         fields = [
             "inventaire_id", "article", "article_designation", "magasin", "magasin_nom",
             "mouvement", "mouvement_details",
-            "quantite_theorique", "quantite_physique", "ecart", "date",
+            "quantite_theorique", "quantite_physique", "ecart", "commentaire", "date",
         ]
         read_only_fields = ["ecart", "date", "mouvement", "mouvement_details"]
 

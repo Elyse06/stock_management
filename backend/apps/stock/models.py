@@ -65,6 +65,7 @@ class Inventaire(models.Model):
     quantite_theorique = models.DecimalField(max_digits=12, decimal_places=2)
     quantite_physique = models.DecimalField(max_digits=12, decimal_places=2)
     ecart = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
+    commentaire = models.TextField(blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
