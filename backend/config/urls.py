@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.utilisateurs.views import MeView
 
 def ping(request):
     return JsonResponse({"status": "ok", "message": "API disponible"})
@@ -15,8 +14,7 @@ urlpatterns = [
     path("api/ping/", ping, name="ping"),
     path("api/auth/login/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/auth/me/", MeView.as_view(), name="me"),
-    path("api/utilisateurs/", include("apps.utilisateurs.urls")),
+    path("api/utilisateur/", include("apps.utilisateur.urls")),
     path("api/catalogue/", include("apps.catalogue.urls")),
     path("api/achats/", include("apps.achats.urls")),
     path("api/stock/", include("apps.stock.urls")),

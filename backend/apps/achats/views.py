@@ -1,35 +1,35 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.common.permissions import HasProfil, IsOwnerOrProfil
+from apps.common.permissions import HasAction, IsOwnerOrProfil
+
 from .models import Commande, DetailCommande
 from .serializers import (
-    CommandeSerializer, DetailCommandeSerializer, CommandeTraitementSerializer,
+    CommandeSerializer,
+    CommandeTraitementSerializer,
+    DetailCommandeSerializer,
 )
 
 
 # Create your views here.
 class CommandeViewSet(viewsets.ModelViewSet):
     queryset = Commande.objects.all().select_related(
-        "utilisateur_demandeur", "utilisateur_traitant"
+        "employe_demandeur", "employe_traitant",
+        "employe_demandeur__emp_serv_id", "employe_traitant__emp_serv_id"
     ).prefetch_related("details__article")
     serializer_class = CommandeSerializer
-    permission_classes = [HasProfil, IsOwnerOrProfil]
+    permission_classes = [HasAction.for_actions("CMD_CREA"), IsOwnerOrProfil]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["statut", "utilisateur_demandeur"]
+    filterset_fields = ["statut", "employe_demandeur"]
 
     def get_queryset(self):
-        # Un utilisateur non-agent/admin ne voit que ses propres demandes
-        user = self.request.user
         qs = super().get_queryset()
-        if user.profil and user.profil.nom in ("Administrateur", "Gestionnaire"):
-            return qs
-        return qs.filter(utilisateur_demandeur=user)
+        return qs
 
-    @action(detail=True, methods=["post"], permission_classes=[HasProfil.for_profils("Administrateur", "Gestionnaire")])
+    @action(detail=True, methods=["post"], permission_classes=[HasAction.for_actions("CMD_TRAI")])
     def traiter(self, request, pk=None):
         """
         POST /api/achats/commandes/{id}/traiter/
@@ -47,6 +47,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
 class DetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = DetailCommande.objects.all().select_related("article", "commande")
     serializer_class = DetailCommandeSerializer
-    permission_classes = [HasProfil]
+    permission_classes = [HasAction.for_actions("CMD_CREA")]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["commande", "article"]
