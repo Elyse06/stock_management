@@ -1,18 +1,33 @@
 from django.db import models
 
+
 # Create your models here.
 class Categorie(models.Model):
     categorie_id = models.BigAutoField(primary_key=True)
-    nom = models.CharField(max_length=20)
-    description = models.TextField(blank=True)
+    cat_libelle = models.CharField(max_length=20)
+    cat_description = models.TextField(blank=True)
 
     class Meta:
+        db_table = 't_categorie'
         verbose_name = "Catégorie"
         verbose_name_plural = "Catégories"
 
     def __str__(self):
-        return self.nom
+        return self.cat_libelle
 
+
+class Marque(models.Model):
+    marque_id = models.BigAutoField(primary_key=True)
+    mq_libelle = models.CharField(max_length=20)
+    mq_descriprion = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 't_marque'
+        verbose_name = "Marque"
+        verbose_name_plural = "Marques"
+
+    def __str__(self):
+        return self.mq_libelle
 
 class Article(models.Model):
     class ModeSuivi(models.TextChoices):
@@ -24,7 +39,6 @@ class Article(models.Model):
     code_barre = models.CharField(max_length=100, unique=True, null=True, blank=True)
     designation = models.CharField(max_length=50)
     description = models.TextField(blank=True)
-    marque = models.CharField(max_length=30, blank=True)
     modele = models.CharField(max_length=30, blank=True)
     unite = models.CharField(max_length=20, blank=True)
     seuil = models.PositiveIntegerField(default=0)
@@ -34,8 +48,12 @@ class Article(models.Model):
     categorie = models.ForeignKey(
         Categorie, on_delete=models.PROTECT, related_name="articles"
     )
+    marque = models.ForeignKey(
+        Marque, on_delete=models.PROTECT, related_name="articles"
+    )
 
     class Meta:
+        db_table = 't_article'
         verbose_name = "Article"
         verbose_name_plural = "Articles"
 
@@ -49,8 +67,11 @@ class Fournisseur(models.Model):
     email = models.EmailField()
     adresse = models.CharField(max_length=50, blank=True)
     contact = models.CharField(max_length=20, blank=True)
+    nif = models.CharField(max_length=20, blank=True)
+    stat = models.CharField(max_length=20, blank=True)
 
     class Meta:
+        db_table = 't_fournisseur'
         verbose_name = "Fournisseur"
         verbose_name_plural = "Fournisseurs"
 
@@ -68,6 +89,7 @@ class ArticleFournisseur(models.Model):
     prix_achat = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
+        db_table = 't_article_fournisseur'
         verbose_name = "Article fournisseur"
         verbose_name_plural = "Articles fournisseurs"
         unique_together = ("article", "fournisseur")

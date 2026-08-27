@@ -1,12 +1,18 @@
 from rest_framework import serializers
 
-from .models import Categorie, Article, Fournisseur, ArticleFournisseur
+from .models import Article, ArticleFournisseur, Categorie, Fournisseur, Marque
 
 
 class CategorieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categorie
-        fields = ["categorie_id", "nom", "description"]
+        fields = ["categorie_id", "cat_libelle", "cat_description"]
+
+
+class MarqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Marque
+        fields = ["marque_id", "mq_libelle", "mq_descriprion"]
 
 
 class ArticleFournisseurSerializer(serializers.ModelSerializer):
@@ -18,7 +24,8 @@ class ArticleFournisseurSerializer(serializers.ModelSerializer):
 
 
 class ArticleSerializer(serializers.ModelSerializer):
-    categorie_nom = serializers.CharField(source="categorie.nom", read_only=True)
+    categorie_nom = serializers.CharField(source="categorie.cat_libelle", read_only=True)
+    marque_libelle = serializers.CharField(source="marque.mq_libelle", read_only=True)
     fournisseurs = ArticleFournisseurSerializer(
         source="fournisseurs_liaison", many=True, read_only=True
     )
@@ -28,8 +35,8 @@ class ArticleSerializer(serializers.ModelSerializer):
         model = Article
         fields = [
             "code_article", "code_barre", "designation", "description",
-            "marque", "modele", "unite", "seuil", "mode_suivi",
-            "categorie", "categorie_nom", "fournisseurs", "stock_calcule",
+            "modele", "unite", "seuil", "mode_suivi",
+            "categorie", "categorie_nom", "marque_libelle", "fournisseurs", "stock_calcule",
         ]
 
     def validate_code_barre(self, value):
@@ -41,4 +48,4 @@ class ArticleSerializer(serializers.ModelSerializer):
 class FournisseurSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fournisseur
-        fields = ["fournisseur_id", "nom", "email", "adresse", "contact"]
+        fields = ["fournisseur_id", "nom", "email", "adresse", "contact", "nif", "stat"]

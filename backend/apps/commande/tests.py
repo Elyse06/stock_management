@@ -1,7 +1,7 @@
 from django.test import TestCase
 
-from apps.achats.models import Commande, DetailCommande
-from apps.achats.serializers import CommandeTraitementSerializer
+from apps.commande.models import Commande, DetailCommande
+from apps.commande.serializers import CommandeTraitementSerializer
 from apps.catalogue.models import Article, Categorie
 from apps.employee.models import Employer
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
