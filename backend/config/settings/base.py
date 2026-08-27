@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     # Apps métier
-    "apps.utilisateurs",
+    "apps.utilisateur",
     "apps.catalogue",
     "apps.achats",
     "apps.stock",
