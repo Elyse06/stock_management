@@ -4,7 +4,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.common.permissions import HasProfil
+from apps.common.permissions import HasAction
 from .models import Categorie, Article, Fournisseur, ArticleFournisseur
 from .serializers import (
     CategorieSerializer, ArticleSerializer,
@@ -15,7 +15,7 @@ from .serializers import (
 class CategorieViewSet(viewsets.ModelViewSet):
     queryset = Categorie.objects.all()
     serializer_class = CategorieSerializer
-    permission_classes = [HasProfil.for_profils("Administrateur", "Gestionnaire", "Magasinier")]
+    permission_classes = [HasAction.for_actions("CAT_GERE")]
 
 
 class ArticleViewSet(viewsets.ModelViewSet):
@@ -23,7 +23,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         "fournisseurs_liaison__fournisseur"
     )
     serializer_class = ArticleSerializer
-    permission_classes = [HasProfil.for_profils("Administrateur", "Magasinier", "Gestionnaire", "Demandeur", "Auditer")]
+    permission_classes = [HasAction.for_actions("ART_LIRE")]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["categorie", "mode_suivi"]
     search_fields = ["code_article", "designation", "code_barre"]
@@ -63,7 +63,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
 class FournisseurViewSet(viewsets.ModelViewSet):
     queryset = Fournisseur.objects.all()
     serializer_class = FournisseurSerializer
-    permission_classes = [HasProfil.for_profils("Administrateur", "Gestionnaire", "Magasinier")]
+    permission_classes = [HasAction.for_actions("FOU_GERE")]
     filter_backends = [filters.SearchFilter]
     search_fields = ["nom"]
 
@@ -71,4 +71,4 @@ class FournisseurViewSet(viewsets.ModelViewSet):
 class ArticleFournisseurViewSet(viewsets.ModelViewSet):
     queryset = ArticleFournisseur.objects.all().select_related("article", "fournisseur")
     serializer_class = ArticleFournisseurSerializer
-    permission_classes = [HasProfil.for_profils("Administrateur", "Gestionnaire", "Magasinier")]
+    permission_classes = [HasAction.for_actions("ART_FOU")]

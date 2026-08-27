@@ -13,8 +13,8 @@ class CommandeAdmin(admin.ModelAdmin):
     list_display = (
         "commande_id", 
         "statut", 
-        "utilisateur_demandeur", 
-        "utilisateur_traitant", 
+        "employe_demandeur",
+        "employe_traitant",
         "date_comande", 
         "date_traitement",
     )

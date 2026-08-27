@@ -12,19 +12,19 @@ class Migration(migrations.Migration):
     dependencies = [
         ('achats', '0001_initial'),
         ('catalogue', '0001_initial'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('utilisateur', '0001_initial'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='commande',
             name='utilisateur_demandeur',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='commandes_demandees', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='commandes_demandees', to='utilisateur.utilisateur'),
         ),
         migrations.AddField(
             model_name='commande',
             name='utilisateur_traitant',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='commandes_traitees', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='commandes_traitees', to='utilisateur.utilisateur'),
         ),
         migrations.AddField(
             model_name='detailcommande',

@@ -1,7 +1,8 @@
 from django.db import models
 
 from apps.catalogue.models import Article
-from apps.utilisateurs.models import Utilisateur
+from apps.employee.models import Employer
+
 
 # Create your models here.
 class Commande(models.Model):
@@ -20,11 +21,11 @@ class Commande(models.Model):
     date_traitement = models.DateTimeField(null=True, blank=True)
     commentaire_agent = models.CharField(max_length=255, blank=True)
 
-    utilisateur_demandeur = models.ForeignKey(
-        Utilisateur, on_delete=models.PROTECT, related_name="commandes_demandees"
+    employe_demandeur = models.ForeignKey(
+        Employer, on_delete=models.PROTECT, related_name="commandes_demandees"
     )
-    utilisateur_traitant = models.ForeignKey(
-        Utilisateur,
+    employe_traitant = models.ForeignKey(
+        Employer,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

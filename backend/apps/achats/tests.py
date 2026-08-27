@@ -3,26 +3,36 @@ from django.test import TestCase
 from apps.achats.models import Commande, DetailCommande
 from apps.achats.serializers import CommandeTraitementSerializer
 from apps.catalogue.models import Article, Categorie
+from apps.employee.models import Employer
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
-from apps.utilisateurs.models import Employe, Profil, Utilisateur
+from apps.utilisateur.models import Utilisateur
 
 
 class CommandeTraitementSerializerTests(TestCase):
     def setUp(self):
-        self.profil = Profil.objects.create(nom="Gestionnaire")
-        self.demandeur = Utilisateur.objects.create_user(
-            nom_user="demandeur.test",
-            email="demandeur@test.local",
-            employe=Employe.objects.create(nom="Demandeur"),
-            profil=self.profil,
-            password="secret123",
+        self.demandeur = Utilisateur.objects.create(
+            utilisateur_mail="demandeur@test.local",
+            utilisateur_mdp="secret123",
         )
-        self.traitant = Utilisateur.objects.create_user(
-            nom_user="traitant.test",
-            email="traitant@test.local",
-            employe=Employe.objects.create(nom="Traitant"),
-            profil=self.profil,
-            password="secret123",
+        self.traitant = Utilisateur.objects.create(
+            utilisateur_mail="traitant@test.local",
+            utilisateur_mdp="secret123",
+        )
+        self.employee_demandeur = Employer.objects.create(
+            emp_id="EMP001",
+            emp_nom="Demandeur",
+            emp_matricule="MAT001",
+            emp_contact="0340000001",
+            emp_fonction="Demandeur",
+            emp_utilisateur_id=self.demandeur,
+        )
+        self.employee_traitant = Employer.objects.create(
+            emp_id="EMP002",
+            emp_nom="Traitant",
+            emp_matricule="MAT002",
+            emp_contact="0340000002",
+            emp_fonction="Gestionnaire",
+            emp_utilisateur_id=self.traitant,
         )
         self.magasin = Magasin.objects.create(nom="Magasin principal", localite="Antananarivo")
         self.magasin_autre = Magasin.objects.create(nom="Magasin secondaire", localite="Toamasina")
@@ -34,7 +44,7 @@ class CommandeTraitementSerializerTests(TestCase):
         )
         self.commande = Commande.objects.create(
             objet="Commande de matériel",
-            utilisateur_demandeur=self.demandeur,
+            employe_demandeur=self.employee_demandeur,
         )
         DetailCommande.objects.create(
             commande=self.commande,
@@ -61,7 +71,7 @@ class CommandeTraitementSerializerTests(TestCase):
 
         sortie = Mouvement.objects.filter(
             type_mouvement=Mouvement.Type.SORTIE,
-            origine=f"Commande de {self.demandeur.nom_user}",
+            origine=f"Commande de {self.employee_demandeur.emp_nom} ({self.employee_demandeur.emp_matricule})",
             motif=self.commande.objet,
         ).first()
 
