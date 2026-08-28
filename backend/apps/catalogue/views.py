@@ -3,7 +3,7 @@ from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 
-from apps.common.permissions import HasAction
+from apps.common.permissions import HasAction, HasActionByMethod
 
 from .models import Article, ArticleFournisseur, Categorie, Fournisseur, Marque
 from .serializers import (
@@ -19,19 +19,26 @@ from .serializers import (
 class CategorieViewSet(viewsets.ModelViewSet):
     queryset = Categorie.objects.all()
     serializer_class = CategorieSerializer
-    permission_classes = [HasAction.for_actions("CAT_GERE")]
+    permission_classes = [
+        HasActionByMethod.for_methods(
+            GET=("CAT_LIRE",),
+            HEAD=("CAT_LIRE",),
+            OPTIONS=("CAT_LIRE",),
+            **{"*": ("CAT_GERE",)},
+        )
+    ]
 
 class MarqueViewSet(viewsets.ModelViewSet):
     queryset = Marque.objects.all()
     serializer_class = MarqueSerializer
-    permission_classes = [HasAction.for_actions("CAT_GERE")]
+    permission_classes = CategorieViewSet.permission_classes
 
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all().select_related("categorie").prefetch_related(
         "fournisseurs_liaison__fournisseur"
     )
     serializer_class = ArticleSerializer
-    permission_classes = [HasAction.for_actions("CAT_LIRE")]
+    permission_classes = CategorieViewSet.permission_classes
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["categorie", "mode_suivi"]
     search_fields = ["code_article", "designation", "code_barre"]
@@ -71,7 +78,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
 class FournisseurViewSet(viewsets.ModelViewSet):
     queryset = Fournisseur.objects.all()
     serializer_class = FournisseurSerializer
-    permission_classes = [HasAction.for_actions("CAT_GERE")]
+    permission_classes = CategorieViewSet.permission_classes
     filter_backends = [filters.SearchFilter]
     search_fields = ["nom"]
 
@@ -79,4 +86,4 @@ class FournisseurViewSet(viewsets.ModelViewSet):
 class ArticleFournisseurViewSet(viewsets.ModelViewSet):
     queryset = ArticleFournisseur.objects.all().select_related("article", "fournisseur")
     serializer_class = ArticleFournisseurSerializer
-    permission_classes = [HasAction.for_actions("CAT_GERE")]
+    permission_classes = CategorieViewSet.permission_classes
