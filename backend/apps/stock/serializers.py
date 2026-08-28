@@ -1,39 +1,65 @@
-from decimal import Decimal
-
-from django.db.models import Q
+from django.db import transaction
 from rest_framework import serializers
 
-from apps.catalogue.models import Article
-
-from .models import DetailMouvement, Inventaire, Magasin, Mouvement
+from apps.stock.models import (
+    DetailMouvement,
+    InventaireSession,
+    LigneInventaire,
+    Magasin,
+    Mouvement,
+)
 
 
 class MagasinSerializer(serializers.ModelSerializer):
     class Meta:
         model = Magasin
-        fields = ["magasin_id", "nom", "localite"]
+        fields = ["magasin_id", "magasin_nom", "localite"]
 
 
 class DetailMouvementSerializer(serializers.ModelSerializer):
-    article_designation = serializers.CharField(source="article.designation", read_only=True)
+    article_designation = serializers.CharField(
+        source="article.designation", read_only=True
+    )
+    employe_beneficiaire_nom = serializers.CharField(
+        source="employe_beneficiaire.emp_nom", read_only=True, default=None
+    )
 
     class Meta:
         model = DetailMouvement
-        fields = ["id", "mouvement", "article", "article_designation", "quantite"]
+        fields = [
+            "id",
+            "mouvement",
+            "article",
+            "article_designation",
+            "quantite",
+            "employe_beneficiaire",
+            "employe_beneficiaire_nom",
+            "code_tracabilite",
+        ]
         read_only_fields = ["mouvement"]
 
 
 class MouvementSerializer(serializers.ModelSerializer):
     details = DetailMouvementSerializer(many=True, required=False)
-    magasin_source_nom = serializers.CharField(source="magasin_source.nom", read_only=True, default=None)
-    magasin_destination_nom = serializers.CharField(source="magasin_destination.nom", read_only=True, default=None)
+    magasin_source_nom = serializers.CharField(
+        source="magasin_source.magasin_nom", read_only=True, default=None
+    )
+    magasin_destination_nom = serializers.CharField(
+        source="magasin_destination.magasin_nom", read_only=True, default=None
+    )
 
     class Meta:
         model = Mouvement
         fields = [
-            "mouvement_id", "date", "type_mouvement", "origine", "motif",
-            "magasin_source", "magasin_source_nom",
-            "magasin_destination", "magasin_destination_nom",
+            "mouvement_id",
+            "date",
+            "type_mouvement",
+            "origine",
+            "motif",
+            "magasin_source",
+            "magasin_source_nom",
+            "magasin_destination",
+            "magasin_destination_nom",
             "details",
         ]
         read_only_fields = ["date"]
@@ -44,15 +70,25 @@ class MouvementSerializer(serializers.ModelSerializer):
         destination = attrs.get("magasin_destination")
 
         if type_mouvement == Mouvement.Type.ENTREE and not destination:
-            raise serializers.ValidationError("Une entree doit avoir un magasin de destination.")
+            raise serializers.ValidationError(
+                {"magasin_destination": "Une entrée doit avoir un magasin de destination."}
+            )
         if type_mouvement == Mouvement.Type.SORTIE and not source:
-            raise serializers.ValidationError("Une sortie doit avoir un magasin source.")
-        if type_mouvement == Mouvement.Type.TRANSFERT and (not source or not destination):
-            raise serializers.ValidationError("Un transfert doit avoir un magasin source ET destination.")
-        if type_mouvement == Mouvement.Type.TRANSFERT and source == destination:
-            raise serializers.ValidationError("Source et destination doivent etre differents pour un transfert.")
+            raise serializers.ValidationError(
+                {"magasin_source": "Une sortie doit avoir un magasin source."}
+            )
+        if type_mouvement == Mouvement.Type.TRANSFERT:
+            if not source or not destination:
+                raise serializers.ValidationError(
+                    "Un transfert doit avoir un magasin source ET destination."
+                )
+            if source == destination:
+                raise serializers.ValidationError(
+                    "Source et destination doivent être différents pour un transfert."
+                )
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         details_data = validated_data.pop("details", [])
         mouvement = Mouvement.objects.create(**validated_data)
@@ -61,55 +97,69 @@ class MouvementSerializer(serializers.ModelSerializer):
         return mouvement
 
 
-class InventaireSerializer(serializers.ModelSerializer):
-    article = serializers.PrimaryKeyRelatedField(queryset=Article.objects.all())
-    article_designation = serializers.CharField(source="article.designation", read_only=True)
-    magasin_nom = serializers.CharField(source="magasin.nom", read_only=True)
-    mouvement_details = MouvementSerializer(read_only=True)
+class LigneInventaireSerializer(serializers.ModelSerializer):
+    article_designation = serializers.CharField(
+        source="article.designation", read_only=True
+    )
 
     class Meta:
-        model = Inventaire
+        model = LigneInventaire
         fields = [
-            "inventaire_id", "article", "article_designation", "magasin", "magasin_nom",
-            "mouvement", "mouvement_details",
-            "quantite_theorique", "quantite_physique", "ecart", "commentaire", "date",
+            "id",
+            "article",
+            "article_designation",
+            "quantite_theorique",
+            "quantite_physique",
+            "ecart",
+            "commentaire",
         ]
-        read_only_fields = ["ecart", "date", "mouvement", "mouvement_details"]
+        read_only_fields = ["quantite_theorique", "ecart"]
 
-    def _calculer_quantite_theorique(self, article, magasin):
-        totale = Decimal("0")
-        details = DetailMouvement.objects.filter(article=article).select_related("mouvement")
 
-        for detail in details:
-            mouvement = detail.mouvement
-            quantite = Decimal(detail.quantite)
+class InventaireSessionSerializer(serializers.ModelSerializer):
+    lignes = LigneInventaireSerializer(many=True, required=False)
+    lieu_nom = serializers.SerializerMethodField()
 
-            if mouvement.type_mouvement == Mouvement.Type.ENTREE and mouvement.magasin_destination_id == magasin.id:
-                totale += quantite
-            elif mouvement.type_mouvement == Mouvement.Type.SORTIE and mouvement.magasin_source_id == magasin.id:
-                totale -= quantite
-            elif mouvement.type_mouvement == Mouvement.Type.TRANSFERT:
-                if mouvement.magasin_destination_id == magasin.id:
-                    totale += quantite
-                if mouvement.magasin_source_id == magasin.id:
-                    totale -= quantite
+    class Meta:
+        model = InventaireSession
+        fields = [
+            "inventaire_id",
+            "code_reference",
+            "date_creation",
+            "date_validation",
+            "statut",
+            "magasin",
+            "service",
+            "lieu_nom",
+            "lignes",
+        ]
+        read_only_fields = ["statut", "date_creation", "date_validation"]
 
-        return totale
+    def get_lieu_nom(self, obj):
+        if obj.magasin:
+            return f"Magasin: {obj.magasin.magasin_nom}"
+        if obj.service:
+            return f"Département: {obj.service.serv_libelle}"
+        return "N/A"
 
     def validate(self, attrs):
-        article = attrs.get("article")
-        magasin = attrs.get("magasin")
-        if article and magasin and "quantite_theorique" not in attrs:
-            attrs["quantite_theorique"] = self._calculer_quantite_theorique(article, magasin)
-        if "quantite_theorique" in attrs and "quantite_physique" in attrs:
-            attrs["ecart"] = attrs["quantite_physique"] - attrs["quantite_theorique"]
+        magasin = attrs.get("magasin", getattr(self.instance, "magasin", None))
+        service = attrs.get("service", getattr(self.instance, "service", None))
+
+        if not magasin and not service:
+            raise serializers.ValidationError(
+                "Veuillez sélectionner soit un Magasin, soit un Département."
+            )
+        if magasin and service:
+            raise serializers.ValidationError(
+                "Vous ne pouvez pas sélectionner un Magasin ET un Département à la fois."
+            )
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
-        mouvement = Mouvement.objects.create(
-            type_mouvement=Mouvement.Type.INVENTAIRE,
-            magasin_destination=validated_data["magasin"],
-            origine="Inventaire",
-            motif="Inventaire du magasin",
-        )
-        return Inventaire.objects.create(mouvement=mouvement, **validated_data)
+        lignes_data = validated_data.pop("lignes", [])
+        session = InventaireSession.objects.create(**validated_data)
+        for ligne_data in lignes_data:
+            LigneInventaire.objects.create(session=session, **ligne_data)
+        return session

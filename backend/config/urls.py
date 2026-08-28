@@ -16,7 +16,7 @@ urlpatterns = [
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/utilisateur/", include("apps.utilisateur.urls")),
     path("api/catalogue/", include("apps.catalogue.urls")),
-    path("api/achats/", include("apps.achats.urls")),
+    path("api/commandes/", include("apps.commande.urls")),
     path("api/stock/", include("apps.stock.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
