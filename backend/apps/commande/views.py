@@ -4,7 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.common.permissions import HasAction, IsOwnerOrProfil
+from apps.common.permissions import HasAction, HasActionByMethod, IsOwnerOrProfil, get_request_employee
 
 from .models import AttributionDetailCommande, Commande, DetailCommande
 from .serializers import (
@@ -40,9 +40,26 @@ class CommandeViewSet(viewsets.ModelViewSet):
         )
     )
     serializer_class = CommandeSerializer
-    permission_classes = [HasAction.for_actions("CMD_CREA"), IsOwnerOrProfil]
+    permission_classes = [HasAction.for_actions("COM_DEM")]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["statut", "employe_demandeur"]
+
+    def get_permissions(self):
+        if self.action == "traiter":
+            return [HasAction.for_actions("COM_VAL")()]
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
+        return [HasAction.for_actions("COM_DEM")()]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            employee = get_request_employee(self.request)
+            if employee and not HasAction.for_actions("COM_VAL").has_permission(
+                self.request, self
+            ):
+                queryset = queryset.filter(employe_demandeur=employee)
+        return queryset
 
     @extend_schema(
         summary="Traiter une commande (Valider / Rejeter)",
@@ -57,13 +74,13 @@ class CommandeViewSet(viewsets.ModelViewSet):
                 description="Commande traitée avec succès.",
             ),
             400: OpenApiResponse(description="Données invalides ou stock insuffisant."),
-            403: OpenApiResponse(description="Permission insuffisante (CMD_TRAI requis)."),
+            403: OpenApiResponse(description="Permission insuffisante (COM_VAL requis)."),
         },
     )
     @action(
         detail=True,
         methods=["post"],
-        permission_classes=[HasAction.for_actions("CMD_TRAI")],
+        permission_classes=[HasAction.for_actions("COM_VAL")],
     )
     def traiter(self, request, pk=None):
         commande = self.get_object()
@@ -90,7 +107,10 @@ class CommandeViewSet(viewsets.ModelViewSet):
 class DetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = DetailCommande.objects.all().select_related("article", "commande")
     serializer_class = DetailCommandeSerializer
-    permission_classes = [HasAction.for_actions("CMD_CREA")]
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
+        return [HasAction.for_actions("COM_DEM")()]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["commande", "article"]
 
@@ -107,6 +127,9 @@ class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
         "detail_commande", "employe_beneficiaire"
     )
     serializer_class = AttributionDetailCommandeSerializer
-    permission_classes = [HasAction.for_actions("CMD_CREA")]
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
+        return [HasAction.for_actions("COM_DEM")()]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["detail_commande", "employe_beneficiaire"]
