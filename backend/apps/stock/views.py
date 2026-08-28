@@ -1,19 +1,27 @@
-from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.common.permissions import HasAction
 
-from .models import DetailMouvement, Inventaire, Magasin, Mouvement
+from .models import (
+    DetailMouvement,
+    InventaireSession,
+    LigneInventaire,
+    Magasin,
+    Mouvement,
+)
 from .serializers import (
     DetailMouvementSerializer,
-    InventaireSerializer,
+    InventaireSessionSerializer,
+    LigneInventaireSerializer,
     MagasinSerializer,
     MouvementSerializer,
 )
+from .services import valider_session_inventaire
 
 
-# Create your views here.
 class MagasinViewSet(viewsets.ModelViewSet):
     queryset = Magasin.objects.all()
     serializer_class = MagasinSerializer
@@ -21,9 +29,11 @@ class MagasinViewSet(viewsets.ModelViewSet):
 
 
 class MouvementViewSet(viewsets.ModelViewSet):
-    queryset = Mouvement.objects.all().select_related(
-        "magasin_source", "magasin_destination"
-    ).prefetch_related("details__article")
+    queryset = (
+        Mouvement.objects.all()
+        .select_related("magasin_source", "magasin_destination")
+        .prefetch_related("details__article", "details__employe_beneficiaire")
+    )
     serializer_class = MouvementSerializer
     permission_classes = [HasAction.for_actions("MVT_GERE")]
     filter_backends = [DjangoFilterBackend]
@@ -31,16 +41,41 @@ class MouvementViewSet(viewsets.ModelViewSet):
 
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
-    queryset = DetailMouvement.objects.all().select_related("mouvement", "article")
+    queryset = DetailMouvement.objects.all().select_related(
+        "mouvement", "article", "employe_beneficiaire"
+    )
     serializer_class = DetailMouvementSerializer
-    permission_classes = [HasAction.for_actions("MVT_DETA")]
+    permission_classes = [HasAction.for_actions("MVT_LIRE")]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["mouvement", "article"]
+    filterset_fields = ["mouvement", "article", "employe_beneficiaire"]
 
 
-class InventaireViewSet(viewsets.ModelViewSet):
-    queryset = Inventaire.objects.all().select_related("mouvement", "magasin")
-    serializer_class = InventaireSerializer
+class InventaireSessionViewSet(viewsets.ModelViewSet):
+    queryset = (
+        InventaireSession.objects.all()
+        .select_related("magasin", "service")
+        .prefetch_related("lignes__article")
+    )
+    serializer_class = InventaireSessionSerializer
     permission_classes = [HasAction.for_actions("INV_GERE")]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["mouvement", "magasin"]
+    filterset_fields = ["statut", "magasin", "service"]
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[HasAction.for_actions("INV_VAL")],
+    )
+    def valider(self, request, pk=None):
+        session = self.get_object()
+        session_validee = valider_session_inventaire(session)
+        serializer = self.get_serializer(session_validee)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LigneInventaireViewSet(viewsets.ModelViewSet):
+    queryset = LigneInventaire.objects.all().select_related("session", "article")
+    serializer_class = LigneInventaireSerializer
+    permission_classes = [HasAction.for_actions("INV_GERE")]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["session", "article"]
