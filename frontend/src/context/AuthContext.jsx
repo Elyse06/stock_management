@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import * as authApi from "../api/auth";
-import { registerOnLogout } from "../api/tokenStore";
+import { registerOnLogout, getAccessToken, clearTokens } from "../api/tokenStore";
 
 const AuthContext = createContext(null);
 
@@ -16,10 +16,31 @@ export function AuthProvider({ children }) {
     registerOnLogout(handleLogout);
   }, [handleLogout]);
 
-  const login = async (username, password) => {
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = getAccessToken();
+      
+      if (!token) {
+        return;
+      }
+      
+      try {
+        const me = await authApi.fetchCurrentUser();
+        setUser(me);
+      } catch (error) {
+        // Si le token est invalide ou expiré, on le nettoie proprement
+        clearTokens();
+        setUser(null);
+      }
+    };
+    initAuth();
+  }, []);
+
+  // ✅ Paramètre correctement nommé en utilisateur_mail
+  const login = async (utilisateur_mail, password) => {
     setLoading(true);
     try {
-      const me = await authApi.login(username, password);
+      const me = await authApi.login(utilisateur_mail, password);
       setUser(me);
       return me;
     } finally {
@@ -32,13 +53,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const hasProfil = (...noms) => {
-    if (!user) return false;
-    return noms.includes(user.profil_nom);
+  const hasAction = (...actionIds) => {
+    if (!user || !user.actions) return false;
+    return actionIds.every((id) => user.actions.includes(id));
+  };
+
+  const hasAnyAction = (...actionIds) => {
+    if (!user || !user.actions) return false;
+    return actionIds.some((id) => user.actions.includes(id));
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasProfil }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, hasAction, hasAnyAction }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -47,7 +75,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth doit etre utilise a l'interieur de <AuthProvider>");
+    throw new Error("useAuth doit être utilisé à l'intérieur de <AuthProvider>");
   }
   return context;
 }
