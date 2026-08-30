@@ -66,7 +66,7 @@ class AttributionDetailCommande(models.Model):
         'DetailCommande', on_delete=models.CASCADE, related_name="attributions"
     )
     employe_beneficiaire = models.ForeignKey(
-        'Employer', on_delete=models.PROTECT, related_name="attributions_articles"
+        Employer, on_delete=models.PROTECT, related_name="attributions_articles"
     )
     quantite = models.DecimalField(max_digits=12, decimal_places=2)
     
