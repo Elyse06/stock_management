@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { MainLayout } from "./layouts/MainLayout";
 import { LoginPage } from "./pages/LoginPage";
@@ -13,44 +12,41 @@ import { UserListPage } from "./features/user/pages/UserListPage";
 import { EntreeListPage } from "./features/mouvement/pages/EntreeListPage";
 import { SortieListPage } from "./features/mouvement/pages/SortieListPage";
 import { TransfertListPage } from "./features/mouvement/pages/TransfertListPage";
-import "./App.css";
 import "./components/common/common.css";
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+    <Routes>
+      {/* Route publique : Login */}
+      <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/catalogue/*" element={<ArticleListPage />} />
-            <Route path="/stock/*" element={<InventairePage />} />
-            <Route path="/magasins" element={<MagasinsPage />} />
-            <Route path="/fournisseurs" element={<FournisseursPage />} />
-            <Route path="/achats/*" element={<AchatsPage />} />
-            <Route path="/operations/entree/*" element={<EntreeListPage />} />
-            <Route path="/operations/sortie/*" element={<SortieListPage />} />
-            <Route path="/operations/transfert/*" element={<TransfertListPage />} />
-            <Route
-              path="/utilisateurs"
-              element={
-                <ProtectedRoute profils={["Administrateur"]}>
-                  <UserListPage />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      {/* Routes protégées avec Layout */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/catalogue/*" element={<ArticleListPage />} />
+        <Route path="/stock/*" element={<InventairePage />} />
+        <Route path="/magasins" element={<MagasinsPage />} />
+        <Route path="/fournisseurs" element={<FournisseursPage />} />
+        <Route path="/achats/*" element={<AchatsPage />} />
+        <Route path="/operations/entree/*" element={<EntreeListPage />} />
+        <Route path="/operations/sortie/*" element={<SortieListPage />} />
+        <Route path="/operations/transfert/*" element={<TransfertListPage />} />
+        <Route
+          path="/utilisateurs"
+          element={
+            <ProtectedRoute profils={["Administrateur"]}>
+              <UserListPage />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
 

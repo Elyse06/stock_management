@@ -4,18 +4,13 @@ import { setTokens, clearTokens } from "./tokenStore";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-/*
-const API_BASE_URL = axios.create({
-  'baseURL': import.meta.env.VITE_API_BASE_URL
-})
-*/
-
-export async function login(nom_user, password) {
+export async function login(utilisateur_mail, password) {
   const { data } = await axios.post(`${API_BASE_URL}/api/auth/login/`, {
-    nom_user,
+    utilisateur_mail,
     password,
   });
   setTokens({ access: data.access, refresh: data.refresh });
+
   const me = await apiClient.get("/api/auth/me/");
   return me.data;
 }
