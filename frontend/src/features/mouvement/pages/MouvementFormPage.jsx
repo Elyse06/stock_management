@@ -1,32 +1,44 @@
 import { useState, useEffect } from "react";
-import { createMouvement } from "../api";
-import { listMagasins } from "../../stock/api";
-import { listArticles } from "../../catalogue/api";
-import { Notification } from "../../../components/common/Notification";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  IconButton,
+  Typography,
+  Box,
+  Alert,
+  CircularProgress,
+} from "@mui/material";
+import {
+  Close as CloseIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+} from "@mui/icons-material";
+import { apiClient } from "../../../api/client";
 
-export function MouvementFormModal({
-  isOpen,
-  type,
-  onClose,
-  onSuccess,
-}) {
+export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
   const [magasins, setMagasins] = useState([]);
   const [articles, setArticles] = useState([]);
-  
+  const [typeMouvement, setTypeMouvement] = useState("ENTREE");
   const [origine, setOrigine] = useState("");
   const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
-  
-  const [details, setDetails] = useState([
-    { article: "", quantite: 1 },
-  ]);
-
+  const [details, setDetails] = useState([{ article: "", quantite: 1 }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (isOpen) {
+      // Reset form
+      setTypeMouvement("ENTREE");
       setOrigine("");
       setMotif("");
       setMagasinSource("");
@@ -34,22 +46,18 @@ export function MouvementFormModal({
       setDetails([{ article: "", quantite: 1 }]);
       setError("");
 
-      Promise.all([listMagasins(), listArticles()])
-        .then(([magasinsData, articlesData]) => {
-          setMagasins(magasinsData.results ?? magasinsData);
-          setArticles(articlesData.results ?? articlesData);
+      // Charger les données initiales
+      Promise.all([
+        apiClient.get("/api/stock/magasins/"),
+        apiClient.get("/api/catalogue/articles/"),
+      ])
+        .then(([magasinsRes, articlesRes]) => {
+          setMagasins(magasinsRes.data.results ?? magasinsRes.data);
+          setArticles(articlesRes.data.results ?? articlesRes.data);
         })
         .catch(() => setError("Impossible de charger les données initiales."));
     }
-  }, [isOpen, type]);
-
-  if (!isOpen) return null;
-
-  const titles = {
-    ENTREE: "Nouvelle Entrée de stock",
-    SORTIE: "Nouvelle Sortie de stock",
-    TRANSFERT: "Nouveau Transfert de stock",
-  };
+  }, [isOpen]);
 
   const handleDetailChange = (index, field, value) => {
     const updated = [...details];
@@ -71,20 +79,23 @@ export function MouvementFormModal({
     e.preventDefault();
     setError("");
 
-    const hasInvalidArticle = details.some((d) => !d.article || String(d.article).trim() === "");
+    // Validations
+    const hasInvalidArticle = details.some(
+      (d) => !d.article || String(d.article).trim() === ""
+    );
     if (hasInvalidArticle) {
       return setError("Veuillez sélectionner un article valide pour chaque ligne.");
     }
 
-    if (type === "ENTREE" && !magasinDestination) {
+    if (typeMouvement === "ENTREE" && !magasinDestination) {
       return setError("Le magasin destination est requis.");
     }
 
-    if (type === "SORTIE" && !magasinSource) {
+    if (typeMouvement === "SORTIE" && !magasinSource) {
       return setError("Le magasin source est requis.");
     }
 
-    if (type === "TRANSFERT") {
+    if (typeMouvement === "TRANSFERT") {
       if (!magasinSource) return setError("Le magasin source est requis.");
       if (!magasinDestination) return setError("Le magasin destination est requis.");
       if (magasinSource === magasinDestination) {
@@ -92,29 +103,29 @@ export function MouvementFormModal({
       }
     }
 
-    // Le backend Django gère la 'date' et 'mouvement_id' automatiquement
+    // Construire le payload
     const payload = {
-      type_mouvement: type,
+      type_mouvement: typeMouvement,
       details: details.map((d) => ({
         article: String(d.article),
         quantite: parseInt(d.quantite, 10),
       })),
     };
 
-    if (type === "ENTREE") {
+    if (typeMouvement === "ENTREE") {
       payload.magasin_destination = Number(magasinDestination);
       payload.origine = origine.trim();
-    } else if (type === "SORTIE") {
+    } else if (typeMouvement === "SORTIE") {
       payload.magasin_source = Number(magasinSource);
       payload.motif = motif.trim();
-    } else if (type === "TRANSFERT") {
+    } else if (typeMouvement === "TRANSFERT") {
       payload.magasin_source = Number(magasinSource);
       payload.magasin_destination = Number(magasinDestination);
     }
 
     setLoading(true);
     try {
-      await createMouvement(payload);
+      await apiClient.post("/api/stock/mouvements/", payload);
       onSuccess();
       onClose();
     } catch (err) {
@@ -125,180 +136,195 @@ export function MouvementFormModal({
   };
 
   return (
-    <div className="modal-overlay" style={overlayStyle}>
-      <div className="modal-content" style={modalStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2>{titles[type]}</h2>
-          <button type="button" onClick={onClose} className="btn-close" style={{ cursor: "pointer", border: "none", background: "none", fontSize: "1.5rem" }}>
-            &times;
-          </button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 2 } }}
+    >
+      <form onSubmit={handleSubmit}>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            bgcolor: "#FFF8E1",
+            borderBottom: "2px solid",
+            borderColor: "primary.main",
+          }}
+        >
+          <Typography variant="h3">Nouveau mouvement de stock</Typography>
+          <IconButton onClick={onClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
 
-        <Notification type="error" message={error} />
+        <DialogContent sx={{ pt: 3 }}>
+          {error && (
+            <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit}>
+          {/* Type de mouvement */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Type de mouvement</InputLabel>
+            <Select
+              value={typeMouvement}
+              label="Type de mouvement"
+              onChange={(e) => setTypeMouvement(e.target.value)}
+            >
+              <MenuItem value="ENTREE">Entrée</MenuItem>
+              <MenuItem value="SORTIE">Sortie</MenuItem>
+              <MenuItem value="TRANSFERT">Transfert</MenuItem>
+            </Select>
+          </FormControl>
+
           {/* Origine (ENTREE) */}
-          {type === "ENTREE" && (
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
-              <label>Origine / Provenance</label>
-              <input
-                type="text"
-                maxLength={50}
-                placeholder="Ex: Fournisseur XYZ, Achat direct..."
-                value={origine}
-                onChange={(e) => setOrigine(e.target.value)}
-                className="form-control"
-                style={{ width: "100%", padding: "0.5rem" }}
-              />
-            </div>
+          {typeMouvement === "ENTREE" && (
+            <TextField
+              label="Origine / Provenance"
+              value={origine}
+              onChange={(e) => setOrigine(e.target.value)}
+              fullWidth
+              margin="normal"
+              placeholder="Ex: Fournisseur XYZ, Achat direct..."
+              inputProps={{ maxLength: 100 }}
+            />
           )}
 
           {/* Magasin Source (SORTIE / TRANSFERT) */}
-          {(type === "SORTIE" || type === "TRANSFERT") && (
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
-              <label>Magasin Source *</label>
-              <select
+          {(typeMouvement === "SORTIE" || typeMouvement === "TRANSFERT") && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Magasin source *</InputLabel>
+              <Select
                 value={magasinSource}
+                label="Magasin source *"
                 onChange={(e) => setMagasinSource(e.target.value)}
                 required
-                className="form-control"
-                style={{ width: "100%", padding: "0.5rem" }}
               >
-                <option value="">Sélectionner un magasin</option>
+                <MenuItem value="">Sélectionner un magasin</MenuItem>
                 {magasins.map((m) => (
-                  <option key={m.magasin_id} value={m.magasin_id}>
-                    {m.nom} {m.localite ? `(${m.localite})` : ""}
-                  </option>
+                  <MenuItem key={m.magasin_id} value={m.magasin_id}>
+                    {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                  </MenuItem>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormControl>
           )}
 
           {/* Magasin Destination (ENTREE / TRANSFERT) */}
-          {(type === "ENTREE" || type === "TRANSFERT") && (
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
-              <label>Magasin Destination *</label>
-              <select
+          {(typeMouvement === "ENTREE" || typeMouvement === "TRANSFERT") && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Magasin destination *</InputLabel>
+              <Select
                 value={magasinDestination}
+                label="Magasin destination *"
                 onChange={(e) => setMagasinDestination(e.target.value)}
                 required
-                className="form-control"
-                style={{ width: "100%", padding: "0.5rem" }}
               >
-                <option value="">Sélectionner un magasin</option>
+                <MenuItem value="">Sélectionner un magasin</MenuItem>
                 {magasins.map((m) => (
-                  <option key={m.magasin_id} value={m.magasin_id}>
-                    {m.nom} {m.localite ? `(${m.localite})` : ""}
-                  </option>
+                  <MenuItem key={m.magasin_id} value={m.magasin_id}>
+                    {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                  </MenuItem>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormControl>
           )}
 
           {/* Motif (SORTIE) */}
-          {type === "SORTIE" && (
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
-              <label>Motif de la sortie</label>
-              <input
-                type="text"
-                maxLength={50}
-                placeholder="Ex: Affectation agent, Panne, Perte..."
-                value={motif}
-                onChange={(e) => setMotif(e.target.value)}
-                className="form-control"
-                style={{ width: "100%", padding: "0.5rem" }}
-              />
-            </div>
+          {typeMouvement === "SORTIE" && (
+            <TextField
+              label="Motif de la sortie"
+              value={motif}
+              onChange={(e) => setMotif(e.target.value)}
+              fullWidth
+              margin="normal"
+              placeholder="Ex: Affectation agent, Panne, Perte..."
+              inputProps={{ maxLength: 255 }}
+            />
           )}
 
           {/* Liste des Articles */}
-          <h3 style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>Articles concernés</h3>
-          {details.map((row, index) => (
-            <div key={index} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", alignItems: "center" }}>
-              <select
-                value={row.article}
-                onChange={(e) => handleDetailChange(index, "article", e.target.value)}
-                required
-                style={{ flex: 3, padding: "0.5rem" }}
-              >
-                <option value="">-- Sélectionner un article --</option>
-                {articles.map((a) => {
-                  // Récupère l'identifiant exact de l'article (ex: a.code_article, a.code, ou a.id)
-                  const articleKey = a.code_article || a.code || a.article_id || a.id;
-                  return (
-                    <option key={articleKey} value={articleKey}>
-                      {articleKey} - {a.designation}
-                    </option>
-                  );
-                })}
-              </select>
+          <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
+            Articles concernés
+          </Typography>
 
-              <input
+          {details.map((row, index) => (
+            <Box
+              key={index}
+              sx={{
+                display: "flex",
+                gap: 1,
+                mb: 1,
+                alignItems: "center",
+              }}
+            >
+              <FormControl sx={{ flex: 3 }}>
+                <InputLabel>Article</InputLabel>
+                <Select
+                  value={row.article}
+                  label="Article"
+                  onChange={(e) => handleDetailChange(index, "article", e.target.value)}
+                  required
+                >
+                  <MenuItem value="">-- Sélectionner un article --</MenuItem>
+                  {articles.map((a) => (
+                    <MenuItem key={a.code_article} value={a.code_article}>
+                      {a.code_article} - {a.designation}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Qté"
                 type="number"
-                min="1"
-                placeholder="Qté"
                 value={row.quantite}
                 onChange={(e) => handleDetailChange(index, "quantite", e.target.value)}
                 required
-                style={{ flex: 1, padding: "0.5rem" }}
+                inputProps={{ min: 1 }}
+                sx={{ flex: 1 }}
               />
 
               {details.length > 1 && (
-                <button
-                  type="button"
+                <IconButton
                   onClick={() => removeDetailRow(index)}
-                  className="btn btn-danger"
-                  style={{ padding: "0.5rem 0.75rem" }}
+                  color="error"
+                  size="small"
                 >
-                  &times;
-                </button>
+                  <DeleteIcon />
+                </IconButton>
               )}
-            </div>
+            </Box>
           ))}
 
-          <button 
-            type="button" 
-            onClick={addDetailRow} 
-            className="btn btn-secondary" 
-            style={{ marginTop: "0.5rem" }}
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={addDetailRow}
+            sx={{ mt: 1 }}
           >
-            + Ajouter une ligne
-          </button>
+            Ajouter une ligne
+          </Button>
+        </DialogContent>
 
-          {/* Actions */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
-            <button type="button" onClick={onClose} className="btn" disabled={loading}>
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={onClose} disabled={loading}>
+            Annuler
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : null}
+          >
+            {loading ? "Enregistrement..." : "Enregistrer"}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 }
-
-const overlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 1000,
-};
-
-const modalStyle = {
-  background: "#fff",
-  padding: "2rem",
-  borderRadius: "8px",
-  width: "100%",
-  maxWidth: "600px",
-  maxHeight: "90vh",
-  overflowY: "auto",
-};

@@ -24,13 +24,16 @@ import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 
-export function CategoriesPage() {
+export function MarquesPage() {
   const { hasAction, hasAnyAction } = useAuth();
-  // On considère que si l'utilisateur est connecté, il peut éditer
-  // (à ajuster selon tes règles métier — ex: hasAction('CAT_EDIT'))
+
+  // TODO: Implémenter les permissions réelles avec hasAction
+  // Exemple: const canEdit = hasAction('MARQ_EDIT');
+  // Exemple: const canDelete = hasAction('MARQ_DELETE');
+  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
   const canEdit = true;
 
-  const [categories, setCategories] = useState([]);
+  const [marques, setMarques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
@@ -47,13 +50,14 @@ export function CategoriesPage() {
     setLoading(true);
     setError("");
     try {
-      const { data } = await apiClient.get("/api/catalogue/categories/", {
+      // ⚠️ Attention : l'API utilise "/api/catalogue/marque/" (singulier)
+      const { data } = await apiClient.get("/api/catalogue/marque/", {
         params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
       });
-      setCategories(data.results ?? data);
+      setMarques(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
     } catch {
-      setError("Impossible de charger les catégories.");
+      setError("Impossible de charger les marques.");
     } finally {
       setLoading(false);
     }
@@ -70,10 +74,10 @@ export function CategoriesPage() {
     setModalOpen(true);
   };
 
-  const ouvrirEdition = (cat) => {
-    setFormLibelle(cat.cat_libelle || "");
-    setFormDescription(cat.cat_description || "");
-    setEditing(cat);
+  const ouvrirEdition = (marque) => {
+    setFormLibelle(marque.mq_libelle || "");
+    setFormDescription(marque.mq_descriprion || "");
+    setEditing(marque);
     setModalOpen(true);
   };
 
@@ -88,49 +92,49 @@ export function CategoriesPage() {
     setError("");
     try {
       const payload = {
-        cat_libelle: formLibelle.trim(),
-        cat_description: formDescription.trim(),
+        mq_libelle: formLibelle.trim(),
+        mq_descriprion: formDescription.trim(),
       };
-      if (editing?.categorie_id) {
-        await apiClient.put(`/api/catalogue/categories/${editing.categorie_id}/`, payload);
+      if (editing?.marque_id) {
+        await apiClient.put(`/api/catalogue/marque/${editing.marque_id}/`, payload);
       } else {
-        await apiClient.post("/api/catalogue/categories/", payload);
+        await apiClient.post("/api/catalogue/marque/", payload);
       }
       fermerModal();
       charger();
     } catch {
-      setError("Erreur lors de l'enregistrement de la catégorie.");
+      setError("Erreur lors de l'enregistrement de la marque.");
     } finally {
       setSaving(false);
     }
   };
 
-  const supprimer = async (cat) => {
-    if (!window.confirm(`Supprimer la catégorie "${cat.cat_libelle}" ?`)) return;
+  const supprimer = async (marque) => {
+    if (!window.confirm(`Supprimer la marque "${marque.mq_libelle}" ?`)) return;
     try {
-      await apiClient.delete(`/api/catalogue/categories/${cat.categorie_id}/`);
+      await apiClient.delete(`/api/catalogue/marque/${marque.marque_id}/`);
       charger();
     } catch {
-      setError("Suppression impossible (des articles utilisent probablement cette catégorie).");
+      setError("Suppression impossible (des articles utilisent probablement cette marque).");
     }
   };
 
   const columns = [
     {
-      field: "categorie_id",
+      field: "marque_id",
       headerName: "ID",
       width: 80,
       headerAlign: "center",
       align: "center",
     },
     {
-      field: "cat_libelle",
+      field: "mq_libelle",
       headerName: "Libellé",
       flex: 1,
       minWidth: 200,
     },
     {
-      field: "cat_description",
+      field: "mq_descriprion",
       headerName: "Description",
       flex: 2,
       minWidth: 300,
@@ -185,14 +189,10 @@ export function CategoriesPage() {
           mb: 2,
         }}
       >
-        <Typography variant="h2">Catégories</Typography>
+        <Typography variant="h2">Marques</Typography>
         {canEdit && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={ouvrirCreation}
-          >
-            Nouvelle catégorie
+          <Button variant="contained" startIcon={<AddIcon />} onClick={ouvrirCreation}>
+            Nouvelle marque
           </Button>
         )}
       </Box>
@@ -207,7 +207,7 @@ export function CategoriesPage() {
       {/* DataGrid */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
-          rows={categories}
+          rows={marques}
           columns={columns}
           loading={loading}
           rowCount={rowCount}
@@ -216,9 +216,9 @@ export function CategoriesPage() {
           onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[10, 25, 50, 100]}
           disableRowSelectionOnClick
-          getRowId={(row) => row.categorie_id}
+          getRowId={(row) => row.marque_id}
           localeText={{
-            noRowsLabel: "Aucune catégorie",
+            noRowsLabel: "Aucune marque",
             loadingOverlay: "Chargement...",
           }}
         />
@@ -244,7 +244,7 @@ export function CategoriesPage() {
             }}
           >
             <Typography variant="h3">
-              {editing?.categorie_id ? "Modifier la catégorie" : "Nouvelle catégorie"}
+              {editing?.marque_id ? "Modifier la marque" : "Nouvelle marque"}
             </Typography>
             <IconButton onClick={fermerModal} size="small">
               <CloseIcon />
