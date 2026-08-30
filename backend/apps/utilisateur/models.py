@@ -33,10 +33,10 @@ class Action(models.Model):
 
 class Autoriser(models.Model):
     autoriser_utilisateur_id = models.ForeignKey(
-        "utilisateur.Utilisateur", models.CASCADE, db_column="autoriser_utilisateur_id"
+        Utilisateur, models.CASCADE, db_column="autoriser_utilisateur_id"
     )
     autoriser_action_id = models.ForeignKey(
-        "action.Action", models.CASCADE, db_column="autoriser_action_id"
+        Action, models.CASCADE, db_column="autoriser_action_id"
     )
 
     class Meta:

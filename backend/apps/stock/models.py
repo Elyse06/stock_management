@@ -112,7 +112,7 @@ class InventaireSession(models.Model):
     code_reference = models.CharField(max_length=50, unique=True)
     date_creation = models.DateTimeField(auto_now_add=True)
     date_validation = models.DateTimeField(null=True, blank=True)
-    statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.BROUILLON)
+    statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_ATTENTE)
 
     magasin = models.ForeignKey(
         Magasin, on_delete=models.CASCADE, null=True, blank=True, related_name="sessions_inventaire"
