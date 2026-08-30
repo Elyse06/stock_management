@@ -3,15 +3,21 @@ import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { MainLayout } from "./layouts/MainLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+
+// Catalogue
 import { ArticleListPage } from "./features/catalogue/pages/ArticleListPage";
-import { InventairePage } from "./features/stock/pages/InventairePage";
-import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
+import { CategoriesPage } from "./features/catalogue/pages/CategoriesPage";
+import { MarquesPage } from "./features/catalogue/pages/MarquesPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
+
+// Stock / Inventaire
+import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
+import { MouvementsPage } from "./features/mouvement/pages/MouvementsPage";
+import { InventairePage } from "./features/stock/pages/InventairePage";
+
+// Commandes
 import { AchatsPage } from "./pages/AchatsPage";
-import { UserListPage } from "./features/user/pages/UserListPage";
-import { EntreeListPage } from "./features/mouvement/pages/EntreeListPage";
-import { SortieListPage } from "./features/mouvement/pages/SortieListPage";
-import { TransfertListPage } from "./features/mouvement/pages/TransfertListPage";
+
 import "./components/common/common.css";
 
 function App() {
@@ -28,23 +34,22 @@ function App() {
           </ProtectedRoute>
         }
       >
+        {/* Tableau de bord */}
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/catalogue/*" element={<ArticleListPage />} />
-        <Route path="/stock/*" element={<InventairePage />} />
+
+        {/* ====== CATALOGUE ====== */}
+        <Route path="/catalogue/articles" element={<ArticleListPage />} />
+        <Route path="/catalogue/categories" element={<CategoriesPage />} />
+        <Route path="/catalogue/marques" element={<MarquesPage />} />
+        <Route path="/catalogue/fournisseurs" element={<FournisseursPage />} />
+
+        {/* ====== INVENTAIRE ====== */}
         <Route path="/magasins" element={<MagasinsPage />} />
-        <Route path="/fournisseurs" element={<FournisseursPage />} />
-        <Route path="/achats/*" element={<AchatsPage />} />
-        <Route path="/operations/entree/*" element={<EntreeListPage />} />
-        <Route path="/operations/sortie/*" element={<SortieListPage />} />
-        <Route path="/operations/transfert/*" element={<TransfertListPage />} />
-        <Route
-          path="/utilisateurs"
-          element={
-            <ProtectedRoute profils={["Administrateur"]}>
-              <UserListPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/inventaire/mouvements" element={<MouvementsPage />} />
+        <Route path="/inventaire/sessions" element={<InventairePage />} />
+
+        {/* ====== COMMANDES ====== */}
+        <Route path="/commandes" element={<AchatsPage />} />
       </Route>
     </Routes>
   );

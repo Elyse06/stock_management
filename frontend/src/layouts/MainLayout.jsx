@@ -1,389 +1,300 @@
+// src/layouts/MainLayout.jsx
 import { useState } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
-// MUI Components
 import {
   Box,
-  Drawer,
   AppBar,
   Toolbar,
+  Typography,
+  Button,
+  Tabs,
+  Tab,
+  IconButton,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
+  Popover,
   List,
-  ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Collapse,
-  Divider,
-  IconButton,
-  Avatar,
-  Typography,
-  Breadcrumbs,
-  Link,
 } from "@mui/material";
-
-// MUI Icons
 import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,
   ShoppingCart as ShoppingCartIcon,
   Assignment as AssignmentIcon,
-  ExpandLess,
-  ExpandMore,
-  Logout as LogoutIcon,
-  Menu as MenuIcon,
   Category as CategoryIcon,
   LocalOffer as LocalOfferIcon,
   People as PeopleIcon,
+  Store as StoreIcon,
   SwapHoriz as SwapHorizIcon,
   ListAlt as ListAltIcon,
+  ExpandMore as ExpandMoreIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 
-const DRAWER_WIDTH = 260;
-const DRAWER_WIDTH_COLLAPSED = 72;
-
-const MENU_ITEMS = [
+// Structure du menu horizontal
+const MENU_STRUCTURE = [
+  { path: "/", label: "Tableau de bord", icon: <DashboardIcon fontSize="small" /> },
   {
-    path: "/",
-    label: "Tableau de bord",
-    icon: <DashboardIcon />,
-  },
-  {
-    path: "/catalogue",
+    key: "catalogue",
     label: "Catalogue",
-    icon: <InventoryIcon />,
+    icon: <InventoryIcon fontSize="small" />,
     children: [
-      { path: "/catalogue/articles", label: "Articles", icon: <ListAltIcon /> },
-      { path: "/catalogue/categories", label: "Catégories", icon: <CategoryIcon /> },
-      { path: "/catalogue/marques", label: "Marques", icon: <LocalOfferIcon /> },
-      { path: "/catalogue/fournisseurs", label: "Fournisseurs", icon: <PeopleIcon /> },
+      { path: "/catalogue/articles", label: "Articles", icon: <ListAltIcon fontSize="small" /> },
+      { path: "/catalogue/categories", label: "Catégories", icon: <CategoryIcon fontSize="small" /> },
+      { path: "/catalogue/marques", label: "Marques", icon: <LocalOfferIcon fontSize="small" /> },
+      { path: "/catalogue/fournisseurs", label: "Fournisseurs", icon: <PeopleIcon fontSize="small" /> },
     ],
   },
   {
-    path: "/commandes",
-    label: "Commandes",
-    icon: <ShoppingCartIcon />,
-  },
-  {
-    path: "/inventaire",
+    key: "inventaire",
     label: "Inventaire",
-    icon: <AssignmentIcon />,
+    icon: <AssignmentIcon fontSize="small" />,
     children: [
-      { path: "/inventaire/mouvements", label: "Mouvements", icon: <SwapHorizIcon /> },
-      { path: "/inventaire/sessions", label: "Inventaires", icon: <AssignmentIcon /> },
+      { path: "/magasins", label: "Magasins", icon: <StoreIcon fontSize="small" /> },
+      { path: "/inventaire/mouvements", label: "Mouvements", icon: <SwapHorizIcon fontSize="small" /> },
+      { path: "/inventaire/sessions", label: "Inventaires", icon: <AssignmentIcon fontSize="small" /> },
     ],
   },
+  { path: "/commandes", label: "Commandes", icon: <ShoppingCartIcon fontSize="small" /> },
 ];
 
 export function MainLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  
-  const [collapsed, setCollapsed] = useState(false);
-  const [openMenus, setOpenMenus] = useState({});
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const [popoverAnchor, setPopoverAnchor] = useState(null);
+  const [activePopoverKey, setActivePopoverKey] = useState(null);
 
-  const toggleSidebar = () => setCollapsed(!collapsed);
-  const toggleMenu = (path) => setOpenMenus((prev) => ({ ...prev, [path]: !prev[path] }));
+  // Trouver l'item parent actif (pour afficher les sous-onglets)
+  const activeParent = MENU_STRUCTURE.find(
+    (item) => item.children && item.children.some((c) => location.pathname.startsWith(c.path))
+  );
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // Vérifier si un sous-menu est actif
-  const isChildActive = (children) =>
-    children?.some((child) => location.pathname === child.path || location.pathname.startsWith(child.path + "/"));
-
-  // Générer le breadcrumb
-  const getBreadcrumbs = () => {
-    const currentPath = location.pathname;
-    const crumbs = [{ label: "Accueil", path: "/" }];
-    
-    MENU_ITEMS.forEach((item) => {
-      if (item.children) {
-        item.children.forEach((child) => {
-          if (currentPath === child.path) {
-            crumbs.push({ label: item.label, path: item.path });
-            crumbs.push({ label: child.label, path: child.path });
-          }
-        });
-      } else if (currentPath === item.path && item.path !== "/") {
-        crumbs.push({ label: item.label, path: item.path });
-      }
-    });
-    
-    return crumbs;
+  const handleMenuClick = (item, event) => {
+    if (item.children) {
+      setPopoverAnchor(event.currentTarget);
+      setActivePopoverKey(item.key);
+    } else {
+      navigate(item.path);
+    }
   };
 
-  const breadcrumbs = getBreadcrumbs();
-  const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
+  const handleChildClick = (path) => {
+    setPopoverAnchor(null);
+    navigate(path);
+  };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* ====== SIDEBAR ====== */}
-      <Drawer
-        variant="permanent"
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", bgcolor: "background.default" }}>
+      {/* ====== TOP BAR (style Google Sheets) ====== */}
+      <AppBar
+        position="sticky"
+        elevation={0}
         sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            bgcolor: "#FFFFFF",
-            borderRight: "1px solid #E0E0E0",
-            transition: "width 0.3s",
-            overflowX: "hidden",
+          bgcolor: "#FFFFFF",
+          borderBottom: "1px solid #E0E0E0",
+          color: "text.primary",
+        }}
+      >
+        {/* Ligne 1 : Logo + Menu principal + User */}
+        <Toolbar sx={{ minHeight: 56, gap: 1 }}>
+          {/* Logo */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: "primary.main",
+                borderRadius: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: 700,
+                fontSize: 16,
+              }}
+            >
+              P
+            </Box>
+            <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+              Paositra
+            </Typography>
+          </Box>
+
+          {/* Menu principal horizontal */}
+          <Box sx={{ display: "flex", gap: 0.5, flex: 1 }}>
+            {MENU_STRUCTURE.map((item) => {
+              const isActive = item.path
+                ? location.pathname === item.path
+                : item.children.some((c) => location.pathname.startsWith(c.path));
+
+              return (
+                <Button
+                  key={item.path || item.key}
+                  onClick={(e) => handleMenuClick(item, e)}
+                  startIcon={item.icon}
+                  endIcon={item.children ? <ExpandMoreIcon fontSize="small" /> : null}
+                  sx={{
+                    textTransform: "none",
+                    color: isActive ? "primary.main" : "text.secondary",
+                    fontWeight: isActive ? 600 : 500,
+                    borderBottom: isActive ? "2px solid" : "2px solid transparent",
+                    borderColor: isActive ? "primary.main" : "transparent",
+                    borderRadius: 0,
+                    px: 2,
+                    "&:hover": {
+                      bgcolor: "#FFF8E1",
+                      borderColor: "primary.light",
+                    },
+                  }}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
+          </Box>
+
+          {/* User menu */}
+          <IconButton onClick={(e) => setUserMenuAnchor(e.currentTarget)} sx={{ ml: 2 }}>
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: "primary.main",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {user?.utilisateur_mail?.charAt(0).toUpperCase() || "U"}
+            </Avatar>
+          </IconButton>
+          <Menu
+            anchorEl={userMenuAnchor}
+            open={Boolean(userMenuAnchor)}
+            onClose={() => setUserMenuAnchor(null)}
+          >
+            <MenuItem disabled>
+              <Typography variant="body2">{user?.utilisateur_mail || "Utilisateur"}</Typography>
+            </MenuItem>
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                setUserMenuAnchor(null);
+                handleLogout();
+              }}
+            >
+              <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+              Déconnexion
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+
+        {/* Ligne 2 : Sous-onglets (si un menu parent est actif) */}
+        {activeParent && (
+          <Box
+            sx={{
+              bgcolor: "#FAFAFA",
+              borderBottom: "1px solid #E0E0E0",
+              px: 2,
+            }}
+          >
+            <Tabs
+              value={activeParent.children.findIndex((c) => location.pathname.startsWith(c.path))}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                minHeight: 40,
+                "& .MuiTabs-indicator": {
+                  backgroundColor: "primary.main",
+                  height: 3,
+                },
+              }}
+            >
+              {activeParent.children.map((child) => (
+                <Tab
+                  key={child.path}
+                  component={NavLink}
+                  to={child.path}
+                  icon={child.icon}
+                  iconPosition="start"
+                  label={child.label}
+                  sx={{
+                    minHeight: 40,
+                    textTransform: "none",
+                    color: "text.secondary",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    px: 2,
+                    "&.Mui-selected": {
+                      color: "primary.main",
+                      fontWeight: 600,
+                    },
+                  }}
+                />
+              ))}
+            </Tabs>
+          </Box>
+        )}
+      </AppBar>
+
+      {/* Popover pour les sous-menus */}
+      <Popover
+        open={Boolean(popoverAnchor)}
+        anchorEl={popoverAnchor}
+        onClose={() => setPopoverAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "left" }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 0.5,
+              border: "1px solid #E0E0E0",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              minWidth: 200,
+            },
           },
         }}
       >
-        {/* Header de la sidebar */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: collapsed ? "center" : "space-between",
-            px: 2,
-            py: 2,
-            borderBottom: "1px solid #E0E0E0",
-            minHeight: 64,
-          }}
-        >
-          {!collapsed && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  bgcolor: "primary.main",
-                  borderRadius: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 16,
-                }}
-              >
-                P
-              </Box>
-              <Box>
-                <Typography variant="body2" fontWeight={600} color="text.primary">
-                  Paositra
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Gestion de Stock
-                </Typography>
-              </Box>
-            </Box>
-          )}
-          <IconButton onClick={toggleSidebar} size="small">
-            <MenuIcon fontSize="small" />
-          </IconButton>
-        </Box>
-
-        {/* Menu de navigation */}
-        <List sx={{ flex: 1, px: 1, py: 2 }}>
-          {MENU_ITEMS.map((item) => (
-            <div key={item.path}>
-              {item.children ? (
-                <>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={() => toggleMenu(item.path)}
-                      selected={isChildActive(item.children)}
-                      sx={{
-                        borderRadius: 1,
-                        mb: 0.5,
-                        "&.Mui-selected": {
-                          bgcolor: "primary.light",
-                          "&:hover": { bgcolor: "primary.light" },
-                        },
-                      }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 40, color: "text.primary" }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      {!collapsed && (
-                        <>
-                          <ListItemText
-                            primary={item.label}
-                            primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-                          />
-                          {openMenus[item.path] || isChildActive(item.children) ? (
-                            <ExpandLess fontSize="small" />
-                          ) : (
-                            <ExpandMore fontSize="small" />
-                          )}
-                        </>
-                      )}
-                    </ListItemButton>
-                  </ListItem>
-                  <Collapse in={openMenus[item.path] || isChildActive(item.children)} timeout="auto" unmountOnExit>
-                    <List component="div" disablePadding sx={{ pl: 3 }}>
-                      {item.children.map((child) => (
-                        <ListItem key={child.path} disablePadding>
-                          <ListItemButton
-                            component={NavLink}
-                            to={child.path}
-                            sx={{
-                              borderRadius: 1,
-                              mb: 0.5,
-                              "&.Mui-selected": {
-                                bgcolor: "primary.main",
-                                color: "white",
-                                "&:hover": { bgcolor: "primary.main" },
-                                "& .MuiListItemIcon-root": { color: "white" },
-                              },
-                            }}
-                          >
-                            <ListItemIcon sx={{ minWidth: 32, color: "text.secondary" }}>
-                              {child.icon}
-                            </ListItemIcon>
-                            {!collapsed && (
-                              <ListItemText
-                                primary={child.label}
-                                primaryTypographyProps={{ fontSize: 13 }}
-                              />
-                            )}
-                          </ListItemButton>
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Collapse>
-                </>
-              ) : (
-                <ListItem disablePadding>
-                  <ListItemButton
-                    component={NavLink}
-                    to={item.path}
-                    end={item.path === "/"}
-                    sx={{
-                      borderRadius: 1,
-                      mb: 0.5,
-                      "&.Mui-selected": {
-                        bgcolor: "primary.main",
-                        color: "white",
-                        "&:hover": { bgcolor: "primary.main" },
-                        "& .MuiListItemIcon-root": { color: "white" },
-                      },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40, color: "text.primary" }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    {!collapsed && (
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-                      />
-                    )}
-                  </ListItemButton>
-                </ListItem>
-              )}
-            </div>
+        <List dense>
+          {MENU_STRUCTURE.find((m) => m.key === activePopoverKey)?.children.map((child) => (
+            <ListItemButton
+              key={child.path}
+              onClick={() => handleChildClick(child.path)}
+              sx={{
+                "&:hover": { bgcolor: "#FFF8E1" },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>
+                {child.icon}
+              </ListItemIcon>
+              <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: 14 }} />
+            </ListItemButton>
           ))}
         </List>
+      </Popover>
 
-        {/* Footer : User + Logout */}
-        <Divider />
-        <Box sx={{ p: 2 }}>
-          {!collapsed ? (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  bgcolor: "primary.main",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                {user?.utilisateur_mail?.charAt(0).toUpperCase() || "U"}
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" fontWeight={600} noWrap>
-                  {user?.utilisateur_mail || "Utilisateur"}
-                </Typography>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  bgcolor: "primary.main",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                {user?.utilisateur_mail?.charAt(0).toUpperCase() || "U"}
-              </Avatar>
-            </Box>
-          )}
-          <ListItemButton
-            onClick={handleLogout}
-            sx={{
-              borderRadius: 1,
-              color: "text.secondary",
-              "&:hover": { bgcolor: "action.hover" },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 40, color: "inherit" }}>
-              <LogoutIcon fontSize="small" />
-            </ListItemIcon>
-            {!collapsed && (
-              <ListItemText
-                primary="Déconnexion"
-                primaryTypographyProps={{ fontSize: 13 }}
-              />
-            )}
-          </ListItemButton>
-        </Box>
-      </Drawer>
-
-      {/* ====== MAIN CONTENT ====== */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Topbar */}
-        <AppBar
-          position="sticky"
-          elevation={0}
-          sx={{
-            bgcolor: "#FFFFFF",
-            borderBottom: "1px solid #E0E0E0",
-            color: "text.primary",
-          }}
-        >
-          <Toolbar sx={{ minHeight: 64 }}>
-            <Breadcrumbs separator="›" sx={{ "& a": { color: "text.secondary" } }}>
-              {breadcrumbs.map((crumb, index) =>
-                index === breadcrumbs.length - 1 ? (
-                  <Typography key={crumb.path} color="text.primary" fontWeight={500}>
-                    {crumb.label}
-                  </Typography>
-                ) : (
-                  <Link key={crumb.path} underline="hover" color="inherit" href={crumb.path}>
-                    {crumb.label}
-                  </Link>
-                )
-              )}
-            </Breadcrumbs>
-          </Toolbar>
-        </AppBar>
-
-        {/* Contenu principal */}
-        <Box
-          component="main"
-          sx={{
-            flex: 1,
-            p: 3,
-            bgcolor: "#FFFFFF",
-            overflow: "auto",
-          }}
-        >
-          <Outlet />
-        </Box>
+      {/* ====== CONTENU PRINCIPAL ====== */}
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          p: 3,
+          bgcolor: "#FFFFFF",
+          overflow: "auto",
+        }}
+      >
+        <Outlet />
       </Box>
     </Box>
   );
