@@ -1,287 +1,395 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { listArticles, listCategories, deleteArticle, getArticle } from "../api";
-import { DataTable } from "../../../components/common/DataTable";
-import { Pagination } from "../../../components/common/Pagination";
-import { Notification } from "../../../components/common/Notification";
+import { useEffect, useState, useCallback } from "react";
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  IconButton,
+  Alert,
+  Chip,
+  Tooltip,
+  CircularProgress,
+} from "@mui/material";
+import {
+  Add as AddIcon,
+  Visibility as VisibilityIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
+import { DataGrid } from "@mui/x-data-grid";
+import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
-import { ArticleModal } from "../components/articleModal";
-import { ArticleFormModal } from "../components/articleFormModal";
-import "../components/article.css";
+import { ArticleModal } from "../components/ArticleModal";
+import { ArticleFormModal } from "../components/ArticleFormModal";
 
 export function ArticleListPage() {
-  const { hasProfil } = useAuth();
-  const canEdit = hasProfil("Administrateur", "Gestionnaire", "Magasinier");
+  const { hasAction, hasAnyAction } = useAuth();
 
+  // TODO: Implémenter les permissions réelles avec hasAction
+  // Exemple: const canCreate = hasAction('ART_CREATE');
+  // Exemple: const canUpdate = hasAction('ART_UPDATE');
+  // Exemple: const canDelete = hasAction('ART_DELETE');
+  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
+  const canEdit = true;
+
+  // ====== DATA ======
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [rowCount, setRowCount] = useState(0);
+
+  // ====== FILTRES ======
   const [search, setSearch] = useState("");
   const [categorieFiltre, setCategorieFiltre] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageInfo, setPageInfo] = useState({
-    count: 0,
-    next: null,
-    previous: null,
-  });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  // Modale de détail
+  // ====== MODALS ======
   const [selectedArticle, setSelectedArticle] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Modale Formulaire (Création & Modification)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [articleToEdit, setArticleToEdit] = useState(null);
-  const [isModalFormOpen, setIsModalFormOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
-  const openModal = (article) => {
-    setSelectedArticle(article);
-    setIsModalOpen(true);
-  };
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedArticle(null);
-  };
+  // ====== CHARGEMENT DES CATÉGORIES (une seule fois) ======
+  useEffect(() => {
+    apiClient
+      .get("/api/catalogue/categories/", { params: { page_size: 100 } })
+      .then((res) => setCategories(res.data.results ?? res.data))
+      .catch(() => {});
+  }, []);
 
-  const openFormModalForCreate = () => {
-    setArticleToEdit(null);
-    setIsModalFormOpen(true);
-  };
-
-  const openFormModalForEdit = async (article) => {
-    try {
-      const fullArticle = await getArticle(article.code_article);
-      setArticleToEdit(fullArticle);
-      setIsModalFormOpen(true);
-    } catch (err) {
-      setError("Impossible de charger les détails de l'article à modifier.");
-    }
-  };
-
-  const closeFormModal = () => {
-    setIsModalFormOpen(false);
-    setArticleToEdit(null);
-  };
-
+  // ====== CHARGEMENT DES ARTICLES ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = { page };
+      const params = {
+        page: paginationModel.page + 1,
+        page_size: paginationModel.pageSize,
+      };
       if (search) params.search = search;
       if (categorieFiltre) params.categorie = categorieFiltre;
-      const data = await listArticles(params);
+
+      const { data } = await apiClient.get("/api/catalogue/articles/", { params });
       setArticles(data.results ?? data);
-      setPageInfo({
-        count: data.count,
-        next: data.next,
-        previous: data.previous,
-      });
-    } catch (err) {
+      setRowCount(data.count ?? (data.results ?? data).length);
+    } catch {
       setError("Impossible de charger les articles.");
     } finally {
       setLoading(false);
     }
-  }, [page, search, categorieFiltre]);
-
-  const handleSavedSuccess = () => {
-    charger();
-  };
-
-  useEffect(() => {
-    listCategories().then((data) => setCategories(data.results ?? data));
-  }, []);
+  }, [paginationModel.page, paginationModel.pageSize, search, categorieFiltre]);
 
   useEffect(() => {
     charger();
   }, [charger]);
 
+  // ====== HANDLERS ======
   const handleSearchChange = (value) => {
     setSearch(value);
-    setPage(1);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
+  const handleCategorieChange = (value) => {
+    setCategorieFiltre(value);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
+  const openDetailModal = (article) => {
+    setSelectedArticle(article);
+    setIsDetailModalOpen(true);
+  };
+
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setSelectedArticle(null);
+  };
+
+  const openFormModalForCreate = () => {
+    setArticleToEdit(null);
+    setIsFormModalOpen(true);
+  };
+
+  const openFormModalForEdit = async (article) => {
+    try {
+      const { data } = await apiClient.get(`/api/catalogue/articles/${article.code_article}/`);
+      setArticleToEdit(data);
+      setIsFormModalOpen(true);
+    } catch {
+      setError("Impossible de charger les détails de l'article à modifier.");
+    }
+  };
+
+  const closeFormModal = () => {
+    setIsFormModalOpen(false);
+    setArticleToEdit(null);
   };
 
   const handleDelete = async (article) => {
     if (!window.confirm(`Supprimer l'article "${article.designation}" ?`)) return;
     try {
-      await deleteArticle(article.code_article);
+      await apiClient.delete(`/api/catalogue/articles/${article.code_article}/`);
       charger();
-    } catch (err) {
+    } catch {
       setError("Suppression impossible (article probablement référencé ailleurs).");
     }
   };
 
+  // ====== COULEUR CATÉGORIE ======
+  const getCategorieColor = (cat) => {
+    if (!cat) return "default";
+    const c = cat.toLowerCase();
+    if (c.includes("info")) return "info";
+    if (c.includes("bureau")) return "primary";
+    if (c.includes("consommable")) return "warning";
+    return "default";
+  };
+
+  // ====== COLONNES ======
   const columns = [
     {
-      key: "code_article",
-      label: "Code",
-      render: (row) => <span className="cell-code">{row.code_article}</span>,
-    },
-    {
-      key: "designation",
-      label: "Désignation",
-      render: (row) => <span className="cell-designation">{row.designation}</span>,
-    },
-    {
-      key: "categorie_nom",
-      label: "Catégorie",
-      render: (row) => (
-        <span className={`cell-category cat-${(row.categorie_nom || "").toLowerCase().replace(/\s+/g, "-")}`}>
-          {row.categorie_nom || "—"}
-        </span>
+      field: "code_article",
+      headerName: "Code",
+      width: 130,
+      renderCell: (params) => (
+        <Typography
+          variant="body2"
+          fontFamily="monospace"
+          fontWeight={600}
+          sx={{
+            bgcolor: "#FFF8E1",
+            px: 1,
+            py: 0.3,
+            borderRadius: 0.5,
+            border: "1px solid #F9A825",
+          }}
+        >
+          {params.value}
+        </Typography>
       ),
     },
     {
-      key: "actions",
-      label: "",
-      render: (row) =>
-        canEdit && (
-          <div className="actions-cell">
-            <button className="btn-action btn-action-info" onClick={() => openModal(row)} title="Détails">
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-              </svg>
-              <span className="btn-label">Détails</span>
-            </button>
-            <button
-              className="btn-action btn-action-edit"
-              onClick={() => openFormModalForEdit(row)}
-              title="Modifier"
-            >
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-              </svg>
-              <span className="btn-label">Modifier</span>
-            </button>
-            <button
-              className="btn-action btn-action-delete"
-              onClick={() => handleDelete(row)}
-              title="Supprimer"
-            >
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-              </svg>
-              <span className="btn-label">Supprimer</span>
-            </button>
-          </div>
+      field: "designation",
+      headerName: "Désignation",
+      flex: 1,
+      minWidth: 200,
+    },
+    {
+      field: "categorie_nom",
+      headerName: "Catégorie",
+      width: 160,
+      renderCell: (params) =>
+        params.value ? (
+          <Chip
+            label={params.value}
+            color={getCategorieColor(params.value)}
+            size="small"
+            variant="outlined"
+          />
+        ) : (
+          <Chip label="—" size="small" variant="outlined" />
         ),
     },
+    {
+      field: "marque_libelle",
+      headerName: "Marque",
+      width: 130,
+      renderCell: (params) => params.value || <Chip label="—" size="small" variant="outlined" />,
+    },
+    {
+      field: "stock_calcule",
+      headerName: "Stock",
+      width: 100,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Chip
+          label={params.value ?? 0}
+          size="small"
+          color={params.value > 0 ? "success" : "error"}
+          variant="filled"
+        />
+      ),
+    },
+    ...(canEdit
+      ? [
+          {
+            field: "actions",
+            headerName: "Actions",
+            width: 160,
+            sortable: false,
+            filterable: false,
+            disableColumnMenu: true,
+            headerAlign: "center",
+            align: "center",
+            renderCell: (params) => (
+              <Box sx={{ display: "flex", gap: 0.5 }}>
+                <Tooltip title="Détails">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => openDetailModal(params.row)}
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Modifier">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => openFormModalForEdit(params.row)}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Supprimer">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(params.row)}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            ),
+          },
+        ]
+      : []),
   ];
 
-  // Skeleton rows pendant le chargement
-  const skeletonRows = Array.from({ length: 5 }, (_, i) => (
-    <tr key={`sk-${i}`} className="skeleton-row">
-      <td><div className="skeleton skeleton-sm" /></td>
-      <td><div className="skeleton skeleton-md" /></td>
-      <td><div className="skeleton skeleton-sm" /></td>
-      <td><div className="skeleton skeleton-lg" /></td>
-    </tr>
-  ));
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Catalogue des Articles</h1>
-        <p className="page-subtitle">Gérez votre inventaire, filtres et actions en un seul endroit</p>
-      </div>
-
-      <Notification type="error" message={error} />
-
-      <div className="toolbar-modern">
-        <div className="search-box">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Rechercher (code, désignation, code-barre)..."
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="filter-select"
-          value={categorieFiltre}
-          onChange={(e) => {
-            setCategorieFiltre(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Toutes catégories</option>
-          {categories.map((c) => (
-            <option key={c.categorie_id} value={c.categorie_id}>
-              {c.nom}
-            </option>
-          ))}
-        </select>
-
-        <div className="spacer" />
-
+    <Box>
+      {/* ====== HEADER ====== */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Box>
+          <Typography variant="h2">Catalogue des articles</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Gérez votre inventaire, filtres et actions en un seul endroit
+          </Typography>
+        </Box>
         {canEdit && (
-          <button className="btn-primary-modern" onClick={openFormModalForCreate}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
-            </svg>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openFormModalForCreate}>
             Nouvel article
-          </button>
+          </Button>
         )}
-      </div>
+      </Box>
 
-      <div className="table-card">
-        {loading ? (
-          <table className="data-table-modern">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Désignation</th>
-                <th>Catégorie</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>{skeletonRows}</tbody>
-          </table>
-        ) : articles.length === 0 ? (
-          <div className="empty-state">
-            <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-            <p>Aucun article trouvé</p>
-          </div>
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              rows={articles}
-              emptyMessage=""
-              tableClassName="data-table-modern"
-            />
-            <div className="pagination-modern">
-              <div className="pagination-info">
-                Affichage de <strong>{(page - 1) * 10 + 1}-{Math.min(page * 10, pageInfo.count)}</strong> sur <strong>{pageInfo.count}</strong> articles
-              </div>
-              <Pagination
-                page={page}
-                setPage={setPage}
-                hasNext={!!pageInfo.next}
-                hasPrevious={!!pageInfo.previous}
-                count={pageInfo.count}
-                btnClassName="page-btn"
-                activeClassName="active"
-              />
-            </div>
-          </>
+      {/* ====== ERREUR ====== */}
+      {error && (
+        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* ====== TOOLBAR (recherche + filtre) ====== */}
+      <Box
+        sx={{
+          display: "flex",
+          gap: 2,
+          alignItems: "center",
+          mb: 2,
+          p: 2,
+          bgcolor: "#FAFAFA",
+          borderRadius: 1,
+          border: "1px solid #E0E0E0",
+        }}
+      >
+        {/* Recherche */}
+        <TextField
+          placeholder="Rechercher (code, désignation, code-barre)..."
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          size="small"
+          sx={{ flex: 1 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <SearchIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />
+              ),
+            },
+          }}
+        />
+
+        {/* Filtre catégorie */}
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Catégorie</InputLabel>
+          <Select
+            value={categorieFiltre}
+            label="Catégorie"
+            onChange={(e) => handleCategorieChange(e.target.value)}
+          >
+            <MenuItem value="">Toutes catégories</MenuItem>
+            {categories.map((c) => (
+              <MenuItem key={c.categorie_id} value={c.categorie_id}>
+                {c.cat_libelle}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Reset filtres */}
+        {(search || categorieFiltre) && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              setSearch("");
+              setCategorieFiltre("");
+            }}
+          >
+            Réinitialiser
+          </Button>
         )}
-      </div>
+      </Box>
 
-      <ArticleModal article={selectedArticle} isOpen={isModalOpen} onClose={closeModal} />
+      {/* ====== DATAGRID ====== */}
+      <Box sx={{ height: 600, width: "100%" }}>
+        <DataGrid
+          rows={articles}
+          columns={columns}
+          loading={loading}
+          rowCount={rowCount}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50, 100]}
+          disableRowSelectionOnClick
+          getRowId={(row) => row.code_article}
+          localeText={{
+            noRowsLabel: "Aucun article trouvé",
+            loadingOverlay: "Chargement...",
+          }}
+        />
+      </Box>
+
+      {/* ====== MODAL DÉTAILS ====== */}
+      <ArticleModal
+        article={selectedArticle}
+        isOpen={isDetailModalOpen}
+        onClose={closeDetailModal}
+        onEdit={openFormModalForEdit}
+      />
+
+      {/* ====== MODAL FORMULAIRE ====== */}
       <ArticleFormModal
-        isOpen={isModalFormOpen}
+        isOpen={isFormModalOpen}
         onClose={closeFormModal}
-        onSuccess={handleSavedSuccess}
+        onSuccess={charger}
         articleToEdit={articleToEdit}
       />
-    </div>
+    </Box>
   );
 }
