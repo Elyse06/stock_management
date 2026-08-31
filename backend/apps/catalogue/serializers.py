@@ -36,7 +36,7 @@ class ArticleSerializer(serializers.ModelSerializer):
         fields = [
             "code_article", "code_barre", "designation", "description",
             "modele", "unite", "seuil", "mode_suivi",
-            "categorie", "categorie_nom", "marque_libelle", "fournisseurs", "stock_calcule",
+            "categorie", "categorie_nom", "marque", "marque_libelle", "fournisseurs", "stock_calcule",
         ]
 
     def validate_code_barre(self, value):

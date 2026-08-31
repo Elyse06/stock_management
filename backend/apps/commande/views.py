@@ -4,7 +4,12 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.common.permissions import HasAction, HasActionByMethod, IsOwnerOrProfil, get_request_employee
+from apps.common.permissions import (
+    HasAction,
+    HasActionByMethod,
+    IsOwnerOrProfil,
+    get_request_employee,
+)
 
 from .models import AttributionDetailCommande, Commande, DetailCommande
 from .serializers import (
@@ -25,7 +30,6 @@ from .serializers import (
 )
 class CommandeViewSet(viewsets.ModelViewSet):
     """ViewSet gérant le cycle de vie des commandes de produits/matériels."""
-
     queryset = (
         Commande.objects.all()
         .select_related(
@@ -55,9 +59,8 @@ class CommandeViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             employee = get_request_employee(self.request)
-            if employee and not HasAction.for_actions("COM_VAL").has_permission(
-                self.request, self
-            ):
+            permission_instance = HasAction.for_actions("COM_VAL")()
+            if employee and not permission_instance.has_permission(self.request, self):
                 queryset = queryset.filter(employe_demandeur=employee)
         return queryset
 
@@ -90,7 +93,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         commande_traitee = serializer.save()
-
         output_serializer = CommandeSerializer(
             commande_traitee, context={"request": request}
         )
@@ -107,10 +109,12 @@ class CommandeViewSet(viewsets.ModelViewSet):
 class DetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = DetailCommande.objects.all().select_related("article", "commande")
     serializer_class = DetailCommandeSerializer
+
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
         return [HasAction.for_actions("COM_DEM")()]
+
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["commande", "article"]
 
@@ -127,9 +131,11 @@ class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
         "detail_commande", "employe_beneficiaire"
     )
     serializer_class = AttributionDetailCommandeSerializer
+
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
         return [HasAction.for_actions("COM_DEM")()]
+
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["detail_commande", "employe_beneficiaire"]

@@ -95,7 +95,7 @@ class CommandeSerializer(serializers.ModelSerializer):
         details_data = validated_data.pop("details", [])
         request = self.context.get("request")
 
-        demandeur = validated_data.get("employe_demandeur")
+        demandeur = validated_data.pop("employe_demandeur", None)
         if demandeur is None and request and request.user:
             demandeur = Employer.objects.filter(
                 emp_utilisateur_id_id=getattr(request.user, "pk", None)
