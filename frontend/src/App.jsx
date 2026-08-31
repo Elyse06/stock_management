@@ -15,8 +15,8 @@ import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
 import { MouvementsPage } from "./features/mouvement/pages/MouvementsPage";
 import { InventairePage } from "./features/stock/pages/InventairePage";
 
-// Commandes
-import { AchatsPage } from "./pages/AchatsPage";
+// ====== COMMANDES ======
+import { CommandesPage } from "./features/commandes/pages/CommandesPage";
 
 import "./components/common/common.css";
 
@@ -49,7 +49,7 @@ function App() {
         <Route path="/inventaire/sessions" element={<InventairePage />} />
 
         {/* ====== COMMANDES ====== */}
-        <Route path="/commandes" element={<AchatsPage />} />
+        <Route path="/commandes" element={<CommandesPage />} />
       </Route>
     </Routes>
   );
