@@ -26,7 +26,7 @@ import {
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
-import { MouvementFormModal } from "./MouvementFormPage";
+import { MouvementFormModal } from "../components/MouvementFormModal";
 
 export function MouvementsPage() {
   const { hasAction, hasAnyAction } = useAuth();
@@ -44,7 +44,7 @@ export function MouvementsPage() {
   const [rowCount, setRowCount] = useState(0);
 
   // Filtres
-  const [filterType, setFilterType] = useState(""); // "" = tous, "ENTREE", "SORTIE", "TRANSFERT"
+  const [filterType, setFilterType] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
 
@@ -117,6 +117,8 @@ export function MouvementsPage() {
         return "error";
       case "TRANSFERT":
         return "info";
+      case "AJUSTEMENT":
+        return "warning";
       default:
         return "default";
     }
@@ -130,6 +132,8 @@ export function MouvementsPage() {
         return "Sortie";
       case "TRANSFERT":
         return "Transfert";
+      case "AJUSTEMENT":
+        return "Ajustement";
       default:
         return type;
     }
@@ -193,17 +197,22 @@ export function MouvementsPage() {
       disableColumnMenu: true,
       headerAlign: "center",
       align: "center",
-      renderCell: (params) => (
-        <Tooltip title="Voir les détails">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => setSelectedMouvement(params.row)}
-          >
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      ),
+      renderCell: (params) => {
+        const mouvement = params.row;
+        const isManual = ["ENTREE", "TRANSFERT"].includes(mouvement.type_mouvement);
+
+        return (
+          <Tooltip title="Voir les détails">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => setSelectedMouvement(mouvement)}
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        );
+      },
     },
   ];
 
@@ -254,6 +263,7 @@ export function MouvementsPage() {
             <MenuItem value="ENTREE">Entrées</MenuItem>
             <MenuItem value="SORTIE">Sorties</MenuItem>
             <MenuItem value="TRANSFERT">Transferts</MenuItem>
+            <MenuItem value="AJUSTEMENT">Ajustements</MenuItem>
           </Select>
         </FormControl>
 
