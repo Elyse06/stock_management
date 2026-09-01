@@ -10,50 +10,43 @@ import {
   InputLabel,
   IconButton,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Chip,
   Tooltip,
-  CircularProgress,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
-  Close as CloseIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 import { MouvementFormModal } from "../components/MouvementFormModal";
+import { MouvementDetailModal } from "../components/MouvementDetailModal";
 
 export function MouvementsPage() {
   const { hasAction, hasAnyAction } = useAuth();
-  
+
   // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('MVT_CREATE');
-  // Exemple: const canView = hasAction('MVT_VIEW');
-  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
+  // Exemple: const canCreate = hasAction('INV_GERE');
   const canEdit = true;
 
+  // ====== DATA ======
   const [mouvements, setMouvements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
 
-  // Filtres
+  // ====== FILTRES ======
   const [filterType, setFilterType] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
 
-  // Modal détails
+  // ====== MODALS ======
   const [selectedMouvement, setSelectedMouvement] = useState(null);
-
-  // Modal création
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  // ====== CHARGEMENT ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -62,8 +55,6 @@ export function MouvementsPage() {
         page: paginationModel.page + 1,
         page_size: paginationModel.pageSize,
       };
-      
-      // Ajouter le filtre par type si sélectionné
       if (filterType) {
         params.type_mouvement = filterType;
       }
@@ -82,24 +73,24 @@ export function MouvementsPage() {
     charger();
   }, [charger]);
 
-  // Filtrage côté client pour les dates (l'API ne supporte pas le filtrage par date)
+  // ====== FILTRE DATE (côté client) ======
   const mouvementsFiltres = mouvements.filter((mouvement) => {
     if (!dateDebut && !dateFin) return true;
     const mouvementDate = new Date(mouvement.date);
     mouvementDate.setHours(0, 0, 0, 0);
-    
+
     if (dateDebut) {
       const debut = new Date(dateDebut);
       debut.setHours(0, 0, 0, 0);
       if (mouvementDate < debut) return false;
     }
-    
+
     if (dateFin) {
       const fin = new Date(dateFin);
       fin.setHours(23, 59, 59, 999);
       if (mouvementDate > fin) return false;
     }
-    
+
     return true;
   });
 
@@ -109,6 +100,7 @@ export function MouvementsPage() {
     setDateFin("");
   };
 
+  // ====== HELPERS (utilisés dans les colonnes) ======
   const getTypeColor = (type) => {
     switch (type) {
       case "ENTREE":
@@ -139,6 +131,7 @@ export function MouvementsPage() {
     }
   };
 
+  // ====== COLONNES DATAGRID ======
   const columns = [
     {
       field: "mouvement_id",
@@ -197,28 +190,23 @@ export function MouvementsPage() {
       disableColumnMenu: true,
       headerAlign: "center",
       align: "center",
-      renderCell: (params) => {
-        const mouvement = params.row;
-        const isManual = ["ENTREE", "TRANSFERT"].includes(mouvement.type_mouvement);
-
-        return (
-          <Tooltip title="Voir les détails">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => setSelectedMouvement(mouvement)}
-            >
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        );
-      },
+      renderCell: (params) => (
+        <Tooltip title="Voir les détails">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => setSelectedMouvement(params.row)}
+          >
+            <VisibilityIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ),
     },
   ];
 
   return (
     <Box>
-      {/* Header */}
+      {/* ====== HEADER ====== */}
       <Box
         sx={{
           display: "flex",
@@ -239,7 +227,7 @@ export function MouvementsPage() {
         )}
       </Box>
 
-      {/* Toolbar avec filtres */}
+      {/* ====== TOOLBAR (filtres) ====== */}
       <Box
         sx={{
           display: "flex",
@@ -288,24 +276,20 @@ export function MouvementsPage() {
         />
 
         {(filterType || dateDebut || dateFin) && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={reinitialiserFiltres}
-          >
+          <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
           </Button>
         )}
       </Box>
 
-      {/* Erreur */}
+      {/* ====== ERREUR ====== */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* DataGrid */}
+      {/* ====== DATAGRID ====== */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={mouvementsFiltres}
@@ -325,128 +309,14 @@ export function MouvementsPage() {
         />
       </Box>
 
-      {/* Modal Détails */}
-      <Dialog
-        open={Boolean(selectedMouvement)}
+      {/* ====== MODAL DÉTAILS ====== */}
+      <MouvementDetailModal
+        mouvement={selectedMouvement}
+        isOpen={Boolean(selectedMouvement)}
         onClose={() => setSelectedMouvement(null)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            bgcolor: "#FFF8E1",
-            borderBottom: "2px solid",
-            borderColor: "primary.main",
-          }}
-        >
-          <Typography variant="h3">
-            Mouvement #{selectedMouvement?.mouvement_id}
-          </Typography>
-          <IconButton onClick={() => setSelectedMouvement(null)} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {selectedMouvement && (
-            <>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Type
-                </Typography>
-                <Chip
-                  label={getTypeLabel(selectedMouvement.type_mouvement)}
-                  color={getTypeColor(selectedMouvement.type_mouvement)}
-                  size="small"
-                />
-              </Box>
+      />
 
-              {selectedMouvement.magasin_source_nom && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Source
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedMouvement.magasin_source_nom}
-                  </Typography>
-                </Box>
-              )}
-
-              {selectedMouvement.magasin_destination_nom && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Destination
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedMouvement.magasin_destination_nom}
-                  </Typography>
-                </Box>
-              )}
-
-              {selectedMouvement.origine && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Origine / Provenance
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedMouvement.origine}
-                  </Typography>
-                </Box>
-              )}
-
-              {selectedMouvement.motif && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Motif
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedMouvement.motif}
-                  </Typography>
-                </Box>
-              )}
-
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Date
-                </Typography>
-                <Typography variant="body1">
-                  {new Date(selectedMouvement.date).toLocaleString("fr-FR")}
-                </Typography>
-              </Box>
-
-              <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
-                Articles ({selectedMouvement.details?.length ?? 0})
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <DataGrid
-                  rows={selectedMouvement.details ?? []}
-                  columns={[
-                    { field: "article_designation", headerName: "Article", flex: 1 },
-                    {
-                      field: "quantite",
-                      headerName: "Quantité",
-                      width: 100,
-                      headerAlign: "center",
-                      align: "center",
-                    },
-                  ]}
-                  disableRowSelectionOnClick
-                  getRowId={(row) => row.id}
-                  localeText={{ noRowsLabel: "Aucun article" }}
-                />
-              </Box>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setSelectedMouvement(null)}>Fermer</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Modal Création */}
+      {/* ====== MODAL CRÉATION ====== */}
       <MouvementFormModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

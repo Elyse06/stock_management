@@ -430,27 +430,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
             }}
           />
         </Box>
-
-        {/* Info validation */}
-        {peutValider && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            💡 La validation de cet inventaire générera automatiquement des mouvements
-            d'ajustement pour corriger les écarts entre stock théorique et stock physique.
-          </Alert>
-        )}
-
-        {session.statut === "VALIDE" && (
-          <Alert severity="success" sx={{ mt: 2 }}>
-            ✅ Cet inventaire a été validé. Les mouvements d'ajustement ont été générés
-            automatiquement.
-          </Alert>
-        )}
-
-        {session.statut === "REJETE" && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            ❌ Cet inventaire a été rejeté. Aucun ajustement de stock n'a été effectué.
-          </Alert>
-        )}
       </DialogContent>
 
       {/* ====== FOOTER ====== */}

@@ -3,6 +3,8 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.commande.models import AttributionDetailCommande
+from apps.commande.utils import generate_attribution_qr_payload
 from apps.stock.models import (
     DetailMouvement,
     InventaireSession,
@@ -25,6 +27,14 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     employe_beneficiaire_nom = serializers.CharField(
         source="employe_beneficiaire.emp_nom", read_only=True, default=None
     )
+    employe_beneficiaire_matricule = serializers.CharField(
+        source="employe_beneficiaire.emp_matricule", read_only=True, default=None
+    )
+    employe_beneficiaire_fonction = serializers.CharField(
+        source="employe_beneficiaire.emp_fonction", read_only=True, default=None
+    )
+
+    qr_code_data = serializers.SerializerMethodField()
 
     class Meta:
         model = DetailMouvement
@@ -36,9 +46,28 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             "quantite",
             "employe_beneficiaire",
             "employe_beneficiaire_nom",
+            "employe_beneficiaire_matricule",
+            "employe_beneficiaire_fonction",
             "code_tracabilite",
+            "qr_code_data",
         ]
         read_only_fields = ["mouvement"]
+
+    def get_qr_code_data(self, obj):
+        if not obj.code_tracabilite:
+            return None
+        
+        try:
+            attribution = AttributionDetailCommande.objects.filter(
+                code_unique=obj.code_tracabilite
+            ).first()
+            
+            if attribution:
+                return generate_attribution_qr_payload(attribution)
+        except Exception:
+            pass
+        
+        return None
 
 
 class MouvementSerializer(serializers.ModelSerializer):
