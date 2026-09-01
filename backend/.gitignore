@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Django
+backend/staticfiles/
+backend/media/
+
+# Env
+.env
+!.env.example
+
+# Docker
+*.log
+.github/workflows/
