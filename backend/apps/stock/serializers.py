@@ -1,4 +1,6 @@
 from django.db import transaction
+from django.db.models import Q, Sum
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.stock.models import (
@@ -116,6 +118,18 @@ class LigneInventaireSerializer(serializers.ModelSerializer):
         read_only_fields = ["quantite_theorique", "ecart"]
 
 
+def generer_code_reference():
+    today = timezone.now().strftime("%Y%m%d")
+    prefix = f"INV-{today}-"
+    
+    count_today = InventaireSession.objects.filter(
+        code_reference__startswith=prefix
+    ).count()
+    
+    next_number = count_today + 1
+    return f"{prefix}{next_number:03d}"
+
+
 class InventaireSessionSerializer(serializers.ModelSerializer):
     lignes = LigneInventaireSerializer(many=True, required=False)
     lieu_nom = serializers.SerializerMethodField()
@@ -133,7 +147,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             "lieu_nom",
             "lignes",
         ]
-        read_only_fields = ["statut", "date_creation", "date_validation"]
+        read_only_fields = ["code_reference", "statut", "date_creation", "date_validation"]
 
     def get_lieu_nom(self, obj):
         if obj.magasin:
@@ -156,10 +170,64 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    def _calculer_stock_theorique(self, article, magasin=None, service=None):
+        from apps.stock.models import Mouvement
+        
+        if magasin:
+            entrees = DetailMouvement.objects.filter(
+                mouvement__type_mouvement__in=[
+                    Mouvement.Type.ENTREE,
+                    Mouvement.Type.TRANSFERT,
+                ],
+                mouvement__magasin_destination=magasin,
+                article=article,
+            ).aggregate(total=Sum("quantite"))["total"] or 0
+
+            sorties = DetailMouvement.objects.filter(
+                mouvement__type_mouvement__in=[
+                    Mouvement.Type.SORTIE,
+                    Mouvement.Type.TRANSFERT,
+                ],
+                mouvement__magasin_source=magasin,
+                article=article,
+            ).aggregate(total=Sum("quantite"))["total"] or 0
+
+            return entrees - sorties
+
+        if service:
+            stock_service = DetailMouvement.objects.filter(
+                mouvement__type_mouvement=Mouvement.Type.SORTIE,
+                employe_beneficiaire__emp_serv_id=service,
+                article=article,
+            ).aggregate(total=Sum("quantite"))["total"] or 0
+
+            return stock_service
+
+        return 0
+
     @transaction.atomic
     def create(self, validated_data):
         lignes_data = validated_data.pop("lignes", [])
+        magasin = validated_data.get("magasin")
+        service = validated_data.get("service")
+
+        #Générer automatiquement le code_reference
+        validated_data["code_reference"] = generer_code_reference()
+
         session = InventaireSession.objects.create(**validated_data)
+
         for ligne_data in lignes_data:
+            article = ligne_data.get("article")
+            
+            #Calculer le stock théorique automatiquement
+            stock_theorique = self._calculer_stock_theorique(
+                article=article,
+                magasin=magasin,
+                service=service,
+            )
+            
+            ligne_data["quantite_theorique"] = stock_theorique
+            
             LigneInventaire.objects.create(session=session, **ligne_data)
+        
         return session

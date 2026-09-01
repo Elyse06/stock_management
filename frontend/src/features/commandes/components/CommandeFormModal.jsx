@@ -1,46 +1,35 @@
+// src/features/commandes/components/CommandeFormModal.jsx
 import { useEffect, useState } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   TextField,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  IconButton,
   Typography,
   Box,
   Alert,
-  CircularProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
   Chip,
   Autocomplete,
-  Divider,
+  IconButton,
 } from "@mui/material";
 import {
-  Close as CloseIcon,
-  ArrowBack as ArrowBackIcon,
-  ArrowForward as ArrowForwardIcon,
   Add as AddIcon,
-  Save as SaveIcon,
   Delete as DeleteIcon,
+  Person as PersonIcon,
   Inventory as InventoryIcon,
   Numbers as NumbersIcon,
-  Person as PersonIcon,
   ListAlt as ListAltIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
+
+// Composants wizard réutilisables
+import { WizardDialog } from "../../../components/wizard/WizardDialog";
+import { WizardActions } from "../../../components/wizard/WizardActions";
+import { StyledTable } from "../../../components/wizard/StyledTable";
+import { InfoBox } from "../../../components/wizard/InfoBox";
+import { FormSection } from "../../../components/wizard/FormSection";
 
 // ====== CONSTANTES ======
 const STEPS = [
@@ -60,7 +49,6 @@ const OBJETS_DEMANDE = [
 const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
 
 export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit = null }) {
-  // ✅ On récupère `user` pour identifier le demandeur
   const { hasAction, user } = useAuth();
 
   // TODO: Implémenter les permissions réelles avec hasAction
@@ -88,7 +76,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
 
   const isEditMode = Boolean(commandeToEdit);
 
-  // ====== ✅ DÉTECTION DE L'EMPLOYÉ LIÉ À L'UTILISATEUR CONNECTÉ ======
+  // ====== DÉTECTION DE L'EMPLOYÉ LIÉ À L'UTILISATEUR CONNECTÉ ======
   const employeeDemandeur = employees.find(
     (e) => String(e.emp_utilisateur_id) === String(user?.utilisateur_id)
   );
@@ -139,14 +127,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     setError("");
   }, [isOpen, commandeToEdit, articles, employees]);
 
-  // ====== ✅ PRÉ-REMPLISSAGE DU BÉNÉFICIAIRE PAR DÉFAUT ======
-  // Quand on arrive à l'étape 2 (bénéficiaire) pour la première fois,
-  // on pré-remplit avec l'employé lié à l'utilisateur connecté (le demandeur).
+  // ====== PRÉ-REMPLISSAGE DU BÉNÉFICIAIRE PAR DÉFAUT ======
   useEffect(() => {
     if (!isOpen) return;
     if (activeStep !== 2) return;
     if (employees.length === 0) return;
-    // Ne pas écraser un choix manuel déjà fait par l'utilisateur
     if (currentBeneficiaire) return;
 
     if (employeeDemandeur) {
@@ -246,7 +231,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
-  // ====== ✅ DÉTECTION SI BÉNÉFICIAIRE = DEMANDEUR ======
+  // ====== DÉTECTION SI BÉNÉFICIAIRE = DEMANDEUR ======
   const isBeneficiaireDemandeur = (beneficiaire) => {
     if (!beneficiaire?.emp_utilisateur_id || !user?.utilisateur_id) return false;
     return String(beneficiaire.emp_utilisateur_id) === String(user.utilisateur_id);
@@ -263,7 +248,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       return;
     }
 
-    // ✅ Vérification : l'utilisateur connecté doit être lié à un employé
     if (!employeeDemandeur) {
       setError(
         "Votre compte utilisateur n'est pas lié à un employé. " +
@@ -292,10 +276,9 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         return detail;
       });
 
-      // ✅ Payload avec employe_demandeur (emp_id de l'utilisateur connecté)
       const payload = {
         objet: objet.trim(),
-        employe_demandeur: employeeDemandeur.emp_id, // ✅ Champ requis par le backend
+        employe_demandeur: employeeDemandeur.emp_id,
         details: detailsPayload,
       };
 
@@ -368,23 +351,10 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
             />
 
             {currentArticle && (
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 2,
-                  bgcolor: "#FFF8E1",
-                  borderRadius: 1,
-                  border: "1px solid #F9A825",
-                }}
-              >
-                <Typography variant="body2" fontWeight={600}>
-                  {currentArticle.designation}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Code : {currentArticle.code_article} • Stock :{" "}
-                  {currentArticle.stock_calcule ?? 0}
-                </Typography>
-              </Box>
+              <InfoBox
+                title={currentArticle.designation}
+                subtitle={`Code : ${currentArticle.code_article} • Stock : ${currentArticle.stock_calcule ?? 0}`}
+              />
             )}
           </Box>
         );
@@ -398,22 +368,14 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
             </Typography>
 
             {currentArticle && (
-              <Box
-                sx={{
-                  mb: 2,
-                  p: 1.5,
-                  bgcolor: "#FAFAFA",
-                  borderRadius: 1,
-                  border: "1px solid #E0E0E0",
-                }}
-              >
+              <FormSection>
                 <Typography variant="body2" fontWeight={600}>
                   {currentArticle.designation}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {currentArticle.code_article}
                 </Typography>
-              </Box>
+              </FormSection>
             )}
 
             <TextField
@@ -444,7 +406,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           </Box>
         );
 
-      // ====== ÉTAPE 3 : BÉNÉFICIAIRE (avec pré-remplissage) ======
+      // ====== ÉTAPE 3 : BÉNÉFICIAIRE ======
       case 2: {
         const isDemandeur = isBeneficiaireDemandeur(currentBeneficiaire);
 
@@ -504,7 +466,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               noOptionsText="Aucun employé trouvé"
             />
 
-            {/* ✅ Messages d'aide dynamiques */}
             {currentBeneficiaire && isDemandeur && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 💡 Le bénéficiaire est pré-rempli avec <strong>votre nom</strong> (le demandeur).
@@ -536,29 +497,14 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               Récapitulatif de la commande
             </Typography>
 
-            {/* ✅ Affichage du demandeur */}
             {employeeDemandeur && (
-              <Box
-                sx={{
-                  mb: 2,
-                  p: 1.5,
-                  bgcolor: "#FFF8E1",
-                  borderRadius: 1,
-                  border: "1px solid #F9A825",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <PersonIcon fontSize="small" color="primary" />
-                <Typography variant="body2">
-                  <strong>Demandeur :</strong> {employeeDemandeur.emp_nom}
-                  {employeeDemandeur.emp_matricule && ` (${employeeDemandeur.emp_matricule})`}
-                </Typography>
-              </Box>
+              <InfoBox
+                icon={<PersonIcon fontSize="small" color="primary" />}
+                title={`Demandeur : ${employeeDemandeur.emp_nom}${employeeDemandeur.emp_matricule ? ` (${employeeDemandeur.emp_matricule})` : ""}`}
+              />
             )}
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth sx={{ mb: 2, mt: 2 }}>
               <InputLabel>Objet de la demande</InputLabel>
               <Select
                 value={objet}
@@ -582,89 +528,64 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                 Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
               </Alert>
             ) : (
-              <Table
-                size="small"
-                sx={{
-                  mb: 2,
-                  border: "1px solid #E0E0E0",
-                  "& .MuiTableCell-root": {
-                    borderColor: "#E0E0E0",
-                    py: 1,
-                    px: 1.5,
-                  },
-                  "& .MuiTableHead-root .MuiTableCell-root": {
-                    bgcolor: "#FFF8E1",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    borderBottom: "2px solid #F9A825",
-                  },
-                }}
+              <StyledTable
+                columns={[
+                  { label: "Article" },
+                  { label: "Quantité", align: "center", width: 100 },
+                  { label: "Bénéficiaire", width: 200 },
+                  { label: "", align: "center", width: 60 },
+                ]}
               >
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Article</TableCell>
-                    <TableCell align="center" sx={{ width: 100 }}>
-                      Quantité
-                    </TableCell>
-                    <TableCell sx={{ width: 200 }}>Bénéficiaire</TableCell>
-                    <TableCell align="center" sx={{ width: 60 }}></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {lignes.map((ligne, index) => (
-                    <TableRow
-                      key={index}
-                      sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600}>
-                          {ligne.article}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {ligne.article_designation}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography
-                          variant="body2"
-                          fontWeight={600}
-                          fontFamily="monospace"
-                        >
-                          {ligne.quantite}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {ligne.beneficiaire_nom ? (
-                          <Chip
-                            label={ligne.beneficiaire_nom}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            icon={<PersonIcon />}
-                          />
-                        ) : (
-                          <Chip
-                            label="Demandeur (auto)"
-                            size="small"
-                            variant="outlined"
-                            color="default"
-                            sx={{ fontStyle: "italic", opacity: 0.7 }}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
+                {lignes.map((ligne, index) => (
+                  <tr key={index} style={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
+                    <td>
+                      <Typography variant="body2" fontWeight={600}>
+                        {ligne.article}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {ligne.article_designation}
+                      </Typography>
+                    </td>
+                    <td align="center">
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        fontFamily="monospace"
+                      >
+                        {ligne.quantite}
+                      </Typography>
+                    </td>
+                    <td>
+                      {ligne.beneficiaire_nom ? (
+                        <Chip
+                          label={ligne.beneficiaire_nom}
                           size="small"
-                          color="error"
-                          onClick={() => handleRetirerLigne(index)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          color="primary"
+                          variant="outlined"
+                          icon={<PersonIcon />}
+                        />
+                      ) : (
+                        <Chip
+                          label="Demandeur (auto)"
+                          size="small"
+                          variant="outlined"
+                          color="default"
+                          sx={{ fontStyle: "italic", opacity: 0.7 }}
+                        />
+                      )}
+                    </td>
+                    <td align="center">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRetirerLigne(index)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </td>
+                  </tr>
+                ))}
+              </StyledTable>
             )}
           </Box>
         );
@@ -674,81 +595,71 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
   };
 
-  // ====== BOUTONS D'ACTION SELON L'ÉTAPE ======
+  // ====== BOUTONS D'ACTION ======
   const renderActions = () => {
+    // Étape 0, 1 : Précédent + Suivant
     if (activeStep === 0 || activeStep === 1) {
       return (
-        <>
-          {activeStep > 0 && (
-            <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>
-              Précédent
-            </Button>
-          )}
-          <Box sx={{ flex: 1 }} />
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            endIcon={<ArrowForwardIcon />}
-          >
-            Suivant
-          </Button>
-        </>
+        <WizardActions
+          activeStep={activeStep}
+          totalSteps={STEPS.length}
+          onBack={handleBack}
+          onNext={handleNext}
+          isLastStep={false}
+        />
       );
     }
 
+    // Étape 2 : Ajouter un autre OU Voir le récap
     if (activeStep === 2) {
       return (
         <>
-          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>
+          <IconButton onClick={handleBack} size="small">
             Précédent
-          </Button>
+          </IconButton>
           <Box sx={{ flex: 1 }} />
-          <Button
+          <IconButton
             variant="outlined"
             onClick={handleAjouterEtContinuer}
             startIcon={<AddIcon />}
           >
             Ajouter un autre article
-          </Button>
-          <Button
+          </IconButton>
+          <IconButton
             variant="contained"
             onClick={handleVoirRecap}
-            endIcon={<ArrowForwardIcon />}
           >
             Voir le récapitulatif
-          </Button>
+          </IconButton>
         </>
       );
     }
 
+    // Étape 3 : Ajouter un autre OU Enregistrer
     if (activeStep === STEPS.length - 1) {
       return (
         <>
-          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>
+          <IconButton onClick={handleBack} size="small">
             Précédent
-          </Button>
+          </IconButton>
           <Box sx={{ flex: 1 }} />
-          <Button
+          <IconButton
             variant="outlined"
             onClick={handleAjouterAutreDepuisRecap}
             startIcon={<AddIcon />}
           >
             Ajouter un autre article
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={saving || lignes.length === 0 || !objet}
-            startIcon={
-              saving ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <SaveIcon />
-              )
-            }
-          >
-            {saving ? "Enregistrement..." : "Enregistrer la commande"}
-          </Button>
+          </IconButton>
+          <WizardActions
+            activeStep={activeStep}
+            totalSteps={STEPS.length}
+            onBack={handleBack}
+            onSubmit={handleSubmit}
+            isLastStep={true}
+            loading={saving}
+            submitLabel="Enregistrer la commande"
+            disabled={lignes.length === 0 || !objet}
+          />
         </>
       );
     }
@@ -757,88 +668,27 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   };
 
   return (
-    <Dialog
-      open={isOpen}
+    <WizardDialog
+      isOpen={isOpen}
       onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 2, minHeight: 500 } }}
+      steps={STEPS}
+      activeStep={activeStep}
+      title={isEditMode ? "Modifier la commande" : "Nouvelle commande"}
+      mode={isEditMode ? "ÉDITION" : "CRÉATION"}
+      error={error}
+      onErrorClose={() => setError("")}
+      actions={renderActions()}
     >
-      <DialogTitle
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          bgcolor: "#FFF8E1",
-          borderBottom: "2px solid",
-          borderColor: "primary.main",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Box
-            sx={{
-              px: 1.5,
-              py: 0.5,
-              bgcolor: isEditMode ? "primary.main" : "success.main",
-              color: "white",
-              borderRadius: 1,
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            {isEditMode ? "ÉDITION" : "CRÉATION"}
-          </Box>
-          <Typography variant="h3">
-            {isEditMode ? "Modifier la commande" : "Nouvelle commande"}
-          </Typography>
-        </Box>
-        <IconButton onClick={handleClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+      {/* Alerte si l'utilisateur n'est pas lié à un employé */}
+      {!employeeDemandeur && employees.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          ⚠️ Votre compte utilisateur n'est pas lié à un employé.
+          Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
+          Veuillez contacter l'administrateur.
+        </Alert>
+      )}
 
-      <Box sx={{ px: 3, pt: 3, pb: 1 }}>
-        <Stepper
-          activeStep={activeStep}
-          alternativeLabel
-          sx={{
-            "& .MuiStepIcon-root.Mui-completed": { color: "primary.main" },
-            "& .MuiStepIcon-root.Mui-active": { color: "primary.main" },
-            "& .MuiStepLabel-label.Mui-active": {
-              color: "primary.main",
-              fontWeight: 600,
-            },
-          }}
-        >
-          {STEPS.map((step, index) => (
-            <Step key={index}>
-              <StepLabel>{step.label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-      </Box>
-      <Divider />
-
-      <DialogContent sx={{ pt: 3, minHeight: 300 }}>
-        {error && (
-          <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* ✅ Alerte si l'utilisateur n'est pas lié à un employé */}
-        {!employeeDemandeur && employees.length > 0 && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            ⚠️ Votre compte utilisateur n'est pas lié à un employé.
-            Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
-            Veuillez contacter l'administrateur.
-          </Alert>
-        )}
-
-        {renderStepContent()}
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>{renderActions()}</DialogActions>
-    </Dialog>
+      {renderStepContent()}
+    </WizardDialog>
   );
 }
