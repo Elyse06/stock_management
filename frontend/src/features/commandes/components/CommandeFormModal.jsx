@@ -1,4 +1,3 @@
-// src/features/commandes/components/CommandeFormModal.jsx
 import { useEffect, useState } from "react";
 import {
   TextField,
@@ -12,8 +11,11 @@ import {
   Chip,
   Autocomplete,
   IconButton,
+  Button,
 } from "@mui/material";
 import {
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
@@ -23,6 +25,7 @@ import {
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
+import { AttributionEditor } from "./AttributionEditor";
 
 // Composants wizard réutilisables
 import { WizardDialog } from "../../../components/wizard/WizardDialog";
@@ -69,7 +72,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   // Données de l'étape en cours
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
-  const [currentBeneficiaire, setCurrentBeneficiaire] = useState(null);
+  const [currentAttributions, setCurrentAttributions] = useState([]);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -102,21 +105,26 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
 
     if (commandeToEdit) {
       setObjet(commandeToEdit.objet || "");
+      
       const lignesTransformees = (commandeToEdit.details || []).map((detail) => {
-        const attribution = detail.attributions?.[0];
         const article = articles.find((a) => a.code_article === detail.article);
-        const beneficiaire = attribution?.employe_beneficiaire
-          ? employees.find((e) => e.emp_id === attribution.employe_beneficiaire)
-          : null;
+        const attributions = (detail.attributions || []).map((attr) => {
+          const employe = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
+          return {
+            employe_beneficiaire: attr.employe_beneficiaire,
+            beneficiaire_nom: employe?.emp_nom || attr.beneficiaire_nom || "—",
+            quantite: Number(attr.quantite),
+          };
+        });
         return {
           article: detail.article,
           article_designation: detail.article_designation,
           stock_calcule: article?.stock_calcule ?? 0,
           quantite: Number(detail.quantite),
-          employe_beneficiaire: attribution?.employe_beneficiaire || null,
-          beneficiaire_nom: beneficiaire?.emp_nom || null,
+          attributions,
         };
       });
+
       setLignes(lignesTransformees);
     } else {
       setObjet("");
@@ -132,18 +140,18 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     if (!isOpen) return;
     if (activeStep !== 2) return;
     if (employees.length === 0) return;
-    if (currentBeneficiaire) return;
+    if (currentAttributions) return;
 
     if (employeeDemandeur) {
-      setCurrentBeneficiaire(employeeDemandeur);
+      setCurrentAttributions(employeeDemandeur);
     }
-  }, [isOpen, activeStep, employees, currentBeneficiaire, employeeDemandeur]);
+  }, [isOpen, activeStep, employees, currentAttributions, employeeDemandeur]);
 
   // ====== HELPERS ======
   const resetCurrentStep = () => {
     setCurrentArticle(null);
     setCurrentQuantite("");
-    setCurrentBeneficiaire(null);
+    setCurrentAttributions([]);
   };
 
   const handleClose = () => {
@@ -193,8 +201,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       article_designation: currentArticle.designation,
       stock_calcule: currentArticle.stock_calcule ?? 0,
       quantite: Number(currentQuantite),
-      employe_beneficiaire: currentBeneficiaire?.emp_id || null,
-      beneficiaire_nom: currentBeneficiaire?.emp_nom || null,
+      attributions: currentAttributions.map((a) => ({
+        employe_beneficiaire: a.employe.emp_id,
+        beneficiaire_nom: a.employe.emp_nom,
+        quantite: a.quantite,
+      })),
     };
 
     setLignes([...lignes, nouvelleLigne]);
@@ -213,8 +224,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       article_designation: currentArticle.designation,
       stock_calcule: currentArticle.stock_calcule ?? 0,
       quantite: Number(currentQuantite),
-      employe_beneficiaire: currentBeneficiaire?.emp_id || null,
-      beneficiaire_nom: currentBeneficiaire?.emp_nom || null,
+      attributions: currentAttributions.map((a) => ({
+        employe_beneficiaire: a.employe.emp_id,
+        beneficiaire_nom: a.employe.emp_nom,
+        quantite: a.quantite,
+      })),
     };
 
     setLignes([...lignes, nouvelleLigne]);
@@ -229,12 +243,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
 
   const handleRetirerLigne = (index) => {
     setLignes(lignes.filter((_, i) => i !== index));
-  };
-
-  // ====== DÉTECTION SI BÉNÉFICIAIRE = DEMANDEUR ======
-  const isBeneficiaireDemandeur = (beneficiaire) => {
-    if (!beneficiaire?.emp_utilisateur_id || !user?.utilisateur_id) return false;
-    return String(beneficiaire.emp_utilisateur_id) === String(user.utilisateur_id);
   };
 
   // ====== ENREGISTREMENT ======
@@ -265,13 +273,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           article: ligne.article,
           quantite: ligne.quantite,
         };
-        if (ligne.employe_beneficiaire) {
-          detail.attributions = [
-            {
-              employe_beneficiaire: ligne.employe_beneficiaire,
-              quantite: ligne.quantite,
-            },
-          ];
+        if (ligne.attributions && ligne.attributions.length > 0) {
+          detail.attributions = ligne.attributions.map((a) => ({
+            employe_beneficiaire: a.employe_beneficiaire,
+            quantite: a.quantite,
+          }));
         }
         return detail;
       });
@@ -407,87 +413,26 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         );
 
       // ====== ÉTAPE 3 : BÉNÉFICIAIRE ======
-      case 2: {
-        const isDemandeur = isBeneficiaireDemandeur(currentBeneficiaire);
-
+      case 2:
         return (
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>
-              Bénéficiaire
+              Attributions
             </Typography>
 
-            <Autocomplete
-              options={employees}
-              getOptionLabel={(option) =>
-                option?.emp_nom
-                  ? `${option.emp_nom} (${option.emp_matricule})`
-                  : ""
-              }
-              isOptionEqualToValue={(option, value) =>
-                option?.emp_id === value?.emp_id
-              }
-              value={currentBeneficiaire}
-              onChange={(_, newValue) => setCurrentBeneficiaire(newValue)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Bénéficiaire"
-                  placeholder="Rechercher un employé..."
-                  autoFocus
-                />
-              )}
-              renderOption={(props, option) => {
-                const isSelf = String(option.emp_utilisateur_id) === String(user?.utilisateur_id);
-                return (
-                  <li {...props} key={option.emp_id}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {option.emp_nom}
-                        </Typography>
-                        {isSelf && (
-                          <Chip
-                            label="Vous"
-                            size="small"
-                            color="primary"
-                            sx={{ height: 20, fontSize: 11, fontWeight: 600 }}
-                          />
-                        )}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.emp_matricule}
-                        {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
-                        {option.emp_contact ? ` • ${option.emp_contact}` : ""}
-                      </Typography>
-                    </Box>
-                  </li>
-                );
-              }}
-              noOptionsText="Aucun employé trouvé"
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Répartissions du quantité entre plusieurs bénéficiaires
+            </Typography>
+
+            <AttributionEditor
+              quantiteTotale={Number(currentQuantite)}
+              attributions={currentAttributions}
+              setAttributions={setCurrentAttributions}
+              employees={employees}
+              demandeurParDefaut={employeeDemandeur}
             />
-
-            {currentBeneficiaire && isDemandeur && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                💡 Le bénéficiaire est pré-rempli avec <strong>votre nom</strong> (le demandeur).
-                Vous pouvez le changer si l'article est destiné à un autre employé.
-              </Alert>
-            )}
-
-            {currentBeneficiaire && !isDemandeur && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                💡 L'article sera attribué à <strong>{currentBeneficiaire.emp_nom}</strong>.
-              </Alert>
-            )}
-
-            {!currentBeneficiaire && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                💡 Si aucun bénéficiaire n'est spécifié, l'article sera automatiquement
-                attribué au demandeur.
-              </Alert>
-            )}
           </Box>
         );
-      }
 
       // ====== ÉTAPE 4 : RÉCAPITULATIF ======
       case 3:
@@ -556,17 +501,22 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                       </Typography>
                     </td>
                     <td>
-                      {ligne.beneficiaire_nom ? (
-                        <Chip
-                          label={ligne.beneficiaire_nom}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          icon={<PersonIcon />}
-                        />
+                      {ligne.attributions && ligne.attributions.length > 0 ? (
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                          {ligne.attributions.map((attr, idx) => (
+                            <Chip
+                              key={idx}
+                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              icon={<PersonIcon />}
+                            />
+                          ))}
+                        </Box>
                       ) : (
                         <Chip
-                          label="Demandeur (auto)"
+                          label= {employeeDemandeur ? `${employeeDemandeur.emp_nom} (${ligne.quantite})` : "Aucun bénéficiaire"}
                           size="small"
                           variant="outlined"
                           color="default"
@@ -614,23 +564,24 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     if (activeStep === 2) {
       return (
         <>
-          <IconButton onClick={handleBack} size="small">
+          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>
             Précédent
-          </IconButton>
+          </Button>
           <Box sx={{ flex: 1 }} />
-          <IconButton
+          <Button
             variant="outlined"
             onClick={handleAjouterEtContinuer}
             startIcon={<AddIcon />}
           >
             Ajouter un autre article
-          </IconButton>
-          <IconButton
+          </Button>
+          <Button
             variant="contained"
             onClick={handleVoirRecap}
+            endIcon={<ArrowForwardIcon />}
           >
             Voir le récapitulatif
-          </IconButton>
+          </Button>
         </>
       );
     }
@@ -639,17 +590,14 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     if (activeStep === STEPS.length - 1) {
       return (
         <>
-          <IconButton onClick={handleBack} size="small">
-            Précédent
-          </IconButton>
           <Box sx={{ flex: 1 }} />
-          <IconButton
+          <Button
             variant="outlined"
             onClick={handleAjouterAutreDepuisRecap}
             startIcon={<AddIcon />}
           >
             Ajouter un autre article
-          </IconButton>
+          </Button>
           <WizardActions
             activeStep={activeStep}
             totalSteps={STEPS.length}
