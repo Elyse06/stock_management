@@ -648,11 +648,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                 ))}
               </StyledTable>
             )}
-
-            <Alert severity="info" sx={{ mt: 2 }}>
-              💡 Le stock théorique est calculé automatiquement à partir des mouvements de stock.
-              L'écart = Quantité physique - Quantité théorique.
-            </Alert>
           </Box>
         );
 
