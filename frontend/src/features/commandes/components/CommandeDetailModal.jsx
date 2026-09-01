@@ -373,7 +373,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                         </Box>
                       ) : (
                         <Chip
-                          label="Demandeur (auto)"
+                          label={commande.demandeur?.nom || commande.employe_demandeur}
                           size="small"
                           variant="outlined"
                           color="default"
