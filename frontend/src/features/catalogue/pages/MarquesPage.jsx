@@ -22,26 +22,19 @@ import {
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
 
 export function MarquesPage() {
-  const { hasAction, hasAnyAction } = useAuth();
-
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canEdit = hasAction('MARQ_EDIT');
-  // Exemple: const canDelete = hasAction('MARQ_DELETE');
-  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
-  const canEdit = true;
-
   const [marques, setMarques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 25,
+  });
   const [rowCount, setRowCount] = useState(0);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = fermé, {} = création, {...} = édition
+  const [editing, setEditing] = useState(null); 
   const [formLibelle, setFormLibelle] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,9 +43,11 @@ export function MarquesPage() {
     setLoading(true);
     setError("");
     try {
-      // ⚠️ Attention : l'API utilise "/api/catalogue/marque/" (singulier)
       const { data } = await apiClient.get("/api/catalogue/marque/", {
-        params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
+        params: {
+          page: paginationModel.page + 1,
+          page_size: paginationModel.pageSize,
+        },
       });
       setMarques(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
@@ -96,7 +91,10 @@ export function MarquesPage() {
         mq_descriprion: formDescription.trim(),
       };
       if (editing?.marque_id) {
-        await apiClient.put(`/api/catalogue/marque/${editing.marque_id}/`, payload);
+        await apiClient.put(
+          `/api/catalogue/marque/${editing.marque_id}/`,
+          payload,
+        );
       } else {
         await apiClient.post("/api/catalogue/marque/", payload);
       }
@@ -115,7 +113,9 @@ export function MarquesPage() {
       await apiClient.delete(`/api/catalogue/marque/${marque.marque_id}/`);
       charger();
     } catch {
-      setError("Suppression impossible (des articles utilisent probablement cette marque).");
+      setError(
+        "Suppression impossible (des articles utilisent probablement cette marque).",
+      );
     }
   };
 
@@ -138,49 +138,45 @@ export function MarquesPage() {
       headerName: "Description",
       flex: 2,
       minWidth: 300,
-      renderCell: (params) => params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) =>
+        params.value || <Chip label="—" size="small" variant="outlined" />,
     },
-    ...(canEdit
-      ? [
-          {
-            field: "actions",
-            headerName: "Actions",
-            width: 140,
-            sortable: false,
-            filterable: false,
-            disableColumnMenu: true,
-            headerAlign: "center",
-            align: "center",
-            renderCell: (params) => (
-              <Box sx={{ display: "flex", gap: 0.5 }}>
-                <Tooltip title="Modifier">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => ouvrirEdition(params.row)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => supprimer(params.row)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            ),
-          },
-        ]
-      : []),
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 140,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <Tooltip title="Modifier">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => ouvrirEdition(params.row)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Supprimer">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => supprimer(params.row)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
   ];
 
   return (
     <Box>
-      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -190,21 +186,21 @@ export function MarquesPage() {
         }}
       >
         <Typography variant="h2">Marques</Typography>
-        {canEdit && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={ouvrirCreation}>
-            Nouvelle marque
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={ouvrirCreation}
+        >
+          Nouvelle marque
+        </Button>
       </Box>
 
-      {/* Erreur */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* DataGrid */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={marques}
@@ -224,7 +220,7 @@ export function MarquesPage() {
         />
       </Box>
 
-      {/* Modal Création / Édition */}
+      {/* Modal création et edition */}
       <Dialog
         open={modalOpen}
         onClose={fermerModal}

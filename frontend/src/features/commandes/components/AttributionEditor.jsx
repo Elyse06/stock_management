@@ -11,10 +11,8 @@ import {
   IconButton,
   Button,
   Tooltip,
-  Chip,
   Autocomplete,
   LinearProgress,
-  Alert,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -22,28 +20,15 @@ import {
   Person as PersonIcon,
 } from "@mui/icons-material";
 
-/**
- * Éditeur d'attributions pour une ligne de commande.
- * Permet de répartir une quantité totale entre plusieurs bénéficiaires.
- *
- * Props :
- * - quantiteTotale : nombre (quantité totale à répartir)
- * - attributions : array de { employe, quantite }
- * - setAttributions : setter
- * - employees : array des employés disponibles
- * - demandeurParDefaut : employé par défaut (pré-rempli si attributions vides)
- */
 export function AttributionEditor({
   quantiteTotale,
   attributions,
   setAttributions,
   employees,
-  demandeurParDefaut,
 }) {
   const [employeSelectionne, setEmployeSelectionne] = useState(null);
   const [quantiteAttribution, setQuantiteAttribution] = useState("");
 
-  // ====== CALCULS ======
   const sommeAttribuee = attributions.reduce(
     (sum, a) => sum + (Number(a.quantite) || 0),
     0
@@ -53,12 +38,10 @@ export function AttributionEditor({
     ? (sommeAttribuee / Number(quantiteTotale)) * 100
     : 0;
 
-  // Employés déjà attribués (à exclure de la liste)
   const employesDisponibles = employees.filter(
     (e) => !attributions.some((a) => a.employe?.emp_id === e.emp_id)
   );
 
-  // ====== AJOUTER UNE ATTRIBUTION ======
   const ajouterAttribution = () => {
     if (!employeSelectionne) return;
     const qte = Number(quantiteAttribution);
@@ -76,12 +59,10 @@ export function AttributionEditor({
     setQuantiteAttribution("");
   };
 
-  // ====== RETIRER UNE ATTRIBUTION ======
   const retirerAttribution = (index) => {
     setAttributions(attributions.filter((_, i) => i !== index));
   };
 
-  // ====== MODIFIER UNE QUANTITÉ ======
   const modifierQuantite = (index, nouvelleQuantite) => {
     const qte = Number(nouvelleQuantite);
     if (!qte || qte <= 0) return;
@@ -93,7 +74,7 @@ export function AttributionEditor({
 
   return (
     <Box>
-      {/* ====== INDICATEUR DE PROGRESSION ====== */}
+      {/* INDICATEUR DE PROGRESSION */}
       <Box sx={{ mb: 2 }}>
         <Box
           sx={{
@@ -152,17 +133,16 @@ export function AttributionEditor({
         />
         {quantiteRestante === 0 && (
           <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: "block", fontWeight: 600 }}>
-            ✅ Toute la quantité a été attribuée.
+            ✅Toute la quantité a été attribuée.
           </Typography>
         )}
         {quantiteRestante < 0 && (
           <Typography variant="caption" color="error.main" sx={{ mt: 0.5, display: "block", fontWeight: 600 }}>
-            ❌ La somme des attributions dépasse la quantité totale.
+            ❌La somme des attributions dépasse la quantité totale.
           </Typography>
         )}
       </Box>
 
-      {/* ====== TABLEAU DES ATTRIBUTIONS ====== */}
       <Table
         size="small"
         sx={{
@@ -188,7 +168,6 @@ export function AttributionEditor({
               Quantité
             </TableCell>
             <TableCell align="center" sx={{ width: 60 }}>
-              {/* Actions */}
             </TableCell>
           </TableRow>
         </TableHead>
@@ -197,7 +176,7 @@ export function AttributionEditor({
             <TableRow>
               <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Aucune attribution. Le demandeur recevra toute la quantité.
+                  Aucune attribution. Vous recevrez toute la quantité.
                 </Typography>
               </TableCell>
             </TableRow>
@@ -247,7 +226,6 @@ export function AttributionEditor({
         </TableBody>
       </Table>
 
-      {/* ====== FORMULAIRE D'AJOUT ====== */}
       <Box
         sx={{
           display: "grid",

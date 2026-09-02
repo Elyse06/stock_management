@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogTitle,
@@ -18,7 +17,6 @@ import {
 } from "@mui/material";
 import {
   Close as CloseIcon,
-  Edit as EditIcon,
   QrCode as QrCodeIcon,
   Category as CategoryIcon,
   Label as LabelIcon,
@@ -27,13 +25,8 @@ import {
   People as PeopleIcon,
 } from "@mui/icons-material";
 
-/**
- * Modal d'affichage des détails d'un article (lecture seule).
- */
-export function ArticleModal({ article, isOpen, onClose, onEdit }) {
-  const navigate = useNavigate();
+export function ArticleModal({ article, isOpen, onClose }) {
 
-  // Fermer avec Échap (géré automatiquement par MUI Dialog)
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -45,16 +38,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
 
   if (!article) return null;
 
-  const handleEdit = () => {
-    onClose();
-    if (onEdit) {
-      onEdit(article);
-    } else {
-      navigate(`/catalogue/${article.code_article}/modifier`);
-    }
-  };
-
-  // Couleur du chip catégorie selon le libellé
   const getCategorieColor = (cat) => {
     if (!cat) return "default";
     const c = cat.toLowerCase();
@@ -72,7 +55,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
       fullWidth
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
-      {/* ====== HEADER ====== */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -101,10 +83,8 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
         </IconButton>
       </DialogTitle>
 
-      {/* ====== BODY ====== */}
       <DialogContent sx={{ pt: 3 }}>
         <Grid container spacing={2}>
-          {/* Code article */}
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <QrCodeIcon fontSize="small" color="action" />
@@ -128,7 +108,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Typography>
           </Grid>
 
-          {/* Catégorie */}
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <CategoryIcon fontSize="small" color="action" />
@@ -141,7 +120,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Typography>
           </Grid>
 
-          {/* Marque */}
           {article.marque_libelle && (
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -154,7 +132,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Grid>
           )}
 
-          {/* Code-barre */}
           {article.code_barre && (
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -169,7 +146,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Grid>
           )}
 
-          {/* Unité */}
           {article.unite && (
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -182,7 +158,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Grid>
           )}
 
-          {/* Modèle */}
           {article.modele && (
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -195,7 +170,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
             </Grid>
           )}
 
-          {/* Description */}
           {article.description && (
             <Grid item xs={12}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -218,7 +192,6 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
           )}
         </Grid>
 
-        {/* ====== FOURNISSEURS ====== */}
         <Box sx={{ mt: 3 }}>
           <Divider sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
@@ -274,15 +247,7 @@ export function ArticleModal({ article, isOpen, onClose, onEdit }) {
         </Box>
       </DialogContent>
 
-      {/* ====== FOOTER ====== */}
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          variant="outlined"
-          startIcon={<EditIcon />}
-          onClick={handleEdit}
-        >
-          Modifier
-        </Button>
         <Button variant="contained" onClick={onClose}>
           Fermer
         </Button>

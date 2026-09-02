@@ -28,11 +28,9 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      // ✅ Appel de la fonction login avec utilisateur_mail
       await login(utilisateur_mail, password);
-      navigate("/"); // Redirection vers le tableau de bord en cas de succès
+      navigate("/");
     } catch (err) {
-      // Gestion des erreurs (message du backend ou message par défaut)
       setError(
         err.response?.data?.detail || "Identifiants invalides. Veuillez réessayer."
       );
@@ -48,7 +46,7 @@ export function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#FFFFFF", // ✅ Fond blanc partout
+        bgcolor: "#FFFFFF",
         p: 2,
       }}
     >
@@ -67,7 +65,7 @@ export function LoginPage() {
               sx={{
                 width: 56,
                 height: 56,
-                bgcolor: "primary.main", // ✅ Jaune du thème
+                bgcolor: "primary.main",
                 borderRadius: 2,
                 display: "flex",
                 alignItems: "center",
@@ -89,14 +87,12 @@ export function LoginPage() {
             </Typography>
           </Box>
 
-          {/* Message d'erreur */}
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error}
             </Alert>
           )}
 
-          {/* Formulaire */}
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth

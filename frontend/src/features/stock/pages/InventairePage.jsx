@@ -23,7 +23,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { InventaireFormModal } from "../components/InventaireFormModal";
 import { InventaireDetailsModal } from "../components/InventaireDetailsModal";
 
-// ====== CONSTANTES ======
 const STATUTS = [
   { value: "EN_ATTENTE", label: "En attente" },
   { value: "VALIDE", label: "Validé" },
@@ -31,15 +30,11 @@ const STATUTS = [
 ];
 
 export function InventairePage() {
-  const { hasAction } = useAuth();
+  const { hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('INV_GERE');
-  // Exemple: const canValidate = hasAction('INV_VAL');
-  const canCreate = true;
-  const canValidate = true;
+  const canCreate = hasAnyAction("INV_GERE");
+  const canValidate = hasAnyAction("INV_VAL");
 
-  // ====== DATA ======
   const [sessions, setSessions] = useState([]);
   const [magasins, setMagasins] = useState([]);
   const [services, setServices] = useState([]);
@@ -48,17 +43,14 @@ export function InventairePage() {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
 
-  // ====== FILTRES ======
   const [statutFiltre, setStatutFiltre] = useState("");
-  const [lieuTypeFiltre, setLieuTypeFiltre] = useState(""); // "magasin" | "service" | ""
+  const [lieuTypeFiltre, setLieuTypeFiltre] = useState("");
   const [lieuIdFiltre, setLieuIdFiltre] = useState("");
 
-  // ====== MODALS ======
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  // ====== CHARGEMENT DES DONNÉES DE RÉFÉRENCE ======
   useEffect(() => {
     Promise.all([
       apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
@@ -71,7 +63,6 @@ export function InventairePage() {
       .catch(() => {});
   }, []);
 
-  // ====== CHARGEMENT DES SESSIONS ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -102,7 +93,6 @@ export function InventairePage() {
     charger();
   }, [charger]);
 
-  // ====== HANDLERS ======
   const handleStatutChange = (value) => {
     setStatutFiltre(value);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -110,7 +100,7 @@ export function InventairePage() {
 
   const handleLieuTypeChange = (value) => {
     setLieuTypeFiltre(value);
-    setLieuIdFiltre(""); // Reset du lieu sélectionné
+    setLieuIdFiltre("");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
@@ -148,7 +138,6 @@ export function InventairePage() {
     setSelectedSession(null);
   };
 
-  // ====== HELPERS ======
   const getStatutColor = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
@@ -175,7 +164,6 @@ export function InventairePage() {
     }
   };
 
-  // ====== COLONNES ======
   const columns = [
     {
       field: "code_reference",
@@ -275,7 +263,6 @@ export function InventairePage() {
 
   return (
     <Box>
-      {/* ====== HEADER ====== */}
       <Box
         sx={{
           display: "flex",
@@ -285,10 +272,6 @@ export function InventairePage() {
         }}
       >
         <Box>
-          <Typography variant="h2">Inventaires</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Gérez les sessions d'inventaire et leur validation
-          </Typography>
         </Box>
         {canCreate && (
           <Button
@@ -301,14 +284,12 @@ export function InventairePage() {
         )}
       </Box>
 
-      {/* ====== ERREUR ====== */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* ====== TOOLBAR (filtres) ====== */}
       <Box
         sx={{
           display: "flex",
@@ -321,7 +302,6 @@ export function InventairePage() {
           border: "1px solid #E0E0E0",
         }}
       >
-        {/* Filtre statut */}
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Statut</InputLabel>
           <Select
@@ -338,7 +318,6 @@ export function InventairePage() {
           </Select>
         </FormControl>
 
-        {/* Filtre type de lieu */}
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Type de lieu</InputLabel>
           <Select
@@ -352,7 +331,6 @@ export function InventairePage() {
           </Select>
         </FormControl>
 
-        {/* Filtre lieu spécifique */}
         {lieuTypeFiltre && (
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Lieu</InputLabel>
@@ -377,7 +355,6 @@ export function InventairePage() {
           </FormControl>
         )}
 
-        {/* Reset filtres */}
         {(statutFiltre || lieuTypeFiltre || lieuIdFiltre) && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
@@ -385,7 +362,6 @@ export function InventairePage() {
         )}
       </Box>
 
-      {/* ====== DATAGRID ====== */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={sessions}
@@ -405,7 +381,6 @@ export function InventairePage() {
         />
       </Box>
 
-      {/* ====== MODAL FORMULAIRE ====== */}
       <InventaireFormModal
         isOpen={isFormModalOpen}
         onClose={closeFormModal}
@@ -414,7 +389,6 @@ export function InventairePage() {
         services={services}
       />
 
-      {/* ====== MODAL DÉTAILS ====== */}
       <InventaireDetailsModal
         session={selectedSession}
         isOpen={isDetailModalOpen}

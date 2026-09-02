@@ -1,4 +1,3 @@
-// src/features/stock/pages/MagasinsPage.jsx
 import { useEffect, useState, useCallback } from "react";
 import {
   Box,
@@ -23,31 +22,24 @@ import {
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
 
-// Champs du formulaire magasin (alignés avec le modèle Django)
 const EMPTY_FORM = {
   magasin_nom: "",
   localite: "",
 };
 
 export function MagasinsPage() {
-  const { hasAction, hasAnyAction } = useAuth();
-
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canEdit = hasAction('INV_GERE');
-  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
-  const canEdit = true;
-
   const [magasins, setMagasins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 25,
+  });
   const [rowCount, setRowCount] = useState(0);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = fermé, {} = création, {...} = édition
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
@@ -56,7 +48,10 @@ export function MagasinsPage() {
     setError("");
     try {
       const { data } = await apiClient.get("/api/stock/magasins/", {
-        params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
+        params: {
+          page: paginationModel.page + 1,
+          page_size: paginationModel.pageSize,
+        },
       });
       setMagasins(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
@@ -105,7 +100,10 @@ export function MagasinsPage() {
         localite: form.localite.trim() || null,
       };
       if (editing?.magasin_id) {
-        await apiClient.put(`/api/stock/magasins/${editing.magasin_id}/`, payload);
+        await apiClient.put(
+          `/api/stock/magasins/${editing.magasin_id}/`,
+          payload,
+        );
       } else {
         await apiClient.post("/api/stock/magasins/", payload);
       }
@@ -117,7 +115,7 @@ export function MagasinsPage() {
         setError(
           Object.entries(detail)
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | ")
+            .join(" | "),
         );
       } else {
         setError("Erreur lors de l'enregistrement du magasin.");
@@ -128,12 +126,15 @@ export function MagasinsPage() {
   };
 
   const supprimer = async (magasin) => {
-    if (!window.confirm(`Supprimer le magasin "${magasin.magasin_nom}" ?`)) return;
+    if (!window.confirm(`Supprimer le magasin "${magasin.magasin_nom}" ?`))
+      return;
     try {
       await apiClient.delete(`/api/stock/magasins/${magasin.magasin_id}/`);
       charger();
     } catch {
-      setError("Suppression impossible (des mouvements y sont probablement liés).");
+      setError(
+        "Suppression impossible (des mouvements y sont probablement liés).",
+      );
     }
   };
 
@@ -156,49 +157,45 @@ export function MagasinsPage() {
       headerName: "Localité",
       flex: 1,
       minWidth: 200,
-      renderCell: (params) => params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) =>
+        params.value || <Chip label="—" size="small" variant="outlined" />,
     },
-    ...(canEdit
-      ? [
-          {
-            field: "actions",
-            headerName: "Actions",
-            width: 140,
-            sortable: false,
-            filterable: false,
-            disableColumnMenu: true,
-            headerAlign: "center",
-            align: "center",
-            renderCell: (params) => (
-              <Box sx={{ display: "flex", gap: 0.5 }}>
-                <Tooltip title="Modifier">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => ouvrirEdition(params.row)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => supprimer(params.row)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            ),
-          },
-        ]
-      : []),
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 140,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <Tooltip title="Modifier">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => ouvrirEdition(params.row)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Supprimer">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => supprimer(params.row)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
   ];
 
   return (
     <Box>
-      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -208,21 +205,21 @@ export function MagasinsPage() {
         }}
       >
         <Typography variant="h2">Magasins</Typography>
-        {canEdit && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={ouvrirCreation}>
-            Nouveau magasin
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={ouvrirCreation}
+        >
+          Nouveau magasin
+        </Button>
       </Box>
 
-      {/* Erreur */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* DataGrid */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={magasins}
@@ -242,7 +239,6 @@ export function MagasinsPage() {
         />
       </Box>
 
-      {/* Modal Création / Édition */}
       <Dialog
         open={modalOpen}
         onClose={fermerModal}

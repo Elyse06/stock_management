@@ -25,28 +25,13 @@ import {
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 
-// ✅ Endpoint corrigé (singulier, d'après le YAML OpenAPI)
 const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
 
-/**
- * Éditeur des lignes article/quantité/bénéficiaire d'une commande.
- *
- * Règles métier :
- * - 1 ligne = 1 article + 1 quantité + 1 bénéficiaire (optionnel)
- * - Si bénéficiaire vide → backend attribue automatiquement au demandeur
- * - Fonctionne en local (le parent envoie les lignes lors de l'enregistrement)
- *
- * Props :
- * - lignes : array des lignes actuelles
- * - setLignes : setter pour mettre à jour les lignes
- * - articles : array des articles disponibles { code_article, designation, stock_calcule }
- */
 export function ArticleLignesEditor({ lignes, setLignes, articles }) {
   const [articleCode, setArticleCode] = useState("");
   const [quantite, setQuantite] = useState("");
   const [beneficiaireId, setBeneficiaireId] = useState("");
 
-  // Liste des employés (chargée une fois)
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
 
@@ -60,7 +45,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         setEmployees(res.data.results ?? res.data);
       })
       .catch(() => {
-        // Silencieux : l'utilisateur pourra toujours créer sans bénéficiaire
       })
       .finally(() => {
         if (!cancelled) setEmployeesLoading(false);
@@ -87,13 +71,11 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         article_designation: article?.designation || articleCode,
         stock_calcule: article?.stock_calcule ?? 0,
         quantite: Number(quantite),
-        // ✅ null = backend attribue au demandeur (d'après le modèle)
         employe_beneficiaire: beneficiaireId || null,
         beneficiaire_nom: beneficiaire?.emp_nom || null,
       },
     ]);
 
-    // Reset du formulaire d'ajout
     setArticleCode("");
     setQuantite("");
     setBeneficiaireId("");
@@ -103,13 +85,11 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
-  // Calcul du stock insuffisant global
   const stockInsuffisant = (ligne) =>
     ligne.stock_calcule !== undefined && ligne.quantite > ligne.stock_calcule;
 
   return (
     <Box>
-      {/* ====== TABLEAU DES LIGNES ====== */}
       <Table
         size="small"
         sx={{
@@ -147,7 +127,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
               Statut
             </TableCell>
             <TableCell align="center" sx={{ width: 60 }}>
-              {/* Actions */}
             </TableCell>
           </TableRow>
         </TableHead>
@@ -168,7 +147,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   "&:hover": { bgcolor: "#FFFDE7" },
                 }}
               >
-                {/* Article */}
                 <TableCell>
                   <Typography variant="body2" fontWeight={600}>
                     {ligne.article}
@@ -178,21 +156,18 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   </Typography>
                 </TableCell>
 
-                {/* Stock actuel */}
                 <TableCell align="center">
                   <Typography variant="body2" fontFamily="monospace">
                     {ligne.stock_calcule ?? 0}
                   </Typography>
                 </TableCell>
 
-                {/* Quantité */}
                 <TableCell align="center">
                   <Typography variant="body2" fontWeight={600} fontFamily="monospace">
                     {ligne.quantite}
                   </Typography>
                 </TableCell>
 
-                {/* Bénéficiaire */}
                 <TableCell>
                   {ligne.beneficiaire_nom ? (
                     <Chip
@@ -213,7 +188,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   )}
                 </TableCell>
 
-                {/* Statut stock */}
                 <TableCell align="center">
                   {stockInsuffisant(ligne) ? (
                     <Chip
@@ -232,7 +206,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   )}
                 </TableCell>
 
-                {/* Actions */}
                 <TableCell align="center">
                   <Tooltip title="Retirer la ligne">
                     <IconButton
@@ -250,7 +223,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         </TableBody>
       </Table>
 
-      {/* ====== FORMULAIRE D'AJOUT ====== */}
       <Box
         sx={{
           display: "grid",
@@ -263,7 +235,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           alignItems: "center",
         }}
       >
-        {/* Article */}
         <FormControl size="small" fullWidth>
           <InputLabel>Article</InputLabel>
           <Select
@@ -282,7 +253,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           </Select>
         </FormControl>
 
-        {/* Quantité */}
         <TextField
           label="Quantité"
           type="number"
@@ -293,7 +263,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           placeholder="0"
         />
 
-        {/* ✅ Bénéficiaire (optionnel) - Autocomplete avec les bons champs */}
         <Autocomplete
           size="small"
           options={employees}
@@ -336,7 +305,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           noOptionsText="Aucun employé trouvé"
         />
 
-        {/* Bouton Ajouter */}
         <Button
           variant="contained"
           size="small"
@@ -348,15 +316,6 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           Ajouter
         </Button>
       </Box>
-
-      {/* Info bénéficiaire optionnel */}
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ mt: 1, display: "block", fontStyle: "italic" }}
-      >
-        💡 Si aucun bénéficiaire n'est spécifié, l'article sera automatiquement attribué au demandeur.
-      </Typography>
     </Box>
   );
 }

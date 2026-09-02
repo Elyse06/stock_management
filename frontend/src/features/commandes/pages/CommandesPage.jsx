@@ -15,7 +15,6 @@ import {
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
@@ -24,7 +23,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { CommandeFormModal } from "../components/CommandeFormModal";
 import { CommandeDetailModal } from "../components/CommandeDetailModal";
 
-// ====== CONSTANTES ======
 const STATUTS = [
   { value: "EN_ATTENTE", label: "En attente" },
   { value: "EN_COURS", label: "En cours" },
@@ -39,7 +37,6 @@ const PERIODES = [
   { value: "annee", label: "Cette année" },
 ];
 
-// Helper pour calculer la plage de dates selon la période
 function getDateRangeForPeriode(periodeId) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -74,32 +71,24 @@ function getDateRangeForPeriode(periodeId) {
 }
 
 export function CommandesPage() {
-  const { hasAction } = useAuth();
+  const { hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('COM_DEM');
-  // Exemple: const canTraiter = hasAction('COM_VAL');
-  // Pour l'instant, tous les utilisateurs connectés peuvent créer/modifier
-  const canCreate = true;
+  const canCreate = hasAnyAction("COM_DEM");
 
-  // ====== DATA ======
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
 
-  // ====== FILTRES ======
   const [statutFiltre, setStatutFiltre] = useState("");
   const [periodeFiltre, setPeriodeFiltre] = useState("tous");
 
-  // ====== MODALS ======
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [commandeToEdit, setCommandeToEdit] = useState(null);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  // ====== CHARGEMENT DES COMMANDES ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -113,7 +102,6 @@ export function CommandesPage() {
       const { data } = await apiClient.get("/api/commandes/commandes/", { params });
       const allCommandes = data.results ?? data;
 
-      // Filtrage côté client pour la période (l'API ne supporte pas le filtrage par date)
       const { debut, fin } = getDateRangeForPeriode(periodeFiltre);
       const commandesFiltrees = allCommandes.filter((commande) => {
         if (!debut || !fin) return true;
@@ -135,7 +123,6 @@ export function CommandesPage() {
     charger();
   }, [charger]);
 
-  // ====== HANDLERS ======
   const handleStatutChange = (value) => {
     setStatutFiltre(value);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -154,16 +141,6 @@ export function CommandesPage() {
   const openFormModalForCreate = () => {
     setCommandeToEdit(null);
     setIsFormModalOpen(true);
-  };
-
-  const openFormModalForEdit = async (commande) => {
-    try {
-      const { data } = await apiClient.get(`/api/commandes/commandes/${commande.commande_id}/`);
-      setCommandeToEdit(data);
-      setIsFormModalOpen(true);
-    } catch {
-      setError("Impossible de charger les détails de la commande à modifier.");
-    }
   };
 
   const closeFormModal = () => {
@@ -196,7 +173,6 @@ export function CommandesPage() {
     }
   };
 
-  // ====== HELPERS ======
   const getStatusColor = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
@@ -227,15 +203,7 @@ export function CommandesPage() {
     }
   };
 
-  // ====== COLONNES ======
   const columns = [
-    {
-      field: "commande_id",
-      headerName: "#",
-      width: 80,
-      headerAlign: "center",
-      align: "center",
-    },
     {
       field: "objet",
       headerName: "Objet",
@@ -315,7 +283,6 @@ export function CommandesPage() {
 
   return (
     <Box>
-      {/* ====== HEADER ====== */}
       <Box
         sx={{
           display: "flex",
@@ -341,14 +308,12 @@ export function CommandesPage() {
         )}
       </Box>
 
-      {/* ====== ERREUR ====== */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* ====== TOOLBAR (filtres) ====== */}
       <Box
         sx={{
           display: "flex",
@@ -361,7 +326,6 @@ export function CommandesPage() {
           border: "1px solid #E0E0E0",
         }}
       >
-        {/* Filtre période */}
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Période</InputLabel>
           <Select
@@ -377,7 +341,6 @@ export function CommandesPage() {
           </Select>
         </FormControl>
 
-        {/* Filtre statut */}
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Statut</InputLabel>
           <Select
@@ -394,7 +357,7 @@ export function CommandesPage() {
           </Select>
         </FormControl>
 
-        {/* Reset filtres */}
+        {/* Réinitialiser les filtres */}
         {(statutFiltre || periodeFiltre !== "tous") && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
@@ -402,7 +365,6 @@ export function CommandesPage() {
         )}
       </Box>
 
-      {/* ====== DATAGRID ====== */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={commandes}
@@ -422,7 +384,6 @@ export function CommandesPage() {
         />
       </Box>
 
-      {/* ====== MODAL FORMULAIRE ====== */}
       <CommandeFormModal
         isOpen={isFormModalOpen}
         onClose={closeFormModal}
@@ -430,7 +391,6 @@ export function CommandesPage() {
         commandeToEdit={commandeToEdit}
       />
 
-      {/* ====== MODAL DÉTAILS ====== */}
       <CommandeDetailModal
         commande={selectedCommande}
         isOpen={isDetailModalOpen}

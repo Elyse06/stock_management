@@ -39,20 +39,16 @@ const TYPES_MANUELS = [
 ];
 
 export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
-  const { hasAction } = useAuth();
+  const { hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('INV_GERE');
-  const canCreate = true;
+  const canCreate = hasAnyAction("INV_GERE", "CAT_GERE");
 
-  // ====== DONNÉES DE RÉFÉRENCE ======
   const [magasins, setMagasins] = useState([]);
   const [articles, setArticles] = useState([]);
 
-  // ====== FORMULAIRE ======
   const [typeMouvement, setTypeMouvement] = useState("ENTREE");
   const [origine, setOrigine] = useState("");
-  const [motif, setMotif] = useState(""); // Non utilisé actuellement mais conservé pour extension future
+  const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
   const [details, setDetails] = useState([{ article: "", quantite: 1 }]);
@@ -60,11 +56,9 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ====== CHARGEMENT DES DONNÉES ======
   useEffect(() => {
     if (!isOpen) return;
 
-    // Reset du formulaire
     setTypeMouvement("ENTREE");
     setOrigine("");
     setMotif("");
@@ -84,7 +78,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
       .catch(() => setError("Impossible de charger les données initiales."));
   }, [isOpen]);
 
-  // ====== GESTION DES LIGNES ======
   const handleDetailChange = (index, field, value) => {
     const updated = [...details];
     updated[index] = { ...updated[index], [field]: value };
@@ -101,7 +94,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
     }
   };
 
-  // ====== VALIDATION ======
   const valider = () => {
     const hasInvalidArticle = details.some(
       (d) => !d.article || String(d.article).trim() === ""
@@ -132,7 +124,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
     return null;
   };
 
-  // ====== ENREGISTREMENT ======
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -180,7 +171,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
     }
   };
 
-  // ====== TITRE DYNAMIQUE ======
   const titre =
     typeMouvement === "ENTREE" ? "Nouvelle entrée de stock" : "Nouveau transfert";
 
@@ -193,7 +183,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
       <form onSubmit={handleSubmit}>
-        {/* ====== HEADER ====== */}
         <DialogTitle
           sx={{
             display: "flex",
@@ -210,7 +199,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
           </IconButton>
         </DialogTitle>
 
-        {/* ====== BODY ====== */}
         <DialogContent sx={{ pt: 3 }}>
           {error && (
             <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
@@ -218,7 +206,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             </Alert>
           )}
 
-          {/* Type de mouvement */}
           <FormControl fullWidth margin="normal">
             <InputLabel>Type de mouvement</InputLabel>
             <Select
@@ -237,10 +224,9 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             </Select>
           </FormControl>
 
-          {/* Origine (ENTREE uniquement) */}
           {typeMouvement === "ENTREE" && (
             <TextField
-              label="Origine / Provenance (optionnel)"
+              label="Origine (optionnel)"
               value={origine}
               onChange={(e) => setOrigine(e.target.value)}
               fullWidth
@@ -250,7 +236,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             />
           )}
 
-          {/* Magasin Source (TRANSFERT uniquement) */}
           {typeMouvement === "TRANSFERT" && (
             <FormControl fullWidth margin="normal" required>
               <InputLabel>Magasin source *</InputLabel>
@@ -269,7 +254,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             </FormControl>
           )}
 
-          {/* Magasin Destination (ENTREE / TRANSFERT) */}
           <FormControl fullWidth margin="normal" required>
             <InputLabel>Magasin destination *</InputLabel>
             <Select
@@ -286,7 +270,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             </Select>
           </FormControl>
 
-          {/* ====== LISTE DES ARTICLES ====== */}
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             Articles concernés
           </Typography>
@@ -382,7 +365,6 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
           </Button>
         </DialogContent>
 
-        {/* ====== FOOTER ====== */}
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose} disabled={loading}>
             Annuler
