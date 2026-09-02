@@ -2,26 +2,20 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Box, CircularProgress } from "@mui/material";
 
-export function ProtectedRoute({ children, action }) {
-  const { user, hasAction } = useAuth();
+export function ProtectedRoute({ children, actions }) {
+  const { user, hasAnyAction } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (action && !hasAction(action)) {
-    return (
-      <Box sx={{ p: 4, textAlign: "center" }}>
-        <h2>Accès refusé</h2>
-        <p>Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
-      </Box>
-    );
+  if (actions && !hasAnyAction(...actions)) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
 }
 
-// Composant de chargement pendant l'init auth
 export function AuthLoader() {
   return (
     <Box

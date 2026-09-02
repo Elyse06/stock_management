@@ -21,21 +21,10 @@ import {
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 
-/**
- * Éditeur des lignes fournisseur/prix d'un article.
- * Fonctionne en local (le parent envoie les lignes lors de l'enregistrement) :
- * plus simple à raisonner qu'un appel API à chaque ligne ajoutée/retirée.
- *
- * Props :
- * - lignes : array des lignes actuelles { fournisseur, fournisseur_nom, prix_achat, id? }
- * - setLignes : setter pour mettre à jour les lignes
- * - fournisseurs : array des fournisseurs disponibles { fournisseur_id, nom }
- */
 export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
   const [fournisseurId, setFournisseurId] = useState("");
   const [prix, setPrix] = useState("");
 
-  // Fournisseurs déjà associés (pour les exclure de la liste)
   const fournisseursDisponibles = fournisseurs.filter(
     (f) => !lignes.some((l) => String(l.fournisseur) === String(f.fournisseur_id))
   );
@@ -63,7 +52,6 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
 
   return (
     <Box>
-      {/* Tableau des lignes */}
       <Table
         size="small"
         sx={{
@@ -89,7 +77,6 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
               Prix d'achat
             </TableCell>
             <TableCell align="center" sx={{ width: 60 }}>
-              {/* Colonne actions */}
             </TableCell>
           </TableRow>
         </TableHead>
@@ -137,7 +124,6 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
         </TableBody>
       </Table>
 
-      {/* Formulaire d'ajout */}
       <Box
         sx={{
           display: "flex",

@@ -19,7 +19,6 @@ import {
 import { DataGrid } from "@mui/x-data-grid";
 import { QRCodeSVG } from "qrcode.react";
 
-// ====== HELPERS LOCAUX ======
 const getTypeColor = (type) => {
   switch (type) {
     case "ENTREE":
@@ -50,18 +49,10 @@ const getTypeLabel = (type) => {
   }
 };
 
-/**
- * Modal d'affichage des détails d'un mouvement.
- *
- * Props :
- * - mouvement : objet mouvement à afficher (ou null)
- * - isOpen : boolean
- * - onClose : function
- */
+
 export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
   if (!mouvement) return null;
 
-  // ====== COLONNES DU DATAGRID ARTICLES ======
   const articlesColumns = [
     { field: "article_designation", headerName: "Article", flex: 1 },
     {
@@ -92,7 +83,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
       fullWidth
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
-      {/* ====== HEADER ====== */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -111,16 +101,13 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
         </IconButton>
       </DialogTitle>
 
-      {/* ====== BODY ====== */}
       <DialogContent sx={{ pt: 3 }}>
-        {/* ====== INFOS GÉNÉRALES ====== */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Informations générales
           </Typography>
 
           <Grid container spacing={2}>
-            {/* Type */}
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" color="text.secondary">
                 Type
@@ -132,7 +119,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
               />
             </Grid>
 
-            {/* Source */}
             {mouvement.magasin_source_nom && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -144,7 +130,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
               </Grid>
             )}
 
-            {/* Destination */}
             {mouvement.magasin_destination_nom && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -156,7 +141,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
               </Grid>
             )}
 
-            {/* Date */}
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" color="text.secondary">
                 Date
@@ -166,7 +150,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
               </Typography>
             </Grid>
 
-            {/* Origine */}
             {mouvement.origine && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -176,7 +159,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
               </Grid>
             )}
 
-            {/* Motif */}
             {mouvement.motif && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -188,7 +170,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
           </Grid>
         </Box>
 
-        {/* ====== BÉNÉFICIAIRES AVEC QR CODE (SORTIE uniquement) ====== */}
         {mouvement.type_mouvement === "SORTIE" && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="h3" sx={{ mb: 1.5 }}>
@@ -210,7 +191,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                           height: "100%",
                         }}
                       >
-                        {/* Infos bénéficiaire */}
                         <Box sx={{ mb: 2 }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                             <PersonIcon fontSize="small" color="primary" />
@@ -245,7 +225,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                           </Typography>
                         </Box>
 
-                        {/* ✅ QR Code visuel */}
                         {detail.qr_code_data && (
                           <Box
                             sx={{
@@ -294,7 +273,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
           </Box>
         )}
 
-        {/* ====== ARTICLES ====== */}
         <Box>
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             Articles ({mouvement.details?.length ?? 0})
@@ -311,7 +289,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
         </Box>
       </DialogContent>
 
-      {/* ====== FOOTER ====== */}
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Fermer</Button>
       </DialogActions>

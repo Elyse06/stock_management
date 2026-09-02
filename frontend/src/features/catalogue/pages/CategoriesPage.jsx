@@ -22,23 +22,19 @@ import {
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
 
 export function CategoriesPage() {
-  const { hasAction, hasAnyAction } = useAuth();
-  // On considère que si l'utilisateur est connecté, il peut éditer
-  // (à ajuster selon tes règles métier — ex: hasAction('CAT_EDIT'))
-  const canEdit = true;
-
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 25,
+  });
   const [rowCount, setRowCount] = useState(0);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = fermé, {} = création, {...} = édition
+  const [editing, setEditing] = useState(null);
   const [formLibelle, setFormLibelle] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,7 +44,10 @@ export function CategoriesPage() {
     setError("");
     try {
       const { data } = await apiClient.get("/api/catalogue/categories/", {
-        params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
+        params: {
+          page: paginationModel.page + 1,
+          page_size: paginationModel.pageSize,
+        },
       });
       setCategories(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
@@ -92,7 +91,10 @@ export function CategoriesPage() {
         cat_description: formDescription.trim(),
       };
       if (editing?.categorie_id) {
-        await apiClient.put(`/api/catalogue/categories/${editing.categorie_id}/`, payload);
+        await apiClient.put(
+          `/api/catalogue/categories/${editing.categorie_id}/`,
+          payload,
+        );
       } else {
         await apiClient.post("/api/catalogue/categories/", payload);
       }
@@ -106,12 +108,15 @@ export function CategoriesPage() {
   };
 
   const supprimer = async (cat) => {
-    if (!window.confirm(`Supprimer la catégorie "${cat.cat_libelle}" ?`)) return;
+    if (!window.confirm(`Supprimer la catégorie "${cat.cat_libelle}" ?`))
+      return;
     try {
       await apiClient.delete(`/api/catalogue/categories/${cat.categorie_id}/`);
       charger();
     } catch {
-      setError("Suppression impossible (des articles utilisent probablement cette catégorie).");
+      setError(
+        "Suppression impossible (des articles utilisent probablement cette catégorie).",
+      );
     }
   };
 
@@ -134,44 +139,41 @@ export function CategoriesPage() {
       headerName: "Description",
       flex: 2,
       minWidth: 300,
-      renderCell: (params) => params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) =>
+        params.value || <Chip label="—" size="small" variant="outlined" />,
     },
-    ...(canEdit
-      ? [
-          {
-            field: "actions",
-            headerName: "Actions",
-            width: 140,
-            sortable: false,
-            filterable: false,
-            disableColumnMenu: true,
-            headerAlign: "center",
-            align: "center",
-            renderCell: (params) => (
-              <Box sx={{ display: "flex", gap: 0.5 }}>
-                <Tooltip title="Modifier">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => ouvrirEdition(params.row)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => supprimer(params.row)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            ),
-          },
-        ]
-      : []),
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 140,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <Tooltip title="Modifier">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => ouvrirEdition(params.row)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Supprimer">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => supprimer(params.row)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
   ];
 
   return (
@@ -186,25 +188,21 @@ export function CategoriesPage() {
         }}
       >
         <Typography variant="h2">Catégories</Typography>
-        {canEdit && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={ouvrirCreation}
-          >
-            Nouvelle catégorie
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={ouvrirCreation}
+        >
+          Nouvelle catégorie
+        </Button>
       </Box>
 
-      {/* Erreur */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* DataGrid */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={categories}
@@ -224,7 +222,6 @@ export function CategoriesPage() {
         />
       </Box>
 
-      {/* Modal Création / Édition */}
       <Dialog
         open={modalOpen}
         onClose={fermerModal}
@@ -244,7 +241,9 @@ export function CategoriesPage() {
             }}
           >
             <Typography variant="h3">
-              {editing?.categorie_id ? "Modifier la catégorie" : "Nouvelle catégorie"}
+              {editing?.categorie_id
+                ? "Modifier la catégorie"
+                : "Nouvelle catégorie"}
             </Typography>
             <IconButton onClick={fermerModal} size="small">
               <CloseIcon />

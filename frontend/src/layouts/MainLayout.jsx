@@ -1,4 +1,3 @@
-// src/layouts/MainLayout.jsx
 import { useState } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -36,42 +35,53 @@ import {
   Logout as LogoutIcon,
 } from "@mui/icons-material";
 
-// Structure du menu horizontal
 const MENU_STRUCTURE = [
-  { path: "/", label: "Tableau de bord", icon: <DashboardIcon fontSize="small" /> },
+  { path: "/", label: "Tableau de bord", icon: <DashboardIcon fontSize="small" />, actions: [] },
   {
     key: "catalogue",
     label: "Catalogue",
     icon: <InventoryIcon fontSize="small" />,
+    actions: [],
     children: [
-      { path: "/catalogue/articles", label: "Articles", icon: <ListAltIcon fontSize="small" /> },
-      { path: "/catalogue/categories", label: "Catégories", icon: <CategoryIcon fontSize="small" /> },
-      { path: "/catalogue/marques", label: "Marques", icon: <LocalOfferIcon fontSize="small" /> },
-      { path: "/catalogue/fournisseurs", label: "Fournisseurs", icon: <PeopleIcon fontSize="small" /> },
+      { path: "/catalogue/articles", label: "Articles", icon: <ListAltIcon fontSize="small" />, actions: ["CAT_LIRE"] },
+      { path: "/catalogue/categories", label: "Catégories", icon: <CategoryIcon fontSize="small" />, actions: ["CAT_GERE"] },
+      { path: "/catalogue/marques", label: "Marques", icon: <LocalOfferIcon fontSize="small" />, actions: ["CAT_GERE"] },
+      { path: "/catalogue/fournisseurs", label: "Fournisseurs", icon: <PeopleIcon fontSize="small" />, actions: ["CAT_GERE"] },
     ],
   },
   {
     key: "inventaire",
     label: "Inventaire",
     icon: <AssignmentIcon fontSize="small" />,
+    actions: [],
     children: [
-      { path: "/magasins", label: "Magasins", icon: <StoreIcon fontSize="small" /> },
-      { path: "/inventaire/mouvements", label: "Mouvements", icon: <SwapHorizIcon fontSize="small" /> },
-      { path: "/inventaire/sessions", label: "Inventaires", icon: <AssignmentIcon fontSize="small" /> },
+      { path: "/magasins", label: "Magasins", icon: <StoreIcon fontSize="small" />, actions: ["INV_GERE"] },
+      { path: "/inventaire/mouvements", label: "Mouvements", icon: <SwapHorizIcon fontSize="small" />, actions: ["MOV_LIRE"] },
+      { path: "/inventaire/sessions", label: "Inventaires", icon: <AssignmentIcon fontSize="small" />, actions: ["INV_LIRE"] },
     ],
   },
-  { path: "/commandes", label: "Commandes", icon: <ShoppingCartIcon fontSize="small" /> },
+  { path: "/commandes", label: "Commandes", icon: <ShoppingCartIcon fontSize="small" />, actions: ["COM_DEM", "COM_VAL"] },
 ];
 
 export function MainLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasAnyAction } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [popoverAnchor, setPopoverAnchor] = useState(null);
   const [activePopoverKey, setActivePopoverKey] = useState(null);
 
-  // Trouver l'item parent actif (pour afficher les sous-onglets)
+  const canSeeItem = (item) => {
+    if (!item.actions || item.actions.length === 0) {
+      if (item.children) {
+        return item.children.some((child) => canSeeItem(child));
+      }
+      return true;
+    }
+
+    return hasAnyAction(...item.actions);
+  };
+
   const activeParent = MENU_STRUCTURE.find(
     (item) => item.children && item.children.some((c) => location.pathname.startsWith(c.path))
   );
@@ -97,7 +107,6 @@ export function MainLayout() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* ====== TOP BAR (style Google Sheets) ====== */}
       <AppBar
         position="sticky"
         elevation={0}
@@ -107,9 +116,7 @@ export function MainLayout() {
           color: "text.primary",
         }}
       >
-        {/* Ligne 1 : Logo + Menu principal + User */}
         <Toolbar sx={{ minHeight: 56, gap: 1 }}>
-          {/* Logo */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
             <Box
               sx={{
@@ -132,9 +139,9 @@ export function MainLayout() {
             </Typography>
           </Box>
 
-          {/* Menu principal horizontal */}
+          {/* Barre de navigation */}
           <Box sx={{ display: "flex", gap: 0.5, flex: 1 }}>
-            {MENU_STRUCTURE.map((item) => {
+            {MENU_STRUCTURE.filter(canSeeItem).map((item) => {
               const isActive = item.path
                 ? location.pathname === item.path
                 : item.children.some((c) => location.pathname.startsWith(c.path));
@@ -200,7 +207,6 @@ export function MainLayout() {
           </Menu>
         </Toolbar>
 
-        {/* Ligne 2 : Sous-onglets (si un menu parent est actif) */}
         {activeParent && (
           <Box
             sx={{
@@ -221,7 +227,7 @@ export function MainLayout() {
                 },
               }}
             >
-              {activeParent.children.map((child) => (
+              {activeParent.children.filter(canSeeItem).map((child) => (
                 <Tab
                   key={child.path}
                   component={NavLink}
@@ -248,7 +254,6 @@ export function MainLayout() {
         )}
       </AppBar>
 
-      {/* Popover pour les sous-menus */}
       <Popover
         open={Boolean(popoverAnchor)}
         anchorEl={popoverAnchor}
@@ -267,7 +272,7 @@ export function MainLayout() {
         }}
       >
         <List dense>
-          {MENU_STRUCTURE.find((m) => m.key === activePopoverKey)?.children.map((child) => (
+          {MENU_STRUCTURE.find((m) => m.key === activePopoverKey)?.children.filter(canSeeItem).map((child) => (
             <ListItemButton
               key={child.path}
               onClick={() => handleChildClick(child.path)}
@@ -284,7 +289,6 @@ export function MainLayout() {
         </List>
       </Popover>
 
-      {/* ====== CONTENU PRINCIPAL ====== */}
       <Box
         component="main"
         sx={{

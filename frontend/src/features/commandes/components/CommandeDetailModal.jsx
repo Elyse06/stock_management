@@ -35,12 +35,9 @@ import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 
 export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
-  const { hasAction } = useAuth();
+  const { hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canTraiter = hasAction('COM_VAL');
-  // Pour l'instant, on considère que tous les utilisateurs connectés peuvent traiter
-  const canTraiter = true;
+  const canTraiter = hasAnyAction("COM_VAL");
 
   const [magasins, setMagasins] = useState([]);
   const [magasinSource, setMagasinSource] = useState("");
@@ -49,7 +46,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Charger les magasins au montage
   useEffect(() => {
     if (isOpen) {
       apiClient

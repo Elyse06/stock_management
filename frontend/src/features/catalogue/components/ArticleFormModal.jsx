@@ -16,6 +16,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Autocomplete,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -24,10 +25,8 @@ import {
   People as PeopleIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
 import { ArticleFournisseurEditor } from "./ArticleFournisseurEditor";
 
-// ====== CONSTANTES ======
 const MODES_SUIVI = [
   { value: "QUANTITE", label: "Quantité simple" },
   { value: "LOT", label: "Suivi par lot" },
@@ -47,24 +46,11 @@ const EMPTY_FORM = {
   categorie: "",
 };
 
-/**
- * Modal de création / édition d'un article.
- *
- * TODO: Implémenter les permissions réelles avec hasAction
- * Exemple: const canCreate = hasAction('ART_CREATE');
- * Exemple: const canUpdate = hasAction('ART_UPDATE');
- * Pour l'instant, tous les utilisateurs connectés peuvent éditer.
- */
 export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = null }) {
-  const { hasAction, hasAnyAction } = useAuth();
-  const canEdit = true; // À remplacer par hasAction('ART_EDIT') plus tard
-
-  // ====== STATES ======
   const [form, setForm] = useState(EMPTY_FORM);
   const [lignesFournisseurs, setLignesFournisseurs] = useState([]);
   const [lignesInitiales, setLignesInitiales] = useState([]);
 
-  // Données de référence (chargées au montage du modal)
   const [categories, setCategories] = useState([]);
   const [marques, setMarques] = useState([]);
   const [fournisseurs, setFournisseurs] = useState([]);
@@ -74,9 +60,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
 
   const isEditMode = Boolean(articleToEdit);
 
-  // ====== EFFECTS ======
 
-  // Chargement des données de référence à l'ouverture
   useEffect(() => {
     if (!isOpen) return;
 
@@ -93,7 +77,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
       .catch(() => setError("Impossible de charger les données de référence."));
   }, [isOpen]);
 
-  // Reset du formulaire à l'ouverture
   useEffect(() => {
     if (!isOpen) return;
 
@@ -121,7 +104,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     setError("");
   }, [isOpen, articleToEdit]);
 
-  // ====== HANDLERS ======
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -135,24 +117,16 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     onClose();
   };
 
-  /**
-   * Synchronise les lignes article-fournisseur avec le backend :
-   * - Supprime les lignes retirées
-   * - Met à jour les lignes existantes modifiées
-   * - Crée les nouvelles lignes
-   */
   const synchroniserFournisseurs = async (codeArticle) => {
     const idsInitiaux = new Set(lignesInitiales.filter((l) => l.id).map((l) => l.id));
     const idsActuels = new Set(lignesFournisseurs.filter((l) => l.id).map((l) => l.id));
 
-    // Supprimer les lignes retirées
     for (const l of lignesInitiales) {
       if (l.id && !idsActuels.has(l.id)) {
         await apiClient.delete(`/api/catalogue/article-fournisseurs/${l.id}/`);
       }
     }
 
-    // Mettre à jour / créer les lignes actuelles
     for (const l of lignesFournisseurs) {
       if (l.id && idsInitiaux.has(l.id)) {
         await apiClient.put(`/api/catalogue/article-fournisseurs/${l.id}/`, {
@@ -172,7 +146,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canEdit) return;
 
     setSaving(true);
     setError("");
@@ -190,7 +163,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         await synchroniserFournisseurs(articleToEdit.code_article);
       } else {
         await apiClient.post("/api/catalogue/articles/", payload);
-        // Création des lignes article-fournisseur
         for (const l of lignesFournisseurs) {
           await apiClient.post("/api/catalogue/article-fournisseurs/", {
             article: form.code_article,
@@ -218,7 +190,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     }
   };
 
-  // ====== RENDER ======
 
   return (
     <Dialog
@@ -229,7 +200,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
       <form onSubmit={handleSubmit}>
-        {/* ====== HEADER ====== */}
         <DialogTitle
           sx={{
             display: "flex",
@@ -263,7 +233,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           </IconButton>
         </DialogTitle>
 
-        {/* ====== BODY ====== */}
         <DialogContent sx={{ pt: 3 }}>
           {error && (
             <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
@@ -271,7 +240,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
             </Alert>
           )}
 
-          {/* Grille des champs */}
           <Box
             sx={{
               display: "grid",
@@ -279,7 +247,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               gap: 2,
             }}
           >
-            {/* Code article */}
             <TextField
               label="Code article"
               value={form.code_article}
@@ -290,7 +257,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ maxLength: 20 }}
             />
 
-            {/* Code-barre */}
             <TextField
               label="Code-barre"
               value={form.code_barre}
@@ -299,7 +265,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ maxLength: 100 }}
             />
 
-            {/* Désignation */}
             <TextField
               label="Désignation"
               value={form.designation}
@@ -308,7 +273,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ maxLength: 50 }}
             />
 
-            {/* Catégorie */}
             <FormControl required>
               <InputLabel>Catégorie</InputLabel>
               <Select
@@ -327,26 +291,26 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               </Select>
             </FormControl>
 
-            {/* Marque (Select au lieu de input text) */}
-            <FormControl required>
-              <InputLabel>Marque</InputLabel>
-              <Select
-                value={form.marque}
-                label="Marque"
-                onChange={handleChange("marque")}
-              >
-                <MenuItem value="" disabled>
-                  Choisir une marque...
-                </MenuItem>
-                {marques.map((m) => (
-                  <MenuItem key={m.marque_id} value={m.marque_id}>
-                    {m.mq_libelle}
-                  </MenuItem>
-                ))}
-              </Select>
+            <FormControl>
+              <Autocomplete
+                options={marques}
+                getOptionLabel={(option) => option.mq_libelle || ""}
+                value={marques.find((m) => m.marque_id === form.marque) || null}
+                onChange={(event, newValue) => {
+                  const value = newValue ? newValue.marque_id : "";
+                  handleChange("marque")({ target: { value } });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Marque"
+                    placeholder="Choisir ou rechercher une marque..."
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.marque_id === value.marque_id}
+              />
             </FormControl>
 
-            {/* Modèle */}
             <TextField
               label="Modèle"
               value={form.modele}
@@ -354,7 +318,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ maxLength: 30 }}
             />
 
-            {/* Unité */}
             <TextField
               label="Unité"
               value={form.unite}
@@ -363,7 +326,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ maxLength: 20 }}
             />
 
-            {/* Seuil */}
             <TextField
               label="Seuil de réapprovisionnement"
               type="number"
@@ -373,7 +335,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               inputProps={{ min: 0, max: 2147483647 }}
             />
 
-            {/* Mode de suivi */}
             <FormControl>
               <InputLabel>Mode de suivi</InputLabel>
               <Select
@@ -389,7 +350,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               </Select>
             </FormControl>
 
-            {/* Description (pleine largeur) */}
             <TextField
               label="Description"
               value={form.description}
@@ -400,7 +360,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
             />
           </Box>
 
-          {/* ====== SECTION FOURNISSEURS ====== */}
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 2 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
@@ -419,7 +378,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           </Box>
         </DialogContent>
 
-        {/* ====== FOOTER ====== */}
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleClose} disabled={saving}>
             Annuler
@@ -427,7 +385,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           <Button
             type="submit"
             variant="contained"
-            disabled={saving || !canEdit}
+            disabled={saving}
             startIcon={
               saving ? (
                 <CircularProgress size={16} color="inherit" />

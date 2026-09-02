@@ -4,29 +4,23 @@ import { MainLayout } from "./layouts/MainLayout";
 import { LoginPage } from "./features/auth/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 
-// Catalogue
 import { ArticleListPage } from "./features/catalogue/pages/ArticleListPage";
 import { CategoriesPage } from "./features/catalogue/pages/CategoriesPage";
 import { MarquesPage } from "./features/catalogue/pages/MarquesPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 
-// Stock / Inventaire
 import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
 import { MouvementsPage } from "./features/mouvement/pages/MouvementsPage";
 import { InventairePage } from "./features/stock/pages/InventairePage";
 
-// ====== COMMANDES ======
 import { CommandesPage } from "./features/commandes/pages/CommandesPage";
 
-import "./components/common/common.css";
 
 function App() {
   return (
     <Routes>
-      {/* Route publique : Login */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Routes protégées avec Layout */}
       <Route
         element={
           <ProtectedRoute>
@@ -34,22 +28,74 @@ function App() {
           </ProtectedRoute>
         }
       >
-        {/* Tableau de bord */}
         <Route path="/" element={<DashboardPage />} />
 
-        {/* ====== CATALOGUE ====== */}
-        <Route path="/catalogue/articles" element={<ArticleListPage />} />
-        <Route path="/catalogue/categories" element={<CategoriesPage />} />
-        <Route path="/catalogue/marques" element={<MarquesPage />} />
-        <Route path="/catalogue/fournisseurs" element={<FournisseursPage />} />
+        <Route 
+          path="/catalogue/articles" 
+          element={
+            <ProtectedRoute actions={["CAT_LIRE"]}>
+              <ArticleListPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/catalogue/categories" 
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <CategoriesPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/catalogue/marques" 
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <MarquesPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/catalogue/fournisseurs" 
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <FournisseursPage />
+            </ProtectedRoute>
+          } 
+        />
 
-        {/* ====== INVENTAIRE ====== */}
-        <Route path="/magasins" element={<MagasinsPage />} />
-        <Route path="/inventaire/mouvements" element={<MouvementsPage />} />
-        <Route path="/inventaire/sessions" element={<InventairePage />} />
+        <Route 
+          path="/magasins" 
+          element={
+            <ProtectedRoute actions={["INV_GERE"]}>
+              <MagasinsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/inventaire/mouvements" 
+          element={
+            <ProtectedRoute actions={["MOV_LIRE"]}>
+              <MouvementsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/inventaire/sessions" 
+          element={
+            <ProtectedRoute actions={["INV_LIRE"]}>
+              <InventairePage />
+            </ProtectedRoute>
+          } 
+        />
 
-        {/* ====== COMMANDES ====== */}
-        <Route path="/commandes" element={<CommandesPage />} />
+        <Route 
+          path="/commandes" 
+          element={
+            <ProtectedRoute actions={["COM_DEM", "COM_VAL"]}>
+              <CommandesPage />
+            </ProtectedRoute>
+          } 
+        />
       </Route>
     </Routes>
   );

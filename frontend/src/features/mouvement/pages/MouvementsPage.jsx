@@ -26,27 +26,22 @@ import { MouvementDetailModal } from "../components/MouvementDetailModal";
 export function MouvementsPage() {
   const { hasAction, hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('INV_GERE');
-  const canEdit = true;
+  //const canEdit = true;
+  const canEdit = hasAnyAction("CAT_GERE", "INV_GERE");
 
-  // ====== DATA ======
   const [mouvements, setMouvements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
 
-  // ====== FILTRES ======
   const [filterType, setFilterType] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
 
-  // ====== MODALS ======
   const [selectedMouvement, setSelectedMouvement] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // ====== CHARGEMENT ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -73,7 +68,6 @@ export function MouvementsPage() {
     charger();
   }, [charger]);
 
-  // ====== FILTRE DATE (côté client) ======
   const mouvementsFiltres = mouvements.filter((mouvement) => {
     if (!dateDebut && !dateFin) return true;
     const mouvementDate = new Date(mouvement.date);
@@ -100,7 +94,6 @@ export function MouvementsPage() {
     setDateFin("");
   };
 
-  // ====== HELPERS (utilisés dans les colonnes) ======
   const getTypeColor = (type) => {
     switch (type) {
       case "ENTREE":
@@ -131,7 +124,6 @@ export function MouvementsPage() {
     }
   };
 
-  // ====== COLONNES DATAGRID ======
   const columns = [
     {
       field: "mouvement_id",
@@ -206,7 +198,6 @@ export function MouvementsPage() {
 
   return (
     <Box>
-      {/* ====== HEADER ====== */}
       <Box
         sx={{
           display: "flex",
@@ -227,7 +218,6 @@ export function MouvementsPage() {
         )}
       </Box>
 
-      {/* ====== TOOLBAR (filtres) ====== */}
       <Box
         sx={{
           display: "flex",
@@ -282,14 +272,12 @@ export function MouvementsPage() {
         )}
       </Box>
 
-      {/* ====== ERREUR ====== */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* ====== DATAGRID ====== */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={mouvementsFiltres}
@@ -309,14 +297,12 @@ export function MouvementsPage() {
         />
       </Box>
 
-      {/* ====== MODAL DÉTAILS ====== */}
       <MouvementDetailModal
         mouvement={selectedMouvement}
         isOpen={Boolean(selectedMouvement)}
         onClose={() => setSelectedMouvement(null)}
       />
 
-      {/* ====== MODAL CRÉATION ====== */}
       <MouvementFormModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

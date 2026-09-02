@@ -11,7 +11,7 @@ import theme from './theme.js';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
-      <CssBaseline /> {/* Force le fond blanc et les styles de base MUI */}
+      <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
           <App />

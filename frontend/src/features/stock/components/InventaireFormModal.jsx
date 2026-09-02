@@ -28,7 +28,6 @@ import {
   ListAlt as ListAltIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
 import { WizardDialog } from "../../../components/wizard/WizardDialog";
 import { WizardActions } from "../../../components/wizard/WizardActions";
 import { StyledTable } from "../../../components/wizard/StyledTable";
@@ -43,29 +42,18 @@ const STEPS = [
 ];
 
 export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, services }) {
-  const { hasAction } = useAuth();
-
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('INV_GERE');
-  const canCreate = true;
-
-  // ====== STATE WIZARD ======
   const [activeStep, setActiveStep] = useState(0);
 
-  // ====== DONNÉES DE RÉFÉRENCE ======
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
 
-  // ====== ✅ STOCKS THÉORIQUES PAR ARTICLE (calculés en temps réel) ======
-  // Map<code_article, { quantite_theorique: number }>
+  //STOCKS THÉORIQUES PAR ARTICLE (calculés en temps réel)
   const [stocksTheoriques, setStocksTheoriques] = useState({});
   const [loadingStocks, setLoadingStocks] = useState(false);
 
-  // ====== ÉTAPE 1 : LIEU ======
   const [lieuType, setLieuType] = useState("magasin");
   const [lieuId, setLieuId] = useState("");
 
-  // ====== ÉTAPE 2 : ARTICLES ======
   const [lignes, setLignes] = useState([]);
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
@@ -74,7 +62,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // ====== CHARGEMENT DES DONNÉES DE RÉFÉRENCE ======
   useEffect(() => {
     if (!isOpen) return;
 
@@ -89,8 +76,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       .catch(() => setError("Impossible de charger les données."));
   }, [isOpen]);
 
-  // ====== ✅ CALCUL DU STOCK THÉORIQUE EN TEMPS RÉEL ======
-  // Se déclenche quand le lieu change
+  //CALCUL DU STOCK THÉORIQUE EN TEMPS RÉEL
   useEffect(() => {
     if (!isOpen) return;
     if (!lieuId) {
@@ -101,7 +87,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     const calculerStocksTheoriques = async () => {
       setLoadingStocks(true);
       try {
-        // Charger tous les mouvements (on pourrait optimiser avec un filtre)
         const { data } = await apiClient.get("/api/stock/mouvements/", {
           params: { page_size: 1000 },
         });
@@ -126,7 +111,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
             }
 
             if (lieuType === "magasin") {
-              // ✅ Logique MAGASIN : Entrées - Sorties
+              //MAGASIN : Entrées - Sorties
               if (
                 mouvement.type_mouvement === "ENTREE" &&
                 magasinDestination === currentLieu
@@ -148,7 +133,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                 }
               }
             } else if (lieuType === "service") {
-              // ✅ Logique SERVICE : Somme des sorties vers les employés du service
+              //SERVICE : Somme des sorties vers les employés du service
               if (mouvement.type_mouvement === "SORTIE") {
                 const beneficiaire = employees.find(
                   (e) => e.emp_id === detail.employe_beneficiaire
@@ -173,7 +158,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     calculerStocksTheoriques();
   }, [isOpen, lieuId, lieuType, employees]);
 
-  // ====== RESET À L'OUVERTURE ======
   useEffect(() => {
     if (!isOpen) return;
     setLieuType("magasin");
@@ -187,7 +171,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     setError("");
   }, [isOpen]);
 
-  // ====== HELPERS ======
   const resetCurrentArticle = () => {
     setCurrentArticle(null);
     setCurrentQuantite("");
@@ -213,12 +196,11 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       : lieuSelectionne.serv_libelle
     : "";
 
-  // ====== ✅ HELPER : Obtenir le stock théorique d'un article ======
+  //Obtenir le stock théorique d'un article
   const getStockTheorique = (articleCode) => {
     return stocksTheoriques[articleCode]?.quantite_theorique ?? 0;
   };
 
-  // ====== NAVIGATION ======
   const handleNext = () => {
     setError("");
 
@@ -239,7 +221,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     }
   };
 
-  // ====== GESTION DES LIGNES ======
+  //ligne des articles
   const ajouterLigne = () => {
     if (!currentArticle) {
       setError("Veuillez sélectionner un article.");
@@ -277,7 +259,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
-  // ====== ENREGISTREMENT ======
   const handleSubmit = async () => {
     if (lignes.length === 0) {
       setError("Ajoutez au moins un article à l'inventaire.");
@@ -326,7 +307,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     }
   };
 
-  // ====== ✅ HELPER : Couleur de l'écart ======
   const getEcartColor = (ecart) => {
     if (ecart === 0) return "success.main";
     return "error.main";
@@ -337,10 +317,9 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     return String(ecart);
   };
 
-  // ====== RENDU DES ÉTAPES ======
   const renderStepContent = () => {
     switch (activeStep) {
-      // ====== ÉTAPE 1 : LIEU ======
+      //ÉTAPE 1 : LIEU
       case 0:
         return (
           <Box>
@@ -425,7 +404,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
           </Box>
         );
 
-      // ====== ÉTAPE 2 : ARTICLES ======
+      //ÉTAPE 2 : ARTICLES
       case 1:
         return (
           <Box>
@@ -433,13 +412,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
               Articles à inventorier
             </Typography>
 
-            {loadingStocks && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                ⏳ Calcul des stocks théoriques en cours...
-              </Alert>
-            )}
-
-            {/* Formulaire d'ajout */}
             <FormSection>
               <Autocomplete
                 options={articles.filter(
@@ -540,7 +512,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                 />
               </Box>
 
-              {/* ✅ Aperçu de l'écart en temps réel */}
               {currentArticle && currentQuantite !== "" && (
                 <Box
                   sx={{
@@ -584,7 +555,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
               </Button>
             </FormSection>
 
-            {/* ✅ Liste des articles avec Qté théo et Écart */}
             {lignes.length > 0 && (
               <StyledTable
                 columns={[
@@ -651,7 +621,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
           </Box>
         );
 
-      // ====== ÉTAPE 3 : RÉCAPITULATIF ======
+      //ÉTAPE 3 : RÉCAPITULATIF
       case 2:
         return (
           <Box>

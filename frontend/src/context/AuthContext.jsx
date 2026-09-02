@@ -28,7 +28,6 @@ export function AuthProvider({ children }) {
         const me = await authApi.fetchCurrentUser();
         setUser(me);
       } catch (error) {
-        // Si le token est invalide ou expiré, on le nettoie proprement
         clearTokens();
         setUser(null);
       }
@@ -36,7 +35,6 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
-  // ✅ Paramètre correctement nommé en utilisateur_mail
   const login = async (utilisateur_mail, password) => {
     setLoading(true);
     try {

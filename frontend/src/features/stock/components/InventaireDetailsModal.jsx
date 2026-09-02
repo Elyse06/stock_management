@@ -28,11 +28,9 @@ import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 
 export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) {
-  const { hasAction } = useAuth();
+  const { hasAnyAction } = useAuth();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canValidate = hasAction('INV_VAL');
-  const canValidate = true;
+  const canValidate = hasAnyAction("INV_VAL");
 
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +38,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
 
   if (!session) return null;
 
-  // ====== HELPERS ======
   const getStatutColor = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
@@ -71,7 +68,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
   const lieuIcon = isMagasin ? <StoreIcon /> : <BusinessIcon />;
   const lieuType = isMagasin ? "Magasin" : "Département";
 
-  // ====== VALIDATION DE L'INVENTAIRE ======
   const handleValider = async () => {
     if (
       !window.confirm(
@@ -86,7 +82,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
     setSuccess("");
 
     try {
-      // ✅ Endpoint spécifique pour la validation (pas un PUT sur le statut)
       const { data } = await apiClient.post(
         `/api/stock/inventaires/${session.inventaire_id}/valider/`,
         {}
@@ -96,8 +91,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
 
       if (onSuccess) onSuccess();
 
-      // Mettre à jour la session affichée avec les nouvelles données
-      // (le parent rechargera via onSuccess)
     } catch (err) {
       const detail = err?.response?.data;
       if (detail && typeof detail === "object") {
@@ -114,7 +107,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
     }
   };
 
-  // ====== COLONNES DU DATAGRID ======
   const columns = [
     {
       field: "article",
@@ -204,7 +196,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
     },
   ];
 
-  // ====== STATS RAPIDES ======
   const lignes = session.lignes ?? [];
   const nbArticles = lignes.length;
   const nbEcarts = lignes.filter((l) => Number(l.ecart) !== 0).length;
@@ -223,7 +214,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
       fullWidth
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
-      {/* ====== HEADER ====== */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -257,9 +247,7 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
         </IconButton>
       </DialogTitle>
 
-      {/* ====== BODY ====== */}
       <DialogContent sx={{ pt: 3 }}>
-        {/* Alertes */}
         {error && (
           <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
             {error}
@@ -271,14 +259,12 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
           </Alert>
         )}
 
-        {/* ====== INFOS GÉNÉRALES ====== */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Informations générales
           </Typography>
 
           <Grid container spacing={2}>
-            {/* Lieu */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                 {lieuIcon}
@@ -291,7 +277,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
               </Typography>
             </Grid>
 
-            {/* Statut */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                 <AssignmentIcon fontSize="small" color="action" />
@@ -306,7 +291,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
               />
             </Grid>
 
-            {/* Date création */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                 <CalendarIcon fontSize="small" color="action" />
@@ -319,7 +303,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
               </Typography>
             </Grid>
 
-            {/* Date validation */}
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                 <CheckCircleIcon fontSize="small" color="action" />
@@ -336,7 +319,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
           </Grid>
         </Box>
 
-        {/* ====== STATS RAPIDES ====== */}
         <Box
           sx={{
             display: "grid",
@@ -405,7 +387,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
           </Box>
         </Box>
 
-        {/* ====== LIGNES D'INVENTAIRE ====== */}
         <Divider sx={{ mb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
             <InventoryIcon fontSize="small" />
@@ -432,7 +413,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
         </Box>
       </DialogContent>
 
-      {/* ====== FOOTER ====== */}
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={validating}>
           Fermer

@@ -35,27 +35,27 @@ export function ArticleListPage() {
   // Exemple: const canUpdate = hasAction('ART_UPDATE');
   // Exemple: const canDelete = hasAction('ART_DELETE');
   // Pour l'instant, tous les utilisateurs connectés peuvent éditer
-  const canEdit = true;
+  // const canEdit = true;
+  const canEdit = hasAnyAction("CAT_GERE");
 
-  // ====== DATA ======
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 25,
+  });
   const [rowCount, setRowCount] = useState(0);
 
-  // ====== FILTRES ======
   const [search, setSearch] = useState("");
   const [categorieFiltre, setCategorieFiltre] = useState("");
 
-  // ====== MODALS ======
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [articleToEdit, setArticleToEdit] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
-  // ====== CHARGEMENT DES CATÉGORIES (une seule fois) ======
   useEffect(() => {
     apiClient
       .get("/api/catalogue/categories/", { params: { page_size: 100 } })
@@ -63,7 +63,6 @@ export function ArticleListPage() {
       .catch(() => {});
   }, []);
 
-  // ====== CHARGEMENT DES ARTICLES ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -75,7 +74,9 @@ export function ArticleListPage() {
       if (search) params.search = search;
       if (categorieFiltre) params.categorie = categorieFiltre;
 
-      const { data } = await apiClient.get("/api/catalogue/articles/", { params });
+      const { data } = await apiClient.get("/api/catalogue/articles/", {
+        params,
+      });
       setArticles(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
     } catch {
@@ -117,7 +118,9 @@ export function ArticleListPage() {
 
   const openFormModalForEdit = async (article) => {
     try {
-      const { data } = await apiClient.get(`/api/catalogue/articles/${article.code_article}/`);
+      const { data } = await apiClient.get(
+        `/api/catalogue/articles/${article.code_article}/`,
+      );
       setArticleToEdit(data);
       setIsFormModalOpen(true);
     } catch {
@@ -131,12 +134,17 @@ export function ArticleListPage() {
   };
 
   const handleDelete = async (article) => {
-    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`)) return;
+    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`))
+      return;
     try {
-      await apiClient.delete(`/api/catalogue/articles/${article.code_article}/`);
+      await apiClient.delete(
+        `/api/catalogue/articles/${article.code_article}/`,
+      );
       charger();
     } catch {
-      setError("Suppression impossible (article probablement référencé ailleurs).");
+      setError(
+        "Suppression impossible (article probablement référencé ailleurs).",
+      );
     }
   };
 
@@ -150,7 +158,6 @@ export function ArticleListPage() {
     return "default";
   };
 
-  // ====== COLONNES ======
   const columns = [
     {
       field: "code_article",
@@ -199,73 +206,58 @@ export function ArticleListPage() {
       field: "marque_libelle",
       headerName: "Marque",
       width: 130,
-      renderCell: (params) => params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) =>
+        params.value || <Chip label="—" size="small" variant="outlined" />,
     },
     {
-      field: "stock_calcule",
-      headerName: "Stock",
-      width: 100,
+      field: "actions",
+      headerName: "Actions",
+      width: 160,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
       headerAlign: "center",
       align: "center",
       renderCell: (params) => (
-        <Chip
-          label={params.value ?? 0}
-          size="small"
-          color={params.value > 0 ? "success" : "error"}
-          variant="filled"
-        />
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <Tooltip title="Détails">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => openDetailModal(params.row)}
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {canEdit && (
+            <>
+              <Tooltip title="Modifier">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={() => openFormModalForEdit(params.row)}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Supprimer">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDelete(params.row)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+        </Box>
       ),
     },
-    ...(canEdit
-      ? [
-          {
-            field: "actions",
-            headerName: "Actions",
-            width: 160,
-            sortable: false,
-            filterable: false,
-            disableColumnMenu: true,
-            headerAlign: "center",
-            align: "center",
-            renderCell: (params) => (
-              <Box sx={{ display: "flex", gap: 0.5 }}>
-                <Tooltip title="Détails">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => openDetailModal(params.row)}
-                  >
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Modifier">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => openFormModalForEdit(params.row)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(params.row)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            ),
-          },
-        ]
-      : []),
   ];
 
   return (
     <Box>
-      {/* ====== HEADER ====== */}
       <Box
         sx={{
           display: "flex",
@@ -274,27 +266,24 @@ export function ArticleListPage() {
           mb: 2,
         }}
       >
-        <Box>
-          <Typography variant="h2">Catalogue des articles</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Gérez votre inventaire, filtres et actions en un seul endroit
-          </Typography>
-        </Box>
+        <Box></Box>
         {canEdit && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openFormModalForCreate}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={openFormModalForCreate}
+          >
             Nouvel article
           </Button>
         )}
       </Box>
 
-      {/* ====== ERREUR ====== */}
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* ====== TOOLBAR (recherche + filtre) ====== */}
       <Box
         sx={{
           display: "flex",
@@ -307,9 +296,8 @@ export function ArticleListPage() {
           border: "1px solid #E0E0E0",
         }}
       >
-        {/* Recherche */}
         <TextField
-          placeholder="Rechercher (code, désignation, code-barre)..."
+          placeholder="Rechercher"
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
           size="small"
@@ -317,13 +305,15 @@ export function ArticleListPage() {
           slotProps={{
             input: {
               startAdornment: (
-                <SearchIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />
+                <SearchIcon
+                  fontSize="small"
+                  sx={{ color: "text.secondary", mr: 1 }}
+                />
               ),
             },
           }}
         />
 
-        {/* Filtre catégorie */}
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Catégorie</InputLabel>
           <Select
@@ -340,7 +330,6 @@ export function ArticleListPage() {
           </Select>
         </FormControl>
 
-        {/* Reset filtres */}
         {(search || categorieFiltre) && (
           <Button
             variant="outlined"
@@ -355,7 +344,6 @@ export function ArticleListPage() {
         )}
       </Box>
 
-      {/* ====== DATAGRID ====== */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={articles}
@@ -375,15 +363,12 @@ export function ArticleListPage() {
         />
       </Box>
 
-      {/* ====== MODAL DÉTAILS ====== */}
       <ArticleModal
         article={selectedArticle}
         isOpen={isDetailModalOpen}
         onClose={closeDetailModal}
-        onEdit={openFormModalForEdit}
       />
 
-      {/* ====== MODAL FORMULAIRE ====== */}
       <ArticleFormModal
         isOpen={isFormModalOpen}
         onClose={closeFormModal}
