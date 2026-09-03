@@ -28,14 +28,18 @@ class CategorieViewSet(viewsets.ModelViewSet):
         )
     ]
 
+
 class MarqueViewSet(viewsets.ModelViewSet):
     queryset = Marque.objects.all()
     serializer_class = MarqueSerializer
     permission_classes = CategorieViewSet.permission_classes
 
+
 class ArticleViewSet(viewsets.ModelViewSet):
-    queryset = Article.objects.all().select_related("categorie").prefetch_related(
-        "fournisseurs_liaison__fournisseur"
+    queryset = (
+        Article.objects.all()
+        .select_related("categorie")
+        .prefetch_related("fournisseurs_liaison__fournisseur")
     )
     serializer_class = ArticleSerializer
     permission_classes = CategorieViewSet.permission_classes
@@ -47,9 +51,9 @@ class ArticleViewSet(viewsets.ModelViewSet):
         queryset = Article.objects.select_related("categorie").prefetch_related(
             "fournisseurs_liaison__fournisseur"
         )
-        
-        magasin_id = self.request.query_params.get("magasin_id")
 
+        magasin_id = self.request.query_params.get("magasin_id")
+        
         if magasin_id:
             filtre_entree = Q(
                 details_mouvement__mouvement__magasin_destination_id=magasin_id,
@@ -59,6 +63,16 @@ class ArticleViewSet(viewsets.ModelViewSet):
                 details_mouvement__mouvement__magasin_source_id=magasin_id,
                 details_mouvement__mouvement__type_mouvement__in=["SORTIE", "TRANSFERT"],
             )
+            filtre_ajustement_plus = Q(
+                details_mouvement__mouvement__type_mouvement="AJUSTEMENT",
+                details_mouvement__mouvement__magasin_destination_id=magasin_id,
+                details_mouvement__mouvement__magasin_source__isnull=True,
+            )
+            filtre_ajustement_moins = Q(
+                details_mouvement__mouvement__type_mouvement="AJUSTEMENT",
+                details_mouvement__mouvement__magasin_source_id=magasin_id,
+                details_mouvement__mouvement__magasin_destination__isnull=True,
+            )
         else:
             filtre_entree = Q(
                 details_mouvement__mouvement__type_mouvement__in=["ENTREE", "TRANSFERT"]
@@ -66,14 +80,26 @@ class ArticleViewSet(viewsets.ModelViewSet):
             filtre_sortie = Q(
                 details_mouvement__mouvement__type_mouvement__in=["SORTIE", "TRANSFERT"]
             )
-
+            filtre_ajustement_plus = Q(
+                details_mouvement__mouvement__type_mouvement="AJUSTEMENT",
+                details_mouvement__mouvement__magasin_destination__isnull=False,
+                details_mouvement__mouvement__magasin_source__isnull=True,
+            )
+            filtre_ajustement_moins = Q(
+                details_mouvement__mouvement__type_mouvement="AJUSTEMENT",
+                details_mouvement__mouvement__magasin_source__isnull=False,
+                details_mouvement__mouvement__magasin_destination__isnull=True,
+            )
+        
         return queryset.annotate(
-            stock_calcule=Coalesce(
-                Sum("details_mouvement__quantite", filter=filtre_entree), 0
-            ) - Coalesce(
-                Sum("details_mouvement__quantite", filter=filtre_sortie), 0
+            stock_calcule=(
+                Coalesce(Sum("details_mouvement__quantite", filter=filtre_entree), 0)
+                - Coalesce(Sum("details_mouvement__quantite", filter=filtre_sortie), 0)
+                + Coalesce(Sum("details_mouvement__quantite", filter=filtre_ajustement_plus), 0)
+                - Coalesce(Sum("details_mouvement__quantite", filter=filtre_ajustement_moins), 0)
             )
         )
+    
 
 class FournisseurViewSet(viewsets.ModelViewSet):
     queryset = Fournisseur.objects.all()
