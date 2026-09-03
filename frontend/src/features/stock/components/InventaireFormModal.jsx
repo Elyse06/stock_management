@@ -1,4 +1,3 @@
-// src/features/stock/components/InventaireFormModal.jsx
 import { useEffect, useState } from "react";
 import {
   TextField,
@@ -34,7 +33,6 @@ import { StyledTable } from "../../../components/wizard/StyledTable";
 import { InfoBox } from "../../../components/wizard/InfoBox";
 import { FormSection } from "../../../components/wizard/FormSection";
 
-// ====== CONSTANTES ======
 const STEPS = [
   { label: "Lieu", icon: <StoreIcon /> },
   { label: "Articles", icon: <InventoryIcon /> },
@@ -76,7 +74,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       .catch(() => setError("Impossible de charger les données."));
   }, [isOpen]);
 
-  //CALCUL DU STOCK THÉORIQUE EN TEMPS RÉEL
+  //obtention du stock théorique de l'article
   useEffect(() => {
     if (!isOpen) return;
     if (!lieuId) {
@@ -84,79 +82,25 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       return;
     }
 
-    const calculerStocksTheoriques = async () => {
-      setLoadingStocks(true);
-      try {
-        const { data } = await apiClient.get("/api/stock/mouvements/", {
-          params: { page_size: 1000 },
-        });
-        const mouvements = data.results ?? data;
-
-        const map = {};
-
-        for (const mouvement of mouvements) {
-          const magasinSource = Number(mouvement.magasin_source);
-          const magasinDestination = Number(mouvement.magasin_destination);
-          const currentLieu = Number(lieuId);
-
-          for (const detail of mouvement.details ?? []) {
-            const articleCode = detail.article;
-            const quantite = Number(detail.quantite) || 0;
-
-            if (!map[articleCode]) {
-              map[articleCode] = {
-                quantite_theorique: 0,
-                article_designation: detail.article_designation || articleCode,
-              };
-            }
-
-            if (lieuType === "magasin") {
-              //MAGASIN : Entrées - Sorties
-              if (
-                mouvement.type_mouvement === "ENTREE" &&
-                magasinDestination === currentLieu
-              ) {
-                map[articleCode].quantite_theorique += quantite;
-              }
-              if (
-                mouvement.type_mouvement === "SORTIE" &&
-                magasinSource === currentLieu
-              ) {
-                map[articleCode].quantite_theorique -= quantite;
-              }
-              if (mouvement.type_mouvement === "TRANSFERT") {
-                if (magasinDestination === currentLieu) {
-                  map[articleCode].quantite_theorique += quantite;
-                }
-                if (magasinSource === currentLieu) {
-                  map[articleCode].quantite_theorique -= quantite;
-                }
-              }
-            } else if (lieuType === "service") {
-              //SERVICE : Somme des sorties vers les employés du service
-              if (mouvement.type_mouvement === "SORTIE") {
-                const beneficiaire = employees.find(
-                  (e) => e.emp_id === detail.employe_beneficiaire
-                );
-                if (beneficiaire && String(beneficiaire.emp_serv_id) === String(lieuId)) {
-                  map[articleCode].quantite_theorique += quantite;
-                }
-              }
-            }
-          }
+    if (lieuType === "magasin") {
+      const fetchStocks = async () => {
+        setLoadingStocks(true);
+        try {
+          const { data } = await apiClient.get(`/api/stock/magasins/${lieuId}/stocks/`);
+          setStocksTheoriques(data);
+        } catch {
+          setError("Impossible de calculer les stocks théoriques.");
+          setStocksTheoriques({});
+        } finally {
+          setLoadingStocks(false);
         }
-
-        setStocksTheoriques(map);
-      } catch {
-        setError("Impossible de calculer les stocks théoriques.");
-        setStocksTheoriques({});
-      } finally {
-        setLoadingStocks(false);
-      }
-    };
-
-    calculerStocksTheoriques();
-  }, [isOpen, lieuId, lieuType, employees]);
+      };
+      fetchStocks();
+    } else {
+      setStocksTheoriques({});
+    }
+  }, [isOpen, lieuId, lieuType]);
+  
 
   useEffect(() => {
     if (!isOpen) return;
@@ -198,7 +142,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
 
   //Obtenir le stock théorique d'un article
   const getStockTheorique = (articleCode) => {
-    return stocksTheoriques[articleCode]?.quantite_theorique ?? 0;
+    return stocksTheoriques[articleCode]?.stock_theorique ?? 0;
   };
 
   const handleNext = () => {

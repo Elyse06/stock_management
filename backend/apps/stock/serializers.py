@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -12,6 +11,7 @@ from apps.stock.models import (
     Magasin,
     Mouvement,
 )
+from apps.stock.utils import calculer_stock_theorique
 
 
 class MagasinSerializer(serializers.ModelSerializer):
@@ -199,41 +199,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             )
         return attrs
 
-    def _calculer_stock_theorique(self, article, magasin=None, service=None):
-        from apps.stock.models import Mouvement
-        
-        if magasin:
-            entrees = DetailMouvement.objects.filter(
-                mouvement__type_mouvement__in=[
-                    Mouvement.Type.ENTREE,
-                    Mouvement.Type.TRANSFERT,
-                ],
-                mouvement__magasin_destination=magasin,
-                article=article,
-            ).aggregate(total=Sum("quantite"))["total"] or 0
-
-            sorties = DetailMouvement.objects.filter(
-                mouvement__type_mouvement__in=[
-                    Mouvement.Type.SORTIE,
-                    Mouvement.Type.TRANSFERT,
-                ],
-                mouvement__magasin_source=magasin,
-                article=article,
-            ).aggregate(total=Sum("quantite"))["total"] or 0
-
-            return entrees - sorties
-
-        if service:
-            stock_service = DetailMouvement.objects.filter(
-                mouvement__type_mouvement=Mouvement.Type.SORTIE,
-                employe_beneficiaire__emp_serv_id=service,
-                article=article,
-            ).aggregate(total=Sum("quantite"))["total"] or 0
-
-            return stock_service
-
-        return 0
-
+    
     @transaction.atomic
     def create(self, validated_data):
         lignes_data = validated_data.pop("lignes", [])
@@ -249,7 +215,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             article = ligne_data.get("article")
             
             #Calculer le stock théorique automatiquement
-            stock_theorique = self._calculer_stock_theorique(
+            stock_theorique = calculer_stock_theorique(
                 article=article,
                 magasin=magasin,
                 service=service,
