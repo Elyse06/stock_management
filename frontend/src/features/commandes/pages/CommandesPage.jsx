@@ -16,6 +16,7 @@ import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
@@ -40,9 +41,7 @@ const PERIODES = [
 function getDateRangeForPeriode(periodeId) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   if (periodeId === "tous") return { debut: null, fin: null };
-
   if (periodeId === "semaine") {
     const debut = new Date(today);
     const jour = debut.getDay();
@@ -52,43 +51,46 @@ function getDateRangeForPeriode(periodeId) {
     fin.setHours(23, 59, 59, 999);
     return { debut, fin };
   }
-
   if (periodeId === "mois") {
     const debut = new Date(today.getFullYear(), today.getMonth(), 1);
     const fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     fin.setHours(23, 59, 59, 999);
     return { debut, fin };
   }
-
   if (periodeId === "annee") {
     const debut = new Date(today.getFullYear(), 0, 1);
     const fin = new Date(today.getFullYear(), 11, 31);
     fin.setHours(23, 59, 59, 999);
     return { debut, fin };
   }
-
   return { debut: null, fin: null };
 }
 
 export function CommandesPage() {
-  const { hasAnyAction } = useAuth();
+  const { hasAction, hasAnyAction } = useAuth();
 
+  // ====== DÉTECTION DES RÔLES ======
+  const isAgentPrincipal = hasAction("CAT_GERE") && hasAction("COM_VAL");
+  const isAgentSecondaire = !hasAction("CAT_GERE") && hasAction("COM_VAL");
+  const isDemandeur = hasAction("COM_DEM") && !hasAction("COM_VAL");
+
+  // ====== PERMISSIONS DÉRIVÉES ======
   const canCreate = hasAnyAction("COM_DEM");
 
+  // ====== STATE ======
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
-
   const [statutFiltre, setStatutFiltre] = useState("");
   const [periodeFiltre, setPeriodeFiltre] = useState("tous");
-
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [commandeToEdit, setCommandeToEdit] = useState(null);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+  // ====== CHARGEMENT ======
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -123,6 +125,7 @@ export function CommandesPage() {
     charger();
   }, [charger]);
 
+  // ====== HANDLERS ======
   const handleStatutChange = (value) => {
     setStatutFiltre(value);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -150,7 +153,9 @@ export function CommandesPage() {
 
   const openDetailModal = async (commande) => {
     try {
-      const { data } = await apiClient.get(`/api/commandes/commandes/${commande.commande_id}/`);
+      const { data } = await apiClient.get(
+        `/api/commandes/commandes/${commande.commande_id}/`
+      );
       setSelectedCommande(data);
       setIsDetailModalOpen(true);
     } catch {
@@ -173,6 +178,7 @@ export function CommandesPage() {
     }
   };
 
+  // ====== HELPERS ======
   const getStatusColor = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
@@ -203,6 +209,7 @@ export function CommandesPage() {
     }
   };
 
+  // ====== COLONNES ======
   const columns = [
     {
       field: "objet",
@@ -241,7 +248,7 @@ export function CommandesPage() {
     {
       field: "actions",
       headerName: "Actions",
-      width: 160,
+      width: 200,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -249,7 +256,14 @@ export function CommandesPage() {
       align: "center",
       renderCell: (params) => {
         const commande = params.row;
-        const canEdit = canCreate && commande.statut === "EN_ATTENTE";
+
+        // Déterminer si on peut traiter cette commande
+        const peutTraiter =
+          (isAgentPrincipal && commande.statut === "EN_COURS") ||
+          (isAgentSecondaire && commande.statut === "EN_ATTENTE");
+
+        // Déterminer si on peut supprimer (demandeur + EN_ATTENTE)
+        const peutSupprimer = isDemandeur && commande.statut === "EN_ATTENTE";
 
         return (
           <Box sx={{ display: "flex", gap: 0.5 }}>
@@ -262,18 +276,29 @@ export function CommandesPage() {
                 <VisibilityIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {canEdit && (
-              <>
-                <Tooltip title="Supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(commande)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </>
+
+            {peutTraiter && (
+              <Tooltip title="Traiter la commande">
+                <IconButton
+                  size="small"
+                  color="success"
+                  onClick={() => openDetailModal(commande)}
+                >
+                  <CheckCircleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {peutSupprimer && (
+              <Tooltip title="Supprimer">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDelete(commande)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
           </Box>
         );
@@ -340,7 +365,6 @@ export function CommandesPage() {
             ))}
           </Select>
         </FormControl>
-
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Statut</InputLabel>
           <Select
@@ -356,8 +380,6 @@ export function CommandesPage() {
             ))}
           </Select>
         </FormControl>
-
-        {/* Réinitialiser les filtres */}
         {(statutFiltre || periodeFiltre !== "tous") && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser

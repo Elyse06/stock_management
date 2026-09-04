@@ -25,22 +25,31 @@ export function AttributionEditor({
   attributions,
   setAttributions,
   employees,
+  demandeurParDefaut,
 }) {
   const [employeSelectionne, setEmployeSelectionne] = useState(null);
   const [quantiteAttribution, setQuantiteAttribution] = useState("");
 
   const sommeAttribuee = attributions.reduce(
     (sum, a) => sum + (Number(a.quantite) || 0),
-    0
+    0,
   );
   const quantiteRestante = Number(quantiteTotale) - sommeAttribuee;
-  const pourcentage = Number(quantiteTotale) > 0
-    ? (sommeAttribuee / Number(quantiteTotale)) * 100
-    : 0;
+  const pourcentage =
+    Number(quantiteTotale) > 0
+      ? (sommeAttribuee / Number(quantiteTotale)) * 100
+      : 0;
 
-  const employesDisponibles = employees.filter(
-    (e) => !attributions.some((a) => a.employe?.emp_id === e.emp_id)
-  );
+  const employesDisponibles = employees.filter((e) => {
+    const dejaAttribue = attributions.some((a) => a.employe?.emp_id === e.emp_id);
+    if (dejaAttribue) return false;
+
+    if (demandeurParDefaut?.emp_serv_id) {
+      return String(e.emp_serv_id) === String(demandeurParDefaut.emp_serv_id);
+    }
+
+    return true;
+  });
 
   const ajouterAttribution = () => {
     if (!employeSelectionne) return;
@@ -107,8 +116,8 @@ export function AttributionEditor({
                   quantiteRestante === 0
                     ? "success.main"
                     : quantiteRestante < 0
-                    ? "error.main"
-                    : "warning.main",
+                      ? "error.main"
+                      : "warning.main",
               }}
             >
               {sommeAttribuee}
@@ -126,18 +135,26 @@ export function AttributionEditor({
             quantiteRestante === 0
               ? "success"
               : quantiteRestante < 0
-              ? "error"
-              : "primary"
+                ? "error"
+                : "primary"
           }
           sx={{ height: 8, borderRadius: 1 }}
         />
         {quantiteRestante === 0 && (
-          <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: "block", fontWeight: 600 }}>
+          <Typography
+            variant="caption"
+            color="success.main"
+            sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
+          >
             ✅Toute la quantité a été attribuée.
           </Typography>
         )}
         {quantiteRestante < 0 && (
-          <Typography variant="caption" color="error.main" sx={{ mt: 0.5, display: "block", fontWeight: 600 }}>
+          <Typography
+            variant="caption"
+            color="error.main"
+            sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
+          >
             ❌La somme des attributions dépasse la quantité totale.
           </Typography>
         )}
@@ -167,8 +184,7 @@ export function AttributionEditor({
             <TableCell align="center" sx={{ width: 120 }}>
               Quantité
             </TableCell>
-            <TableCell align="center" sx={{ width: 60 }}>
-            </TableCell>
+            <TableCell align="center" sx={{ width: 60 }}></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -242,9 +258,7 @@ export function AttributionEditor({
           size="small"
           options={employesDisponibles}
           getOptionLabel={(option) =>
-            option?.emp_nom
-              ? `${option.emp_nom} (${option.emp_matricule})`
-              : ""
+            option?.emp_nom ? `${option.emp_nom} (${option.emp_matricule})` : ""
           }
           isOptionEqualToValue={(option, value) =>
             option?.emp_id === value?.emp_id
