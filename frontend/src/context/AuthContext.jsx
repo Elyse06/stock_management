@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const handleLogout = useCallback(() => {
     setUser(null);
@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
       const token = getAccessToken();
       
       if (!token) {
+        setLoading(false);
         return;
       }
       
@@ -30,6 +31,8 @@ export function AuthProvider({ children }) {
       } catch (error) {
         clearTokens();
         setUser(null);
+      } finally {
+        setLoading(false);
       }
     };
     initAuth();

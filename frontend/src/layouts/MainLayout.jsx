@@ -33,20 +33,49 @@ import {
   ListAlt as ListAltIcon,
   ExpandMore as ExpandMoreIcon,
   Logout as LogoutIcon,
+  History as HistoryIcon,
+  Public as PublicIcon,
+  LocationOn as LocationOnIcon,
+  Article as ArticleIcon
 } from "@mui/icons-material";
 
 const MENU_STRUCTURE = [
-  { path: "/", label: "Tableau de bord", icon: <DashboardIcon fontSize="small" />, actions: [] },
+  {
+    path: "/",
+    label: "Tableau de bord",
+    icon: <DashboardIcon fontSize="small" />,
+    actions: [],
+  },
   {
     key: "catalogue",
     label: "Catalogue",
     icon: <InventoryIcon fontSize="small" />,
     actions: [],
     children: [
-      { path: "/catalogue/articles", label: "Articles", icon: <ListAltIcon fontSize="small" />, actions: ["CAT_LIRE"] },
-      { path: "/catalogue/categories", label: "Catégories", icon: <CategoryIcon fontSize="small" />, actions: ["CAT_GERE"] },
-      { path: "/catalogue/marques", label: "Marques", icon: <LocalOfferIcon fontSize="small" />, actions: ["CAT_GERE"] },
-      { path: "/catalogue/fournisseurs", label: "Fournisseurs", icon: <PeopleIcon fontSize="small" />, actions: ["CAT_GERE"] },
+      {
+        path: "/catalogue/articles",
+        label: "Articles",
+        icon: <ListAltIcon fontSize="small" />,
+        actions: ["CAT_LIRE"],
+      },
+      {
+        path: "/catalogue/categories",
+        label: "Catégories",
+        icon: <CategoryIcon fontSize="small" />,
+        actions: ["CAT_GERE"],
+      },
+      {
+        path: "/catalogue/marques",
+        label: "Marques",
+        icon: <LocalOfferIcon fontSize="small" />,
+        actions: ["CAT_GERE"],
+      },
+      {
+        path: "/catalogue/fournisseurs",
+        label: "Fournisseurs",
+        icon: <PeopleIcon fontSize="small" />,
+        actions: ["CAT_GERE"],
+      },
     ],
   },
   {
@@ -55,12 +84,42 @@ const MENU_STRUCTURE = [
     icon: <AssignmentIcon fontSize="small" />,
     actions: [],
     children: [
-      { path: "/magasins", label: "Magasins", icon: <StoreIcon fontSize="small" />, actions: ["INV_GERE"] },
-      { path: "/inventaire/mouvements", label: "Mouvements", icon: <SwapHorizIcon fontSize="small" />, actions: ["MOV_LIRE"] },
-      { path: "/inventaire/sessions", label: "Inventaires", icon: <AssignmentIcon fontSize="small" />, actions: ["INV_LIRE"] },
+      {
+        path: "/magasins",
+        label: "Magasins",
+        icon: <StoreIcon fontSize="small" />,
+        actions: ["INV_GERE"],
+      },
+      {
+        path: "/inventaire/mouvements",
+        label: "Mouvements",
+        icon: <SwapHorizIcon fontSize="small" />,
+        actions: ["MOV_LIRE"],
+      },
+      {
+        path: "/inventaire/sessions",
+        label: "Inventaires",
+        icon: <AssignmentIcon fontSize="small" />,
+        actions: ["INV_LIRE"],
+      },
     ],
   },
-  { path: "/commandes", label: "Commandes", icon: <ShoppingCartIcon fontSize="small" />, actions: ["COM_DEM", "COM_VAL"] },
+  {
+    path: "/commandes",
+    label: "Commandes",
+    icon: <ShoppingCartIcon fontSize="small" />,
+    actions: ["COM_DEM", "COM_VAL"],
+  },
+  {
+    key: "historique",
+    label: "Historique",
+    icon: <HistoryIcon />,
+    children: [
+      { path: "/historique/globale", label: "Globale", icon: <PublicIcon /> },
+      { path: "/historique/localisation", label: "Localisation", icon: <LocationOnIcon /> },
+      { path: "/historique/article", label: "Article", icon: <ArticleIcon /> },
+    ],
+  },
 ];
 
 export function MainLayout() {
@@ -83,7 +142,9 @@ export function MainLayout() {
   };
 
   const activeParent = MENU_STRUCTURE.find(
-    (item) => item.children && item.children.some((c) => location.pathname.startsWith(c.path))
+    (item) =>
+      item.children &&
+      item.children.some((c) => location.pathname.startsWith(c.path)),
   );
 
   const handleLogout = () => {
@@ -106,7 +167,14 @@ export function MainLayout() {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", bgcolor: "background.default" }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        bgcolor: "background.default",
+      }}
+    >
       <AppBar
         position="sticky"
         elevation={0}
@@ -134,7 +202,11 @@ export function MainLayout() {
             >
               P
             </Box>
-            <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+            <Typography
+              variant="subtitle1"
+              fontWeight={600}
+              color="text.primary"
+            >
               Paositra
             </Typography>
           </Box>
@@ -144,19 +216,25 @@ export function MainLayout() {
             {MENU_STRUCTURE.filter(canSeeItem).map((item) => {
               const isActive = item.path
                 ? location.pathname === item.path
-                : item.children.some((c) => location.pathname.startsWith(c.path));
+                : item.children.some((c) =>
+                    location.pathname.startsWith(c.path),
+                  );
 
               return (
                 <Button
                   key={item.path || item.key}
                   onClick={(e) => handleMenuClick(item, e)}
                   startIcon={item.icon}
-                  endIcon={item.children ? <ExpandMoreIcon fontSize="small" /> : null}
+                  endIcon={
+                    item.children ? <ExpandMoreIcon fontSize="small" /> : null
+                  }
                   sx={{
                     textTransform: "none",
                     color: isActive ? "primary.main" : "text.secondary",
                     fontWeight: isActive ? 600 : 500,
-                    borderBottom: isActive ? "2px solid" : "2px solid transparent",
+                    borderBottom: isActive
+                      ? "2px solid"
+                      : "2px solid transparent",
                     borderColor: isActive ? "primary.main" : "transparent",
                     borderRadius: 0,
                     px: 2,
@@ -173,7 +251,10 @@ export function MainLayout() {
           </Box>
 
           {/* User menu */}
-          <IconButton onClick={(e) => setUserMenuAnchor(e.currentTarget)} sx={{ ml: 2 }}>
+          <IconButton
+            onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+            sx={{ ml: 2 }}
+          >
             <Avatar
               sx={{
                 width: 32,
@@ -192,7 +273,9 @@ export function MainLayout() {
             onClose={() => setUserMenuAnchor(null)}
           >
             <MenuItem disabled>
-              <Typography variant="body2">{user?.utilisateur_mail || "Utilisateur"}</Typography>
+              <Typography variant="body2">
+                {user?.utilisateur_mail || "Utilisateur"}
+              </Typography>
             </MenuItem>
             <Divider />
             <MenuItem
@@ -216,7 +299,9 @@ export function MainLayout() {
             }}
           >
             <Tabs
-              value={activeParent.children.findIndex((c) => location.pathname.startsWith(c.path))}
+              value={activeParent.children.findIndex((c) =>
+                location.pathname.startsWith(c.path),
+              )}
               variant="scrollable"
               scrollButtons="auto"
               sx={{
@@ -272,20 +357,25 @@ export function MainLayout() {
         }}
       >
         <List dense>
-          {MENU_STRUCTURE.find((m) => m.key === activePopoverKey)?.children.filter(canSeeItem).map((child) => (
-            <ListItemButton
-              key={child.path}
-              onClick={() => handleChildClick(child.path)}
-              sx={{
-                "&:hover": { bgcolor: "#FFF8E1" },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>
-                {child.icon}
-              </ListItemIcon>
-              <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: 14 }} />
-            </ListItemButton>
-          ))}
+          {MENU_STRUCTURE.find((m) => m.key === activePopoverKey)
+            ?.children.filter(canSeeItem)
+            .map((child) => (
+              <ListItemButton
+                key={child.path}
+                onClick={() => handleChildClick(child.path)}
+                sx={{
+                  "&:hover": { bgcolor: "#FFF8E1" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>
+                  {child.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={child.label}
+                  primaryTypographyProps={{ fontSize: 14 }}
+                />
+              </ListItemButton>
+            ))}
         </List>
       </Popover>
 
