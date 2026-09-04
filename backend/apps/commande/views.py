@@ -6,8 +6,6 @@ from rest_framework.response import Response
 
 from apps.common.permissions import (
     HasAction,
-    HasActionByMethod,
-    IsOwnerOrProfil,
     get_request_employee,
 )
 
@@ -56,12 +54,22 @@ class CommandeViewSet(viewsets.ModelViewSet):
         return [HasAction.for_actions("COM_DEM")()]
 
     def get_queryset(self):
+        has_cat_gere = HasAction.for_actions("CAT_GERE")().has_permission(self.request, self)
+        has_com_val = HasAction.for_actions("COM_VAL")().has_permission(self.request, self)
         queryset = super().get_queryset()
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             employee = get_request_employee(self.request)
-            permission_instance = HasAction.for_actions("COM_VAL")()
-            if employee and not permission_instance.has_permission(self.request, self):
-                queryset = queryset.filter(employe_demandeur=employee)
+            if has_cat_gere and has_com_val:
+                pass
+            elif has_com_val:
+                if employee and employee.emp_serv_id:
+                    queryset = queryset.filter(
+                        employe_demandeur__emp_serv_id=employee.emp_serv_id
+                    )
+            else:
+                if employee:
+                    queryset = queryset.filter(employe_demandeur=employee)
+
         return queryset
 
     @extend_schema(

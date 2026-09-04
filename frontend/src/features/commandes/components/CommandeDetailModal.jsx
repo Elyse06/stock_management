@@ -35,10 +35,14 @@ import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 
 export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
-  const { hasAnyAction } = useAuth();
+  const { hasAction, hasAnyAction } = useAuth();
 
-  const canTraiter = hasAnyAction("COM_VAL");
+  // ====== DÉTECTION DES RÔLES ======
+  const isAgentPrincipal = hasAction("CAT_GERE") && hasAction("COM_VAL");
+  const isAgentSecondaire = !hasAction("CAT_GERE") && hasAction("COM_VAL");
+  const isDemandeur = hasAction("COM_DEM") && !hasAction("COM_VAL");
 
+  // ====== STATE ======
   const [magasins, setMagasins] = useState([]);
   const [magasinSource, setMagasinSource] = useState("");
   const [commentaire, setCommentaire] = useState("");
@@ -46,6 +50,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // ====== CHARGEMENT DES MAGASINS ======
   useEffect(() => {
     if (isOpen) {
       apiClient
@@ -55,7 +60,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     }
   }, [isOpen]);
 
-  // Reset des champs de traitement
+  // ====== RESET DES CHAMPS ======
   useEffect(() => {
     if (isOpen) {
       setMagasinSource("");
@@ -67,6 +72,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
 
   if (!commande) return null;
 
+  // ====== HELPERS ======
   const getStatusColor = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
@@ -112,9 +118,15 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     }
   };
 
+  // ====== DÉTERMINER SI ON PEUT TRAITER ======
+  const peutTraiter =
+    (isAgentPrincipal && commande.statut === "EN_COURS") ||
+    (isAgentSecondaire && commande.statut === "EN_ATTENTE");
+
+  // ====== TRAITEMENT DE LA COMMANDE ======
   const traiter = async (statut) => {
-    // Validation
-    if (statut === "VALIDEE" && !magasinSource) {
+    // Validation : magasin source requis uniquement pour validation finale
+    if (statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
       setError("Veuillez sélectionner un magasin source pour la sortie de stock.");
       return;
     }
@@ -133,11 +145,14 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         payload.magasin_source = Number(magasinSource);
       }
 
-      await apiClient.post(`/api/commandes/commandes/${commande.commande_id}/traiter/`, payload);
+      await apiClient.post(
+        `/api/commandes/commandes/${commande.commande_id}/traiter/`,
+        payload
+      );
 
       const messages = {
-        EN_COURS: "Commande mise en cours.",
-        VALIDEE: "Commande validée avec succès.",
+        EN_COURS: "Commande pré-validée avec succès.",
+        VALIDEE: "Commande validée définitivement.",
         REJETEE: "Commande rejetée.",
       };
       setSuccess(messages[statut]);
@@ -158,10 +173,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
       setTraitement(false);
     }
   };
-
-  // Vérifier si on peut traiter cette commande
-  const peutTraiter =
-    canTraiter && ["EN_ATTENTE", "EN_COURS"].includes(commande.statut);
 
   return (
     <Dialog
@@ -217,7 +228,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Informations générales
           </Typography>
-
           <Box
             sx={{
               display: "grid",
@@ -309,7 +319,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Articles demandés ({commande.details?.length ?? 0})
           </Typography>
-
           <Table
             size="small"
             sx={{
@@ -404,24 +413,26 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
               </Box>
             </Divider>
 
-            {/* Magasin source (requis pour validation) */}
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>Magasin source pour la sortie de stock</InputLabel>
-              <Select
-                value={magasinSource}
-                label="Magasin source pour la sortie de stock"
-                onChange={(e) => setMagasinSource(e.target.value)}
-              >
-                <MenuItem value="">Sélectionner un magasin</MenuItem>
-                {magasins.map((m) => (
-                  <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                    {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Magasin source uniquement pour validation finale (agent principal) */}
+            {isAgentPrincipal && commande.statut === "EN_COURS" && (
+              <FormControl fullWidth margin="normal" required>
+                <InputLabel>Magasin source pour la sortie de stock</InputLabel>
+                <Select
+                  value={magasinSource}
+                  label="Magasin source pour la sortie de stock"
+                  onChange={(e) => setMagasinSource(e.target.value)}
+                >
+                  <MenuItem value="">Sélectionner un magasin</MenuItem>
+                  {magasins.map((m) => (
+                    <MenuItem key={m.magasin_id} value={m.magasin_id}>
+                      {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
-            {/* Commentaire */}
+            {/* Commentaire pour tous */}
             <TextField
               label="Commentaire (optionnel)"
               value={commentaire}
@@ -457,8 +468,8 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
               Rejeter
             </Button>
 
-            {/* Bouton Mettre en cours (seulement si EN_ATTENTE) */}
-            {commande.statut === "EN_ATTENTE" && (
+            {/* Agent secondaire : Pré-valider (EN_ATTENTE → EN_COURS) */}
+            {isAgentSecondaire && commande.statut === "EN_ATTENTE" && (
               <Button
                 variant="outlined"
                 color="info"
@@ -468,22 +479,24 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                   traitement ? <CircularProgress size={16} /> : <HourglassEmptyIcon />
                 }
               >
-                Mettre en cours
+                Pré-valider
               </Button>
             )}
 
-            {/* Bouton Valider */}
-            <Button
-              variant="contained"
-              color="success"
-              onClick={() => traiter("VALIDEE")}
-              disabled={traitement || !magasinSource}
-              startIcon={
-                traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />
-              }
-            >
-              Valider
-            </Button>
+            {/* Agent principal : Valider définitivement (EN_COURS → VALIDEE) */}
+            {isAgentPrincipal && commande.statut === "EN_COURS" && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => traiter("VALIDEE")}
+                disabled={traitement || !magasinSource}
+                startIcon={
+                  traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />
+                }
+              >
+                Valider
+              </Button>
+            )}
           </>
         )}
       </DialogActions>

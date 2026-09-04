@@ -5,9 +5,9 @@ export function DashboardPage() {
 
   return (
     <div>
-      <h1>Bienvenue, {user?.nom_user}</h1>
+      <h1></h1>
       <p>
-        Profil : <strong>{user?.profil_nom}</strong>
+        
       </p>
       <p>
       </p>
