@@ -441,11 +441,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                   onChange={(e) => setCurrentQuantite(e.target.value)}
                   inputProps={{ min: 0, step: 1 }}
                   placeholder="0"
-                  helperText={
-                    currentArticle
-                      ? `Écart : ${Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)}`
-                      : "Nombre réel compté"
-                  }
                 />
                 <TextField
                   label="Commentaire (optionnel)"
