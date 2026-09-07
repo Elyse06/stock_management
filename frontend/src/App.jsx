@@ -2,8 +2,9 @@ import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { MainLayout } from "./layouts/MainLayout";
 import { LoginPage } from "./features/auth/LoginPage";
-import { DashboardPage } from "./pages/DashboardPage";
+import { DashboardPage } from "./features/dashboard/DashboardPage";
 
+import { ArticlePremiumPage } from "./features/catalogue/pages/ArticlePremiumPage";
 import { ArticleListPage } from "./features/catalogue/pages/ArticleListPage";
 import { CategoriesPage } from "./features/catalogue/pages/CategoriesPage";
 import { MarquesPage } from "./features/catalogue/pages/MarquesPage";
@@ -15,6 +16,9 @@ import { InventairePage } from "./features/stock/pages/InventairePage";
 
 import { CommandesPage } from "./features/commandes/pages/CommandesPage";
 
+import { HistoriqueGlobalePage } from "./features/historique/pages/HistoriqueGlobalePage";
+import { HistoriqueLocalisationPage } from "./features/historique/pages/HistoriqueLocalisationPage";
+import { HistoriqueArticlePage } from "./features/historique/pages/HistoriqueArticlePage";
 
 function App() {
   return (
@@ -30,72 +34,80 @@ function App() {
       >
         <Route path="/" element={<DashboardPage />} />
 
-        <Route 
-          path="/catalogue/articles" 
+        <Route path="/catalogue/articles/:code_article" element={<ArticlePremiumPage />} />
+        <Route
+          path="/catalogue/articles"
           element={
             <ProtectedRoute actions={["CAT_LIRE"]}>
               <ArticleListPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/catalogue/categories" 
+        <Route
+          path="/catalogue/categories"
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <CategoriesPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/catalogue/marques" 
+        <Route
+          path="/catalogue/marques"
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <MarquesPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/catalogue/fournisseurs" 
+        <Route
+          path="/catalogue/fournisseurs"
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <FournisseursPage />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        <Route 
-          path="/magasins" 
+        <Route
+          path="/magasins"
           element={
             <ProtectedRoute actions={["INV_GERE"]}>
               <MagasinsPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/inventaire/mouvements" 
+        <Route
+          path="/inventaire/mouvements"
           element={
             <ProtectedRoute actions={["MOV_LIRE"]}>
               <MouvementsPage />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/inventaire/sessions" 
+        <Route
+          path="/inventaire/sessions"
           element={
             <ProtectedRoute actions={["INV_LIRE"]}>
               <InventairePage />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        <Route 
-          path="/commandes" 
+        <Route
+          path="/commandes"
           element={
             <ProtectedRoute actions={["COM_DEM", "COM_VAL"]}>
               <CommandesPage />
             </ProtectedRoute>
-          } 
+          }
         />
+
+        <Route path="/historique/globale" element={<HistoriqueGlobalePage />} />
+        <Route
+          path="/historique/localisation"
+          element={<HistoriqueLocalisationPage />}
+        />
+        <Route path="/historique/article" element={<HistoriqueArticlePage />} />
       </Route>
     </Routes>
   );

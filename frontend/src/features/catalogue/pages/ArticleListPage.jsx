@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -37,6 +38,7 @@ export function ArticleListPage() {
   // Pour l'instant, tous les utilisateurs connectés peuvent éditer
   // const canEdit = true;
   const canEdit = hasAnyAction("CAT_GERE");
+  const navigate = useNavigate();
 
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -101,9 +103,14 @@ export function ArticleListPage() {
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
+  /*
   const openDetailModal = (article) => {
     setSelectedArticle(article);
     setIsDetailModalOpen(true);
+  };
+  */
+  const openDetailModal = (article) => {
+    navigate(`/catalogue/articles/${article.code_article}`);
   };
 
   const closeDetailModal = () => {

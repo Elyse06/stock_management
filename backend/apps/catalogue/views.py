@@ -2,6 +2,8 @@ from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.common.permissions import HasAction, HasActionByMethod
 
@@ -42,6 +44,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         .prefetch_related("fournisseurs_liaison__fournisseur")
     )
     serializer_class = ArticleSerializer
+    lookup_field = "code_article"
     permission_classes = CategorieViewSet.permission_classes
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["categorie", "mode_suivi"]
@@ -99,6 +102,25 @@ class ArticleViewSet(viewsets.ModelViewSet):
                 - Coalesce(Sum("details_mouvement__quantite", filter=filtre_ajustement_moins), 0)
             )
         )
+
+
+    # fiche article
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[HasAction.for_actions("CAT_LIRE")],
+        url_path="fiche-complete",
+    )
+    def fiche_complete(self, request, code_article=None):
+        from apps.catalogue.services import get_fiche_article_complete
+
+        data = get_fiche_article_complete(code_article)
+        if data is None:
+            return Response(
+                {"error": "Article non trouvé."},
+                status=404
+            )
+        return Response(data)
     
 
 class FournisseurViewSet(viewsets.ModelViewSet):

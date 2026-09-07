@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.commande.models import AttributionDetailCommande
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
 
 
@@ -9,12 +10,10 @@ def _creer_detail_mouvement(mouvement, article, quantite, beneficiaire=None, cod
         "article": article,
         "quantite": quantite,
     }
-
     if hasattr(DetailMouvement, "employe_beneficiaire") and beneficiaire:
         payload["employe_beneficiaire"] = beneficiaire
     if hasattr(DetailMouvement, "code_tracabilite") and code_tracabilite:
         payload["code_tracabilite"] = code_tracabilite
-
     return DetailMouvement.objects.create(**payload)
 
 
@@ -26,7 +25,7 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None):
     origine = f"Commande #{commande.pk} - {getattr(commande.employe_demandeur, 'emp_nom', '')}"
     motif = commande.objet or "Sortie pour attribution employés"
 
-    # Pour eviter les doublons
+    # Pour éviter les doublons
     if Mouvement.objects.filter(origine=origine, motif=motif).exists():
         return None
 
@@ -43,7 +42,6 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None):
 
     for detail in details_qs:
         attributions = detail.attributions.all()
-
         if attributions.exists():
             for attr in attributions:
                 _creer_detail_mouvement(
@@ -54,11 +52,18 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None):
                     code_tracabilite=getattr(attr, "code_unique", None),
                 )
         else:
+            attribution_implicite = AttributionDetailCommande.objects.create(
+                detail_commande=detail,
+                employe_beneficiaire=commande.employe_demandeur,
+                quantite=detail.quantite,
+            )
+            
             _creer_detail_mouvement(
                 mouvement=mouvement,
                 article=detail.article,
                 quantite=detail.quantite,
                 beneficiaire=commande.employe_demandeur,
+                code_tracabilite=attribution_implicite.code_unique,
             )
 
     return mouvement

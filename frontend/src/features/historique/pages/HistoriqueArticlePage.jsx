@@ -412,26 +412,24 @@ export function HistoriqueArticlePage() {
               placeholder="Rechercher un article..."
               size="small"
               sx={{ minWidth: 300 }}
-              slotProps={{
-                input: {
-                  ...params.InputProps,
-                  startAdornment: (
-                    <>
-                      <InventoryIcon
-                        fontSize="small"
-                        sx={{ color: "text.secondary", mr: 1 }}
-                      />
-                      {params.InputProps.startAdornment}
-                    </>
-                  ),
-                },
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <>
+                    <InventoryIcon
+                      fontSize="small"
+                      sx={{ color: "text.secondary", mr: 1 }}
+                    />
+                    {params.InputProps?.startAdornment} {/* ✅ Ajout du ? pour éviter l'erreur */}
+                  </>
+                ),
               }}
             />
           )}
           noOptionsText="Aucun article trouvé"
         />
 
-        {/* Magasin */}
+        {/* Magasin 
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -452,6 +450,7 @@ export function HistoriqueArticlePage() {
             ))}
           </Select>
         </FormControl>
+        */}
 
         {/* Période */}
         <FormControl size="small" sx={{ minWidth: 180 }}>

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import openpyxl
 from django.conf import settings
@@ -30,16 +31,28 @@ def export_fiche_article_horizontal(article_code, historique, filename):
     # Groupement par date
     mouvements_par_date = {}
     for mvt in historique:
+        # Utiliser un format ISO pour le tri (YYYY-MM-DD)
+        date_iso = mvt["date"].strftime("%Y-%m-%d")
         date_str = mvt["date"].strftime("%d/%m/%Y")
-        if date_str not in mouvements_par_date:
-            mouvements_par_date[date_str] = {"entree": 0, "sortie": 0, "reste": 0}
+        
+        if date_iso not in mouvements_par_date:
+            mouvements_par_date[date_iso] = {
+                "date_str": date_str,
+                "date_obj": mvt["date"],
+                "entree": 0, 
+                "sortie": 0, 
+                "reste": 0
+            }
         
         if mvt["impact"] > 0:
-            mouvements_par_date[date_str]["entree"] += mvt["impact"]
+            mouvements_par_date[date_iso]["entree"] += mvt["impact"]
         elif mvt["impact"] < 0:
-            mouvements_par_date[date_str]["sortie"] += abs(mvt["impact"])
+            mouvements_par_date[date_iso]["sortie"] += abs(mvt["impact"])
         
-        mouvements_par_date[date_str]["reste"] = mvt["stock_cumule"]
+        mouvements_par_date[date_iso]["reste"] = mvt["stock_cumule"]
+    
+    # Trier les dates par ordre chronologique (du plus ancien au plus récent)
+    dates_triees = sorted(mouvements_par_date.keys())
     
     # Headers
     row = 1
@@ -51,9 +64,9 @@ def export_fiche_article_horizontal(article_code, historique, filename):
     ws.cell(row=row, column=col+1).fill = header_fill
     ws.cell(row=row, column=col+1).border = border
     
-    # Dates en colonnes
-    dates = sorted(mouvements_par_date.keys())
-    for i, date_str in enumerate(dates):
+    # Dates en colonnes (déjà triées)
+    for i, date_iso in enumerate(dates_triees):
+        data = mouvements_par_date[date_iso]
         ws.cell(row=row, column=col+2+(i*3), value="Entrée").font = header_font
         ws.cell(row=row, column=col+2+(i*3)).fill = entree_fill
         ws.cell(row=row, column=col+2+(i*3)).border = border
@@ -64,15 +77,17 @@ def export_fiche_article_horizontal(article_code, historique, filename):
         ws.cell(row=row, column=col+4+(i*3)).fill = reste_fill
         ws.cell(row=row, column=col+4+(i*3)).border = border
     
-    # Ligne des dates
+    # Ligne des dates (format JJ/MM/AAAA)
     row = 2
     ws.cell(row=row, column=col, value="DATE").font = Font(bold=True)
     ws.cell(row=row, column=col).border = border
     ws.cell(row=row, column=col+1).border = border
-    for i, date_str in enumerate(dates):
-        ws.cell(row=row, column=col+1+(i*3), value=date_str).border = border
-        ws.cell(row=row, column=col+2+(i*3), value=date_str).border = border
-        ws.cell(row=row, column=col+3+(i*3), value=date_str).border = border
+    
+    for i, date_iso in enumerate(dates_triees):
+        data = mouvements_par_date[date_iso]
+        ws.cell(row=row, column=col+1+(i*3), value=data["date_str"]).border = border
+        ws.cell(row=row, column=col+2+(i*3), value=data["date_str"]).border = border
+        ws.cell(row=row, column=col+3+(i*3), value=data["date_str"]).border = border
     
     # Données
     row = 3
@@ -81,9 +96,9 @@ def export_fiche_article_horizontal(article_code, historique, filename):
     stock_initial = historique[0]["stock_cumule"] if historique else 0
     ws.cell(row=row, column=col+1, value=stock_initial).border = border
     
-    # Mouvements par date
-    for i, date_str in enumerate(dates):
-        data = mouvements_par_date[date_str]
+    # Mouvements par date (déjà triées)
+    for i, date_iso in enumerate(dates_triees):
+        data = mouvements_par_date[date_iso]
         ws.cell(row=row, column=col+2+(i*3), value=data["entree"]).border = border
         ws.cell(row=row, column=col+3+(i*3), value=data["sortie"]).border = border
         ws.cell(row=row, column=col+4+(i*3), value=data["reste"]).border = border
