@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Case, When, F, IntegerField, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
@@ -147,41 +147,48 @@ class HistoriqueLocalisationView(APIView):
         """Calcule le stock d'un article à une date donnée"""
         date_ref = datetime.strptime(date_reference, "%Y-%m-%d")
         
-        # Entrées jusqu'à la date
-        entrees = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT],
-            mouvement__magasin_destination=magasin,
-            mouvement__date__lte=date_ref,
+        # Optimisation: Requête agrégée unique au lieu de 4 requêtes séparées
+        # Réduit le nombre de requêtes SQL de 4 à 1 par article
+        aggregates = DetailMouvement.objects.filter(
             article=article,
-        ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
-        
-        # Sorties jusqu'à la date
-        sorties = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT],
-            mouvement__magasin_source=magasin,
             mouvement__date__lte=date_ref,
-            article=article,
-        ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
+        ).filter(
+            Q(mouvement__magasin_destination=magasin) |
+            Q(mouvement__magasin_source=magasin)
+        ).aggregate(
+            entrees=Coalesce(Sum(Case(
+                When(mouvement__type_mouvement__in=[Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT],
+                     mouvement__magasin_destination=magasin,
+                     then=F('quantite')),
+                default=Value(0),
+                output_field=IntegerField()
+            )), 0),
+            sorties=Coalesce(Sum(Case(
+                When(mouvement__type_mouvement__in=[Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT],
+                     mouvement__magasin_source=magasin,
+                     then=F('quantite')),
+                default=Value(0),
+                output_field=IntegerField()
+            )), 0),
+            ajustements_plus=Coalesce(Sum(Case(
+                When(mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
+                     mouvement__magasin_destination=magasin,
+                     mouvement__magasin_source__isnull=True,
+                     then=F('quantite')),
+                default=Value(0),
+                output_field=IntegerField()
+            )), 0),
+            ajustements_moins=Coalesce(Sum(Case(
+                When(mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
+                     mouvement__magasin_source=magasin,
+                     mouvement__magasin_destination__isnull=True,
+                     then=F('quantite')),
+                default=Value(0),
+                output_field=IntegerField()
+            )), 0),
+        )
         
-        # Ajustements positifs jusqu'à la date
-        ajustements_plus = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_destination=magasin,
-            mouvement__magasin_source__isnull=True,
-            mouvement__date__lte=date_ref,
-            article=article,
-        ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
-        
-        # Ajustements négatifs jusqu'à la date
-        ajustements_moins = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_source=magasin,
-            mouvement__magasin_destination__isnull=True,
-            mouvement__date__lte=date_ref,
-            article=article,
-        ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
-        
-        return entrees - sorties + ajustements_plus - ajustements_moins
+        return aggregates['entrees'] - aggregates['sorties'] + aggregates['ajustements_plus'] - aggregates['ajustements_moins']
 
 
 class HistoriqueArticleView(APIView):
