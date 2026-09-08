@@ -20,7 +20,6 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Chip,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -38,24 +37,28 @@ const TYPES_MANUELS = [
   { value: "TRANSFERT", label: "Transfert entre magasins", icon: <SwapHorizIcon fontSize="small" /> },
 ];
 
-export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
+export function MouvementFormModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  preselectedArticle = null,
+  preselectedQuantite = null,
+}) {
   const { hasAnyAction } = useAuth();
-
   const canCreate = hasAnyAction("INV_GERE", "CAT_GERE");
 
   const [magasins, setMagasins] = useState([]);
   const [articles, setArticles] = useState([]);
-
   const [typeMouvement, setTypeMouvement] = useState("ENTREE");
   const [origine, setOrigine] = useState("");
   const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
   const [details, setDetails] = useState([{ article: "", quantite: 1 }]);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ✅ Reset + pré-remplissage à l'ouverture
   useEffect(() => {
     if (!isOpen) return;
 
@@ -64,7 +67,19 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
     setMotif("");
     setMagasinSource("");
     setMagasinDestination("");
-    setDetails([{ article: "", quantite: 1 }]);
+
+    // ✅ Pré-remplir avec l'article suggéré si fourni
+    if (preselectedArticle) {
+      setDetails([
+        {
+          article: preselectedArticle,
+          quantite: preselectedQuantite || 1,
+        },
+      ]);
+    } else {
+      setDetails([{ article: "", quantite: 1 }]);
+    }
+
     setError("");
 
     Promise.all([
@@ -76,7 +91,7 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
         setArticles(articlesRes.data.results ?? articlesRes.data);
       })
       .catch(() => setError("Impossible de charger les données initiales."));
-  }, [isOpen]);
+  }, [isOpen, preselectedArticle, preselectedQuantite]);
 
   const handleDetailChange = (index, field, value) => {
     const updated = [...details];
@@ -101,18 +116,15 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
     if (hasInvalidArticle) {
       return "Veuillez sélectionner un article valide pour chaque ligne.";
     }
-
     const hasInvalidQuantite = details.some(
       (d) => !d.quantite || Number(d.quantite) <= 0
     );
     if (hasInvalidQuantite) {
       return "Veuillez saisir une quantité valide pour chaque ligne.";
     }
-
     if (typeMouvement === "ENTREE" && !magasinDestination) {
       return "Le magasin destination est requis pour une entrée.";
     }
-
     if (typeMouvement === "TRANSFERT") {
       if (!magasinSource) return "Le magasin source est requis pour un transfert.";
       if (!magasinDestination) return "Le magasin destination est requis pour un transfert.";
@@ -120,14 +132,12 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
         return "Le magasin source et destination doivent être différents.";
       }
     }
-
     return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     const erreur = valider();
     if (erreur) {
       setError(erreur);
@@ -206,6 +216,13 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             </Alert>
           )}
 
+          {preselectedArticle && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Article pré-sélectionné : <strong>{preselectedArticle}</strong>
+              {preselectedQuantite && ` — Quantité suggérée : ${preselectedQuantite}`}
+            </Alert>
+          )}
+
           <FormControl fullWidth margin="normal">
             <InputLabel>Type de mouvement</InputLabel>
             <Select
@@ -231,7 +248,7 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
               onChange={(e) => setOrigine(e.target.value)}
               fullWidth
               margin="normal"
-              placeholder="Ex: Fournisseur XYZ, Achat direct..."
+              placeholder="Ex: Réapprovisionnement, Ajustement..."
               inputProps={{ maxLength: 100 }}
             />
           )}
@@ -279,11 +296,7 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             sx={{
               mb: 2,
               border: "1px solid #E0E0E0",
-              "& .MuiTableCell-root": {
-                borderColor: "#E0E0E0",
-                py: 1,
-                px: 1.5,
-              },
+              "& .MuiTableCell-root": { borderColor: "#E0E0E0", py: 1, px: 1.5 },
               "& .MuiTableHead-root .MuiTableCell-root": {
                 bgcolor: "#FFF8E1",
                 fontWeight: 600,
@@ -298,9 +311,7 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
                 <TableCell align="center" sx={{ width: 120 }}>
                   Quantité
                 </TableCell>
-                <TableCell align="center" sx={{ width: 60 }}>
-                  {/* Actions */}
-                </TableCell>
+                <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -320,8 +331,7 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
                         </MenuItem>
                         {articles.map((a) => (
                           <MenuItem key={a.code_article} value={a.code_article}>
-                            {a.code_article} - {a.designation} (stock:{" "}
-                            {a.stock_calcule ?? 0})
+                            {a.code_article} - {a.designation}
                           </MenuItem>
                         ))}
                       </Select>
@@ -374,7 +384,11 @@ export function MouvementFormModal({ isOpen, onClose, onSuccess }) {
             variant="contained"
             disabled={loading || !canCreate}
             startIcon={
-              loading ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />
+              loading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <SaveIcon />
+              )
             }
           >
             {loading ? "Enregistrement..." : "Enregistrer"}
