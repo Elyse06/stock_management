@@ -2,11 +2,38 @@ from django.db import models
 
 from apps.utilisateur.models import Utilisateur
 
+class Site(models.Model):
+    SITE_TYPE_CHOICES = [
+        ('SIEGE', 'Siège'),
+        ('AGENCE', 'Agence'),
+    ]
+    
+    site_id = models.AutoField(primary_key=True)
+    site_nom = models.CharField(max_length=50)
+    site_type = models.CharField(max_length=20, choices=SITE_TYPE_CHOICES)
+    localite = models.CharField(max_length=50)
+    
+    class Meta:
+        db_table = 't_site'
+        verbose_name = 'Site'
+        verbose_name_plural = 'Sites'
+        unique_together = ['site_type', 'site_nom'] 
+
+    def __str__(self):
+        return f"{self.get_site_type_display()} - {self.site_nom}"
 
 class Direction(models.Model):
     dir_id = models.CharField(primary_key = True,max_length = 8)
     dir_libelle = models.CharField(max_length = 50)
     dir_description = models.CharField(max_length = 255)
+
+    site = models.ForeignKey(
+        Site, 
+        on_delete=models.CASCADE, 
+        related_name='directions',
+        null=True, 
+        blank=True
+    )
 
     class Meta:
         db_table = 't_direction'
@@ -52,3 +79,15 @@ class Employer(models.Model):
 
     def __str__(self):
         return self.emp_nom
+
+    @property
+    def direction(self):
+        if self.emp_serv_id:
+            return self.emp_serv_id.serv_dir_id
+        return None
+
+    @property
+    def site(self):
+        if self.direction:
+            return self.direction.site
+        return None

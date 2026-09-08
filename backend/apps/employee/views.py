@@ -1,8 +1,17 @@
 from rest_framework import viewsets
 
-from .models import Direction, Employer, Service
-from .serializers import DirectionSerializer, EmployerSerializer, ServiceSerializer
+from .models import Direction, Employer, Service, Site
+from .serializers import (
+    DirectionSerializer,
+    EmployerSerializer,
+    ServiceSerializer,
+    SiteSerializer,
+)
 
+
+class SiteViewSet(viewsets.ModelViewSet):
+    queryset = Site.objects.all()
+    serializer_class = SiteSerializer
 
 class DirectionViewSet(viewsets.ModelViewSet):
     queryset = Direction.objects.all()
