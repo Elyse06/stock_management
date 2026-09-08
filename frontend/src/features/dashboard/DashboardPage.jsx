@@ -1,4 +1,5 @@
-import { Box, Typography, Alert, Grid } from "@mui/material";
+import { useState } from "react";
+import { Box, Typography, Grid } from "@mui/material";
 import {
   Inventory as InventoryIcon,
   AccountBalance as AccountBalanceIcon,
@@ -9,6 +10,7 @@ import {
 } from "@mui/icons-material";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { StatCard } from "./components/StatCard";
+import { KPIDetailModal } from "./components/KPIDetailModal";
 import { TopConsommesTable } from "./components/TopConsommesTable";
 import { ProduitsDormantsTable } from "./components/ProduitsDormantsTable";
 import { StockEvolutionChart } from "./components/charts/StockEvolutionChart";
@@ -29,6 +31,12 @@ export function DashboardPage() {
     error,
   } = useDashboardData();
 
+  // État pour les modals de détails
+  const [modalKPI, setModalKPI] = useState(null);
+  const refreshDashboard = () => {
+    window.location.reload();
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
@@ -40,7 +48,11 @@ export function DashboardPage() {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
   }
 
   return (
@@ -56,6 +68,7 @@ export function DashboardPage() {
             icon={<InventoryIcon />}
             label="Total articles"
             value={kpis?.total_articles ?? 0}
+            onClick={() => setModalKPI("total_articles")}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -70,6 +83,12 @@ export function DashboardPage() {
             icon={<ErrorIcon />}
             label="Produits en rupture"
             value={kpis?.produits_en_rupture ?? 0}
+            onClick={() => setModalKPI("produits_en_rupture")}
+            badge={
+              kpis?.produits_en_rupture > 0
+                ? { label: "CRITIQUE", color: "error.main" }
+                : null
+            }
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -77,6 +96,12 @@ export function DashboardPage() {
             icon={<WarningIcon />}
             label="Produits sous seuil"
             value={kpis?.produits_sous_seuil ?? 0}
+            onClick={() => setModalKPI("produits_sous_seuil")}
+            badge={
+              kpis?.produits_sous_seuil > 0
+                ? { label: "ATTENTION", color: "warning.main" }
+                : null
+            }
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -84,6 +109,7 @@ export function DashboardPage() {
             icon={<ArrowDownwardIcon />}
             label="Entrées du mois"
             value={kpis?.entrees_du_mois ?? 0}
+            onClick={() => setModalKPI("entrees_du_mois")}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -91,6 +117,7 @@ export function DashboardPage() {
             icon={<ArrowUpwardIcon />}
             label="Sorties du mois"
             value={kpis?.sorties_du_mois ?? 0}
+            onClick={() => setModalKPI("sorties_du_mois")}
           />
         </Grid>
       </Grid>
@@ -120,6 +147,14 @@ export function DashboardPage() {
           <ProduitsDormantsTable data={produitsDormants} />
         </Grid>
       </Grid>
+
+      {/* Modal de détails KPI */}
+      <KPIDetailModal
+        kpiType={modalKPI}
+        isOpen={modalKPI !== null}
+        onClose={() => setModalKPI(null)}
+        onDashboardRefresh={refreshDashboard}
+      />
     </Box>
   );
 }
