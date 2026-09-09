@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
+from apps.employee.models import Direction
 from apps.stock.models import (
     DetailMouvement,
     InventaireSession,
@@ -15,9 +16,16 @@ from apps.stock.utils import calculer_stock_theorique
 
 
 class MagasinSerializer(serializers.ModelSerializer):
+    localite_nom = serializers.CharField(
+        source="localite.site_nom", read_only=True, default=None
+    )
+    localite_type = serializers.CharField(
+        source="localite.site_type", read_only=True, default=None
+    )
+
     class Meta:
         model = Magasin
-        fields = ["magasin_id", "magasin_nom", "localite"]
+        fields = ["magasin_id", "magasin_nom", "localite", "localite_nom", "localite_type"]
 
 
 class DetailMouvementSerializer(serializers.ModelSerializer):
@@ -32,6 +40,9 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     )
     employe_beneficiaire_fonction = serializers.CharField(
         source="employe_beneficiaire.emp_fonction", read_only=True, default=None
+    )
+    fournisseur_nom = serializers.CharField(
+        source="fournisseur.nom", read_only=True, default=None
     )
 
     qr_code_data = serializers.SerializerMethodField()
@@ -48,6 +59,8 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             "employe_beneficiaire_nom",
             "employe_beneficiaire_matricule",
             "employe_beneficiaire_fonction",
+            "fournisseur",
+            "fournisseur_nom",
             "code_tracabilite",
             "qr_code_data",
         ]
@@ -163,6 +176,20 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
     lignes = LigneInventaireSerializer(many=True, required=False)
     lieu_nom = serializers.SerializerMethodField()
 
+    service = serializers.PrimaryKeyRelatedField(
+        queryset=Direction.objects.all(),
+        source='direction',
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+
+    service_libelle = serializers.CharField(
+        source='direction.dir_libelle', 
+        read_only=True,
+        default=None
+    )
+
     class Meta:
         model = InventaireSession
         fields = [
@@ -173,6 +200,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             "statut",
             "magasin",
             "service",
+            "service_libelle",
             "lieu_nom",
             "lignes",
         ]
@@ -181,21 +209,21 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
     def get_lieu_nom(self, obj):
         if obj.magasin:
             return f"Magasin: {obj.magasin.magasin_nom}"
-        if obj.service:
-            return f"Département: {obj.service.serv_libelle}"
+        if obj.direction:
+            return f"Direction: {obj.direction.dir_libelle}"
         return "N/A"
 
     def validate(self, attrs):
         magasin = attrs.get("magasin", getattr(self.instance, "magasin", None))
-        service = attrs.get("service", getattr(self.instance, "service", None))
+        direction = attrs.get("direction", getattr(self.instance, "direction", None))
 
-        if not magasin and not service:
+        if not magasin and not direction:
             raise serializers.ValidationError(
-                "Veuillez sélectionner soit un Magasin, soit un Département."
+                "Veuillez sélectionner soit un Magasin, soit une Direction."
             )
-        if magasin and service:
+        if magasin and direction:
             raise serializers.ValidationError(
-                "Vous ne pouvez pas sélectionner un Magasin ET un Département à la fois."
+                "Vous ne pouvez pas sélectionner un Magasin ET une Direction à la fois."
             )
         return attrs
 
@@ -204,7 +232,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         lignes_data = validated_data.pop("lignes", [])
         magasin = validated_data.get("magasin")
-        service = validated_data.get("service")
+        direction = validated_data.get("direction")
 
         #Générer automatiquement le code_reference
         validated_data["code_reference"] = generer_code_reference()
@@ -218,7 +246,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             stock_theorique = calculer_stock_theorique(
                 article=article,
                 magasin=magasin,
-                service=service,
+                direction=direction,
             )
             
             ligne_data["quantite_theorique"] = stock_theorique

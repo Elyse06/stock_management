@@ -4,6 +4,10 @@ import {
   Typography,
   Button,
   TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -19,6 +23,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
+  AccountBalance as AccountBalanceIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
@@ -30,6 +36,7 @@ const EMPTY_FORM = {
 
 export function MagasinsPage() {
   const [magasins, setMagasins] = useState([]);
+  const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({
@@ -37,7 +44,6 @@ export function MagasinsPage() {
     pageSize: 25,
   });
   const [rowCount, setRowCount] = useState(0);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -66,6 +72,14 @@ export function MagasinsPage() {
     charger();
   }, [charger]);
 
+  // Charger les sites au montage
+  useEffect(() => {
+    apiClient
+      .get("/api/employee/sites/", { params: { page_size: 100 } })
+      .then((res) => setSites(res.data.results ?? res.data))
+      .catch(() => {});
+  }, []);
+
   const ouvrirCreation = () => {
     setForm(EMPTY_FORM);
     setEditing({});
@@ -75,7 +89,7 @@ export function MagasinsPage() {
   const ouvrirEdition = (magasin) => {
     setForm({
       magasin_nom: magasin.magasin_nom || "",
-      localite: magasin.localite || "",
+      localite: magasin.localite || "", // ID du site
     });
     setEditing(magasin);
     setModalOpen(true);
@@ -97,12 +111,12 @@ export function MagasinsPage() {
     try {
       const payload = {
         magasin_nom: form.magasin_nom.trim(),
-        localite: form.localite.trim() || null,
+        localite: form.localite ? Number(form.localite) : null,
       };
       if (editing?.magasin_id) {
         await apiClient.put(
           `/api/stock/magasins/${editing.magasin_id}/`,
-          payload,
+          payload
         );
       } else {
         await apiClient.post("/api/stock/magasins/", payload);
@@ -115,7 +129,7 @@ export function MagasinsPage() {
         setError(
           Object.entries(detail)
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | "),
+            .join(" | ")
         );
       } else {
         setError("Erreur lors de l'enregistrement du magasin.");
@@ -133,9 +147,17 @@ export function MagasinsPage() {
       charger();
     } catch {
       setError(
-        "Suppression impossible (des mouvements y sont probablement liés).",
+        "Suppression impossible (des mouvements y sont probablement liés)."
       );
     }
+  };
+
+  const getSiteIcon = (type) => {
+    return type === "SIEGE" ? (
+      <AccountBalanceIcon fontSize="small" sx={{ mr: 0.5 }} />
+    ) : (
+      <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
+    );
   };
 
   const columns = [
@@ -153,12 +175,27 @@ export function MagasinsPage() {
       minWidth: 200,
     },
     {
-      field: "localite",
-      headerName: "Localité",
+      field: "localite_nom",
+      headerName: "Site",
       flex: 1,
       minWidth: 200,
-      renderCell: (params) =>
-        params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) => {
+        const nom = params.row.localite_nom;
+        const type = params.row.localite_type;
+        if (!nom) return <Chip label="—" size="small" variant="outlined" />;
+        return (
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            {getSiteIcon(type)}
+            <Chip
+              label={type === "SIEGE" ? "Siège" : "Agence"}
+              size="small"
+              color={type === "SIEGE" ? "primary" : "secondary"}
+              sx={{ mr: 1 }}
+            />
+            <Typography variant="body2">{nom}</Typography>
+          </Box>
+        );
+      },
     },
     {
       field: "actions",
@@ -275,15 +312,34 @@ export function MagasinsPage() {
               margin="normal"
               inputProps={{ maxLength: 50 }}
             />
-            <TextField
-              label="Localité"
-              value={form.localite}
-              onChange={handleChange("localite")}
-              fullWidth
-              margin="normal"
-              placeholder="Ex: Antananarivo, Toamasina..."
-              inputProps={{ maxLength: 50 }}
-            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Site (Siège/Agence)</InputLabel>
+              <Select
+                value={form.localite}
+                label="Site (Siège/Agence)"
+                onChange={handleChange("localite")}
+              >
+                <MenuItem value="">-- Aucun site --</MenuItem>
+                {sites.map((s) => (
+                  <MenuItem key={s.site_id} value={s.site_id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {getSiteIcon(s.site_type)}
+                      <Chip
+                        label={s.site_type === "SIEGE" ? "Siège" : "Agence"}
+                        size="small"
+                        color={s.site_type === "SIEGE" ? "primary" : "secondary"}
+                      />
+                      <Typography variant="body2">{s.site_nom}</Typography>
+                      {s.localite && (
+                        <Typography variant="caption" color="text.secondary">
+                          ({s.localite})
+                        </Typography>
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={fermerModal} disabled={saving}>

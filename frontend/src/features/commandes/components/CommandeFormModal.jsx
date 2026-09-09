@@ -503,20 +503,41 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                     <td>
                       {ligne.attributions && ligne.attributions.length > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                          {ligne.attributions.map((attr, idx) => (
-                            <Chip
-                              key={idx}
-                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                              icon={<PersonIcon />}
-                            />
-                          ))}
+                          {ligne.attributions.map((attr, idx) => {
+                            // ✅ Récupérer l'employé complet pour afficher sa localisation
+                            const employeComplet = employees.find(
+                              (e) => e.emp_id === attr.employe_beneficiaire
+                            );
+                            const service = employeComplet?.emp_serv_id;
+                            const direction = service?.serv_dir_id;
+                            const site = direction?.site;
+                            
+                            return (
+                              <Box key={idx} sx={{ mb: 0.5 }}>
+                                <Chip
+                                  label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  icon={<PersonIcon />}
+                                />
+                                {/* ✅ Affichage de la localisation sous le chip */}
+                                {(direction || site) && (
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3, ml: 1 }}>
+                                    <BusinessIcon sx={{ fontSize: 12 }} color="action" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {site ? `${site.site_nom} → ` : ""}
+                                      {direction?.dir_libelle || "—"}
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            );
+                          })}
                         </Box>
                       ) : (
                         <Chip
-                          label= {employeeDemandeur ? `${employeeDemandeur.emp_nom} (${ligne.quantite})` : "Aucun bénéficiaire"}
+                          label={employeeDemandeur ? `${employeeDemandeur.emp_nom} (${ligne.quantite})` : "Aucun bénéficiaire"}
                           size="small"
                           variant="outlined"
                           color="default"

@@ -13,11 +13,13 @@ import {
   Tooltip,
   Autocomplete,
   LinearProgress,
+  Chip,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 
 export function AttributionEditor({
@@ -32,7 +34,7 @@ export function AttributionEditor({
 
   const sommeAttribuee = attributions.reduce(
     (sum, a) => sum + (Number(a.quantite) || 0),
-    0,
+    0
   );
   const quantiteRestante = Number(quantiteTotale) - sommeAttribuee;
   const pourcentage =
@@ -40,23 +42,41 @@ export function AttributionEditor({
       ? (sommeAttribuee / Number(quantiteTotale)) * 100
       : 0;
 
+  // ✅ Filtrer par direction au lieu de service
   const employesDisponibles = employees.filter((e) => {
     const dejaAttribue = attributions.some((a) => a.employe?.emp_id === e.emp_id);
     if (dejaAttribue) return false;
-
     if (demandeurParDefaut?.emp_serv_id) {
+      const dirDemandeur = demandeurParDefaut.emp_serv_id?.serv_dir_id;
+      const dirEmploye = e.emp_serv_id?.serv_dir_id;
+      // Comparer par dir_id si disponible, sinon fallback sur serv_id
+      if (dirDemandeur && dirEmploye) {
+        return String(dirDemandeur) === String(dirEmploye);
+      }
       return String(e.emp_serv_id) === String(demandeurParDefaut.emp_serv_id);
     }
-
     return true;
   });
+
+  // ✅ Helper pour extraire la localisation d'un employé
+  const getLocalisation = (employe) => {
+    if (!employe) return null;
+    const service = employe.emp_serv_id;
+    const direction = service?.serv_dir_id;
+    const site = direction?.site;
+    return {
+      service: service?.serv_libelle,
+      direction: direction?.dir_libelle,
+      site: site?.site_nom,
+      siteType: site?.site_type,
+    };
+  };
 
   const ajouterAttribution = () => {
     if (!employeSelectionne) return;
     const qte = Number(quantiteAttribution);
     if (!qte || qte <= 0) return;
     if (qte > quantiteRestante) return;
-
     setAttributions([
       ...attributions,
       {
@@ -75,7 +95,6 @@ export function AttributionEditor({
   const modifierQuantite = (index, nouvelleQuantite) => {
     const qte = Number(nouvelleQuantite);
     if (!qte || qte <= 0) return;
-
     const updated = [...attributions];
     updated[index] = { ...updated[index], quantite: qte };
     setAttributions(updated);
@@ -116,8 +135,8 @@ export function AttributionEditor({
                   quantiteRestante === 0
                     ? "success.main"
                     : quantiteRestante < 0
-                      ? "error.main"
-                      : "warning.main",
+                    ? "error.main"
+                    : "warning.main",
               }}
             >
               {sommeAttribuee}
@@ -135,8 +154,8 @@ export function AttributionEditor({
             quantiteRestante === 0
               ? "success"
               : quantiteRestante < 0
-                ? "error"
-                : "primary"
+              ? "error"
+              : "primary"
           }
           sx={{ height: 8, borderRadius: 1 }}
         />
@@ -146,7 +165,7 @@ export function AttributionEditor({
             color="success.main"
             sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
           >
-            ✅Toute la quantité a été attribuée.
+            ✅ Toute la quantité a été attribuée.
           </Typography>
         )}
         {quantiteRestante < 0 && (
@@ -155,7 +174,7 @@ export function AttributionEditor({
             color="error.main"
             sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
           >
-            ❌La somme des attributions dépasse la quantité totale.
+            ❌ La somme des attributions dépasse la quantité totale.
           </Typography>
         )}
       </Box>
@@ -181,6 +200,8 @@ export function AttributionEditor({
         <TableHead>
           <TableRow>
             <TableCell>Bénéficiaire</TableCell>
+            {/* ✅ Nouvelle colonne : Localisation */}
+            <TableCell sx={{ minWidth: 180 }}>Localisation</TableCell>
             <TableCell align="center" sx={{ width: 120 }}>
               Quantité
             </TableCell>
@@ -190,54 +211,87 @@ export function AttributionEditor({
         <TableBody>
           {attributions.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   Aucune attribution. Vous recevrez toute la quantité.
                 </Typography>
               </TableCell>
             </TableRow>
           ) : (
-            attributions.map((attr, index) => (
-              <TableRow key={index} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
-                <TableCell>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <PersonIcon fontSize="small" color="primary" />
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>
-                        {attr.employe.emp_nom}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {attr.employe.emp_matricule}
-                        {attr.employe.emp_fonction
-                          ? ` • ${attr.employe.emp_fonction}`
-                          : ""}
-                      </Typography>
+            attributions.map((attr, index) => {
+              const loc = getLocalisation(attr.employe);
+              return (
+                <TableRow key={index} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <PersonIcon fontSize="small" color="primary" />
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {attr.employe.emp_nom}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {attr.employe.emp_matricule}
+                          {attr.employe.emp_fonction
+                            ? ` • ${attr.employe.emp_fonction}`
+                            : ""}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                </TableCell>
-                <TableCell align="center">
-                  <TextField
-                    type="number"
-                    size="small"
-                    value={attr.quantite}
-                    onChange={(e) => modifierQuantite(index, e.target.value)}
-                    inputProps={{ min: 1, max: quantiteTotale }}
-                    sx={{ width: 90 }}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <Tooltip title="Retirer">
-                    <IconButton
+                  </TableCell>
+                  {/* ✅ Affichage de la localisation complète */}
+                  <TableCell>
+                    {loc ? (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
+                        {loc.site && (
+                          <Chip
+                            label={`${loc.siteType === "SIEGE" ? "Siège" : "Agence"}: ${loc.site}`}
+                            size="small"
+                            color={loc.siteType === "SIEGE" ? "primary" : "secondary"}
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: 10 }}
+                          />
+                        )}
+                        {loc.direction && (
+                          <Typography variant="caption" color="text.secondary">
+                            {loc.direction}
+                          </Typography>
+                        )}
+                        {loc.service && (
+                          <Typography variant="caption" color="text.secondary">
+                            {loc.service}
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Non localisé
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    <TextField
+                      type="number"
                       size="small"
-                      color="error"
-                      onClick={() => retirerAttribution(index)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))
+                      value={attr.quantite}
+                      onChange={(e) => modifierQuantite(index, e.target.value)}
+                      inputProps={{ min: 1, max: quantiteTotale }}
+                      sx={{ width: 90 }}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Retirer">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => retirerAttribution(index)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -272,23 +326,34 @@ export function AttributionEditor({
               placeholder="Rechercher un employé..."
             />
           )}
-          renderOption={(props, option) => (
-            <li {...props} key={option.emp_id}>
-              <Box>
-                <Typography variant="body2" fontWeight={500}>
-                  {option.emp_nom}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {option.emp_matricule}
-                  {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
-                  {option.emp_contact ? ` • ${option.emp_contact}` : ""}
-                </Typography>
-              </Box>
-            </li>
-          )}
+          renderOption={(props, option) => {
+            const loc = getLocalisation(option);
+            return (
+              <li {...props} key={option.emp_id}>
+                <Box sx={{ width: "100%" }}>
+                  <Typography variant="body2" fontWeight={500}>
+                    {option.emp_nom}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {option.emp_matricule}
+                    {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
+                  </Typography>
+                  {/* ✅ Affichage de la localisation dans la liste */}
+                  {loc && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
+                      <BusinessIcon sx={{ fontSize: 12 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {loc.site ? `${loc.site} → ` : ""}
+                        {loc.direction || "—"}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </li>
+            );
+          }}
           noOptionsText="Aucun employé disponible"
         />
-
         <TextField
           label="Quantité"
           type="number"
@@ -301,7 +366,6 @@ export function AttributionEditor({
           }}
           placeholder={`Max: ${quantiteRestante}`}
         />
-
         <Button
           variant="contained"
           size="small"

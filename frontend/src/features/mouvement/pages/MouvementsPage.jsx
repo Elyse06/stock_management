@@ -25,20 +25,16 @@ import { MouvementDetailModal } from "../components/MouvementDetailModal";
 
 export function MouvementsPage() {
   const { hasAction, hasAnyAction } = useAuth();
-
-  //const canEdit = true;
   const canEdit = hasAnyAction("CAT_GERE", "INV_GERE");
-
+  
   const [mouvements, setMouvements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
-
   const [filterType, setFilterType] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
-
   const [selectedMouvement, setSelectedMouvement] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -53,7 +49,6 @@ export function MouvementsPage() {
       if (filterType) {
         params.type_mouvement = filterType;
       }
-
       const { data } = await apiClient.get("/api/stock/mouvements/", { params });
       setMouvements(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
@@ -72,19 +67,16 @@ export function MouvementsPage() {
     if (!dateDebut && !dateFin) return true;
     const mouvementDate = new Date(mouvement.date);
     mouvementDate.setHours(0, 0, 0, 0);
-
     if (dateDebut) {
       const debut = new Date(dateDebut);
       debut.setHours(0, 0, 0, 0);
       if (mouvementDate < debut) return false;
     }
-
     if (dateFin) {
       const fin = new Date(dateFin);
       fin.setHours(23, 59, 59, 999);
       if (mouvementDate > fin) return false;
     }
-
     return true;
   });
 
@@ -217,7 +209,6 @@ export function MouvementsPage() {
           </Button>
         )}
       </Box>
-
       <Box
         sx={{
           display: "flex",
@@ -244,7 +235,6 @@ export function MouvementsPage() {
             <MenuItem value="AJUSTEMENT">Ajustements</MenuItem>
           </Select>
         </FormControl>
-
         <TextField
           label="Du"
           type="date"
@@ -254,7 +244,6 @@ export function MouvementsPage() {
           InputLabelProps={{ shrink: true }}
           sx={{ width: 150 }}
         />
-
         <TextField
           label="Au"
           type="date"
@@ -264,20 +253,17 @@ export function MouvementsPage() {
           InputLabelProps={{ shrink: true }}
           sx={{ width: 150 }}
         />
-
         {(filterType || dateDebut || dateFin) && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
           </Button>
         )}
       </Box>
-
       {error && (
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
           rows={mouvementsFiltres}
@@ -296,13 +282,11 @@ export function MouvementsPage() {
           }}
         />
       </Box>
-
       <MouvementDetailModal
         mouvement={selectedMouvement}
         isOpen={Boolean(selectedMouvement)}
         onClose={() => setSelectedMouvement(null)}
       />
-
       <MouvementFormModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

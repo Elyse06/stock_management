@@ -56,14 +56,18 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
 
   const ajouterLigne = () => {
     if (!articleCode || !quantite || Number(quantite) <= 0) return;
-
     const article = articles.find(
       (a) => String(a.code_article) === String(articleCode)
     );
     const beneficiaire = employees.find(
       (e) => String(e.emp_id) === String(beneficiaireId)
     );
-
+    
+    // ✅ Extraire la localisation du bénéficiaire
+    const service = beneficiaire?.emp_serv_id;
+    const direction = service?.serv_dir_id;
+    const site = direction?.site;
+    
     setLignes([
       ...lignes,
       {
@@ -73,9 +77,11 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         quantite: Number(quantite),
         employe_beneficiaire: beneficiaireId || null,
         beneficiaire_nom: beneficiaire?.emp_nom || null,
+        // ✅ Nouveaux champs pour la localisation
+        beneficiaire_direction: direction?.dir_libelle || null,
+        beneficiaire_site: site?.site_nom || null,
       },
     ]);
-
     setArticleCode("");
     setQuantite("");
     setBeneficiaireId("");
@@ -170,13 +176,25 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
 
                 <TableCell>
                   {ligne.beneficiaire_nom ? (
-                    <Chip
-                      label={ligne.beneficiaire_nom}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                      icon={<PersonIcon />}
-                    />
+                    <Box>
+                      <Chip
+                        label={ligne.beneficiaire_nom}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        icon={<PersonIcon />}
+                      />
+                      {/* ✅ Affichage de la localisation */}
+                      {ligne.beneficiaire_direction && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3 }}>
+                          <BusinessIcon sx={{ fontSize: 12 }} color="action" />
+                          <Typography variant="caption" color="text.secondary">
+                            {ligne.beneficiaire_site ? `${ligne.beneficiaire_site} → ` : ""}
+                            {ligne.beneficiaire_direction}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                   ) : (
                     <Chip
                       label="Demandeur (auto)"

@@ -35,7 +35,7 @@ class ArticleSerializer(serializers.ModelSerializer):
         model = Article
         fields = [
             "code_article", "code_barre", "designation", "description",
-            "modele", "unite", "seuil", "mode_suivi",
+            "modele", "unite", "seuil", "numero_de_serie",
             "categorie", "categorie_nom", "marque", "marque_libelle", "fournisseurs", "stock_calcule",
         ]
 
