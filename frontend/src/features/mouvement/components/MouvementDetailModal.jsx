@@ -15,6 +15,7 @@ import {
   Close as CloseIcon,
   Person as PersonIcon,
   QrCode as QrCodeIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { QRCodeSVG } from "qrcode.react";
@@ -49,7 +50,6 @@ const getTypeLabel = (type) => {
   }
 };
 
-
 export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
   if (!mouvement) return null;
 
@@ -62,6 +62,20 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
       headerAlign: "center",
       align: "center",
     },
+    // ✅ Colonne Fournisseur (uniquement pour les entrées)
+    ...(mouvement.type_mouvement === "ENTREE"
+      ? [
+          {
+            field: "fournisseur_nom",
+            headerName: "Fournisseur",
+            flex: 1,
+            renderCell: (params) =>
+              params.value || (
+                <Chip label="—" size="small" variant="outlined" />
+              ),
+          },
+        ]
+      : []),
     ...(mouvement.type_mouvement === "SORTIE"
       ? [
           {
@@ -69,7 +83,9 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
             headerName: "Bénéficiaire",
             flex: 1,
             renderCell: (params) =>
-              params.value || <Chip label="—" size="small" variant="outlined" />,
+              params.value || (
+                <Chip label="—" size="small" variant="outlined" />
+              ),
           },
         ]
       : []),
@@ -100,13 +116,11 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-
       <DialogContent sx={{ pt: 3 }}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Informations générales
           </Typography>
-
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" color="text.secondary">
@@ -118,7 +132,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                 size="small"
               />
             </Grid>
-
             {mouvement.magasin_source_nom && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -129,7 +142,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                 </Typography>
               </Grid>
             )}
-
             {mouvement.magasin_destination_nom && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -140,7 +152,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                 </Typography>
               </Grid>
             )}
-
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" color="text.secondary">
                 Date
@@ -149,7 +160,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                 {new Date(mouvement.date).toLocaleString("fr-FR")}
               </Typography>
             </Grid>
-
             {mouvement.origine && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -158,7 +168,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                 <Typography variant="body1">{mouvement.origine}</Typography>
               </Grid>
             )}
-
             {mouvement.motif && (
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -169,13 +178,11 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
             )}
           </Grid>
         </Box>
-
         {mouvement.type_mouvement === "SORTIE" && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="h3" sx={{ mb: 1.5 }}>
               Bénéficiaires & QR Codes
             </Typography>
-
             {mouvement.details?.some((d) => d.employe_beneficiaire_nom) ? (
               <Grid container spacing={2}>
                 {mouvement.details
@@ -224,7 +231,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
                             </Typography>
                           </Typography>
                         </Box>
-
                         {detail.qr_code_data && (
                           <Box
                             sx={{
@@ -272,7 +278,46 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
             )}
           </Box>
         )}
-
+        {/* ✅ Section Fournisseurs pour les entrées */}
+        {mouvement.type_mouvement === "ENTREE" && mouvement.details?.some((d) => d.fournisseur_nom) && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h3" sx={{ mb: 1.5 }}>
+              Fournisseurs
+            </Typography>
+            <Grid container spacing={2}>
+              {mouvement.details
+                .filter((d) => d.fournisseur_nom)
+                .map((detail, index) => (
+                  <Grid item xs={12} sm={6} key={index}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "#FAFAFA",
+                        borderRadius: 1,
+                        border: "1px solid #E0E0E0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <BusinessIcon color="primary" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Article
+                        </Typography>
+                        <Typography variant="body1" fontWeight={600}>
+                          {detail.article_designation}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          <strong>Fournisseur :</strong> {detail.fournisseur_nom}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                ))}
+            </Grid>
+          </Box>
+        )}
         <Box>
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             Articles ({mouvement.details?.length ?? 0})
@@ -288,7 +333,6 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
           </Box>
         </Box>
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Fermer</Button>
       </DialogActions>

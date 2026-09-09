@@ -126,12 +126,15 @@ export function ArticlePremiumPage() {
           {est_sous_seuil && (
             <Chip icon={<WarningIcon />} label="Sous seuil" color="warning" />
           )}
-          <Chip
-            label={article.mode_suivi}
-            color="primary"
-            variant="outlined"
-            size="small"
-          />
+          {article.numero_de_serie && (
+            <Chip
+              label={`N° Série: ${article.numero_de_serie}`}
+              color="info"
+              variant="outlined"
+              size="small"
+              sx={{ fontFamily: "monospace" }}
+            />
+          )}
         </Box>
       </Box>
 
@@ -245,6 +248,33 @@ export function ArticlePremiumPage() {
                 </Typography>
                 <Typography variant="body2" fontFamily="monospace">
                   {article.code_barre}
+                </Typography>
+              </Box>
+            )}
+
+            {/** Numero de série */}
+            {article.numero_de_serie && (
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                  <QrCodeIcon fontSize="small" color="action" />
+                  <Typography variant="body2" color="text.secondary">
+                    Numéro de série
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body1"
+                  fontFamily="monospace"
+                  fontWeight={600}
+                  sx={{
+                    bgcolor: "#E3F2FD",
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    border: "1px solid #1976D2",
+                    display: "inline-block",
+                  }}
+                >
+                  {article.numero_de_serie}
                 </Typography>
               </Box>
             )}

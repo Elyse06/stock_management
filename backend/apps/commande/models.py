@@ -71,16 +71,39 @@ class AttributionDetailCommande(models.Model):
     quantite = models.DecimalField(max_digits=12, decimal_places=2)
     
     code_unique = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    date_acquisition = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         db_table = 't_attribution_detail_commande'
 
     def get_qr_payload(self):
+        employe = self.employe_beneficiaire
+        service = employe.emp_serv_id if employe else None
+        direction = service.serv_dir_id if service else None
+        site = direction.site if direction else None
+
         return {
-            "token": str(self.code_unique),
-            "attribution_id": self.pk,
-            "article": self.detail_commande.article.designation,
+            "code_unique": str(self.code_unique),
             "quantite": float(self.quantite),
-            "beneficiaire": f"{self.employe_beneficiaire.emp_nom}",
-            "matricule": self.employe_beneficiaire.emp_matricule,
+            "beneficiaire": {
+                "emp_id": employe.emp_id if employe else None,
+                "emp_nom": employe.emp_nom if employe else None,
+                "emp_matricule": employe.emp_matricule if employe else None,
+                "emp_fonction": employe.emp_fonction if employe else None,
+            },
+            "agence": {
+                "site_type": site.get_site_type_display() if site else None,
+                "site_nom": site.site_nom if site else None,
+                "localite": site.localite if site else None,
+                "direction": direction.dir_libelle if direction else None,
+                "service": service.serv_libelle if service else None,
+            },
+            "acquisition": {
+                "mois": self.date_acquisition.month,
+                "annee": self.date_acquisition.year,
+            },
+            "article": {
+                "code_article": self.detail_commande.article.code_article,
+                "designation": self.detail_commande.article.designation,
+            },
         }

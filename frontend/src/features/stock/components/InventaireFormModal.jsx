@@ -39,30 +39,23 @@ const STEPS = [
   { label: "Récapitulatif", icon: <ListAltIcon /> },
 ];
 
-export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, services }) {
+export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, directions }) {
   const [activeStep, setActiveStep] = useState(0);
-
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
-
-  //STOCKS THÉORIQUES PAR ARTICLE (calculés en temps réel)
   const [stocksTheoriques, setStocksTheoriques] = useState({});
   const [loadingStocks, setLoadingStocks] = useState(false);
-
   const [lieuType, setLieuType] = useState("magasin");
   const [lieuId, setLieuId] = useState("");
-
   const [lignes, setLignes] = useState([]);
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
   const [currentCommentaire, setCurrentCommentaire] = useState("");
-
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-
     Promise.all([
       apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
       apiClient.get("/api/employee/employee/", { params: { page_size: 500 } }),
@@ -74,14 +67,12 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       .catch(() => setError("Impossible de charger les données."));
   }, [isOpen]);
 
-  //obtention du stock théorique de l'article
   useEffect(() => {
     if (!isOpen) return;
     if (!lieuId) {
       setStocksTheoriques({});
       return;
     }
-
     if (lieuType === "magasin") {
       const fetchStocks = async () => {
         setLoadingStocks(true);
@@ -100,7 +91,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       setStocksTheoriques({});
     }
   }, [isOpen, lieuId, lieuType]);
-  
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,29 +120,26 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     onClose();
   };
 
-  const lieuxDisponibles = lieuType === "magasin" ? magasins : services;
+  const lieuxDisponibles = lieuType === "magasin" ? magasins : directions; // ✅ Changé
   const lieuSelectionne = lieuxDisponibles.find((l) =>
-    String(lieuType === "magasin" ? l.magasin_id : l.serv_id) === String(lieuId)
+    String(lieuType === "magasin" ? l.magasin_id : l.dir_id) === String(lieuId)
   );
   const lieuNom = lieuSelectionne
     ? lieuType === "magasin"
       ? lieuSelectionne.magasin_nom
-      : lieuSelectionne.serv_libelle
+      : lieuSelectionne.dir_libelle
     : "";
 
-  //Obtenir le stock théorique d'un article
   const getStockTheorique = (articleCode) => {
     return stocksTheoriques[articleCode]?.stock_theorique ?? 0;
   };
 
   const handleNext = () => {
     setError("");
-
     if (activeStep === 0 && !lieuId) {
       setError("Veuillez sélectionner un lieu.");
       return;
     }
-
     if (activeStep < STEPS.length - 1) {
       setActiveStep((prev) => prev + 1);
     }
@@ -165,7 +152,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
     }
   };
 
-  //ligne des articles
   const ajouterLigne = () => {
     if (!currentArticle) {
       setError("Veuillez sélectionner un article.");
@@ -175,15 +161,12 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       setError("Veuillez saisir une quantité physique valide (≥ 0).");
       return;
     }
-
     if (lignes.some((l) => l.article === currentArticle.code_article)) {
       setError("Cet article est déjà dans la liste.");
       return;
     }
-
     const quantiteTheorique = getStockTheorique(currentArticle.code_article);
     const quantitePhysique = Number(currentQuantite);
-
     setLignes([
       ...lignes,
       {
@@ -212,10 +195,8 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
       setError("Veuillez sélectionner un lieu.");
       return;
     }
-
     setSaving(true);
     setError("");
-
     try {
       const payload = {
         lignes: lignes.map((l) => ({
@@ -224,15 +205,13 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
           commentaire: l.commentaire || null,
         })),
       };
-
       if (lieuType === "magasin") {
         payload.magasin = Number(lieuId);
       } else {
+        // ✅ On envoie "service" avec l'ID d'une direction (le backend mappe automatiquement)
         payload.service = lieuId;
       }
-
       await apiClient.post("/api/stock/inventaires/", payload);
-
       if (onSuccess) onSuccess();
       handleClose();
     } catch (err) {
@@ -263,14 +242,12 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
 
   const renderStepContent = () => {
     switch (activeStep) {
-      //ÉTAPE 1 : LIEU
       case 0:
         return (
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>
               Lieu de l'inventaire
             </Typography>
-
             <FormControl component="fieldset" sx={{ mb: 2 }}>
               <FormLabel component="legend">Type de lieu</FormLabel>
               <RadioGroup
@@ -292,51 +269,54 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                   }
                 />
                 <FormControlLabel
-                  value="service"
+                  value="direction" // ✅ Changé de "service" à "direction"
                   control={<Radio color="primary" />}
                   label={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                       <BusinessIcon fontSize="small" />
-                      <span>Département</span>
+                      <span>Direction</span>
                     </Box>
                   }
                 />
               </RadioGroup>
             </FormControl>
-
             <FormControl fullWidth>
               <InputLabel>
-                {lieuType === "magasin" ? "Magasin" : "Département"}
+                {lieuType === "magasin" ? "Magasin" : "Direction"}
               </InputLabel>
               <Select
                 value={lieuId}
-                label={lieuType === "magasin" ? "Magasin" : "Département"}
+                label={lieuType === "magasin" ? "Magasin" : "Direction"}
                 onChange={(e) => setLieuId(e.target.value)}
               >
                 <MenuItem value="">
-                  Sélectionner un {lieuType === "magasin" ? "magasin" : "département"}...
+                  Sélectionner un {lieuType === "magasin" ? "magasin" : "direction"}...
                 </MenuItem>
                 {lieuxDisponibles.map((l) => (
                   <MenuItem
-                    key={lieuType === "magasin" ? l.magasin_id : l.serv_id}
-                    value={lieuType === "magasin" ? l.magasin_id : l.serv_id}
+                    key={lieuType === "magasin" ? l.magasin_id : l.dir_id}
+                    value={lieuType === "magasin" ? l.magasin_id : l.dir_id}
                   >
                     {lieuType === "magasin"
-                      ? `${l.magasin_nom}${l.localite ? ` (${l.localite})` : ""}`
-                      : l.serv_libelle}
+                      ? `${l.magasin_nom}${l.localite_nom ? ` (${l.localite_nom})` : ""}`
+                      : l.dir_libelle}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-
             {lieuSelectionne && (
               <InfoBox
-                icon={lieuType === "magasin" ? <StoreIcon fontSize="small" /> : <BusinessIcon fontSize="small" />}
+                icon={
+                  lieuType === "magasin" ? (
+                    <StoreIcon fontSize="small" />
+                  ) : (
+                    <BusinessIcon fontSize="small" />
+                  )
+                }
                 title={lieuNom}
-                subtitle={`${lieuType === "magasin" ? "Magasin" : "Département"}${lieuType === "magasin" && lieuSelectionne.localite ? ` • ${lieuSelectionne.localite}` : ""}`}
+                subtitle={`${lieuType === "magasin" ? "Magasin" : "Direction"}`}
               />
             )}
-
             {loadingStocks && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
                 <CircularProgress size={16} />
@@ -347,15 +327,12 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
             )}
           </Box>
         );
-
-      //ÉTAPE 2 : ARTICLES
       case 1:
         return (
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>
               Articles à inventorier
             </Typography>
-
             <FormSection>
               <Autocomplete
                 options={articles.filter(
@@ -395,7 +372,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                 }}
                 noOptionsText="Aucun article disponible"
               />
-
               {currentArticle && (
                 <Box
                   sx={{
@@ -432,7 +408,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                   </Box>
                 </Box>
               )}
-
               <Box sx={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 2, mt: 2 }}>
                 <TextField
                   label="Quantité physique comptée"
@@ -450,7 +425,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                   inputProps={{ maxLength: 255 }}
                 />
               </Box>
-
               {currentArticle && currentQuantite !== "" && (
                 <Box
                   sx={{
@@ -475,14 +449,20 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                     <Typography
                       variant="body2"
                       fontWeight={700}
-                      sx={{ color: getEcartColor(Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)) }}
+                      sx={{
+                        color: getEcartColor(
+                          Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)
+                        ),
+                      }}
                     >
-                      Écart : {formatEcart(Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article))}
+                      Écart :{" "}
+                      {formatEcart(
+                        Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)
+                      )}
                     </Typography>
                   </Box>
                 </Box>
               )}
-
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -493,7 +473,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                 Ajouter à la liste
               </Button>
             </FormSection>
-
             {lignes.length > 0 && (
               <StyledTable
                 columns={[
@@ -559,32 +538,33 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
             )}
           </Box>
         );
-
-      //ÉTAPE 3 : RÉCAPITULATIF
       case 2:
         return (
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>
               Récapitulatif de l'inventaire
             </Typography>
-
             <InfoBox
-              icon={lieuType === "magasin" ? <StoreIcon fontSize="small" color="primary" /> : <BusinessIcon fontSize="small" color="primary" />}
+              icon={
+                lieuType === "magasin" ? (
+                  <StoreIcon fontSize="small" color="primary" />
+                ) : (
+                  <BusinessIcon fontSize="small" color="primary" />
+                )
+              }
             >
               <Typography variant="body2">
                 <strong>Lieu :</strong> {lieuNom}
                 <Chip
-                  label={lieuType === "magasin" ? "Magasin" : "Département"}
+                  label={lieuType === "magasin" ? "Magasin" : "Direction"}
                   size="small"
                   sx={{ ml: 1, height: 20, fontSize: 11 }}
                 />
               </Typography>
             </InfoBox>
-
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1, mt: 2 }}>
               Articles à inventorier ({lignes.length})
             </Typography>
-
             {lignes.length === 0 ? (
               <Alert severity="warning">
                 Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
@@ -630,7 +610,9 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
                       </Typography>
                     </td>
                     <td>
-                      {ligne.commentaire || <Chip label="—" size="small" variant="outlined" />}
+                      {ligne.commentaire || (
+                        <Chip label="—" size="small" variant="outlined" />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -638,7 +620,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, serv
             )}
           </Box>
         );
-
       default:
         return null;
     }

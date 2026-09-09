@@ -22,6 +22,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  Grid,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -30,19 +31,29 @@ import {
   HourglassEmpty as HourglassEmptyIcon,
   Person as PersonIcon,
   Store as StoreIcon,
+  QrCode as QrCodeIcon,
+  Business as BusinessIcon,
+  CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
+import { QRCodeSVG } from "qrcode.react";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 
+// ✅ Helper pour parser le payload QR code
+const parseQrPayload = (qrData) => {
+  if (!qrData) return null;
+  try {
+    return typeof qrData === "string" ? JSON.parse(qrData) : qrData;
+  } catch {
+    return null;
+  }
+};
+
 export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const { hasAction, hasAnyAction } = useAuth();
-
-  // ====== DÉTECTION DES RÔLES ======
   const isAgentPrincipal = hasAction("CAT_GERE") && hasAction("COM_VAL");
   const isAgentSecondaire = !hasAction("CAT_GERE") && hasAction("COM_VAL");
-  const isDemandeur = hasAction("COM_DEM") && !hasAction("COM_VAL");
 
-  // ====== STATE ======
   const [magasins, setMagasins] = useState([]);
   const [magasinSource, setMagasinSource] = useState("");
   const [commentaire, setCommentaire] = useState("");
@@ -50,7 +61,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // ====== CHARGEMENT DES MAGASINS ======
   useEffect(() => {
     if (isOpen) {
       apiClient
@@ -60,7 +70,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     }
   }, [isOpen]);
 
-  // ====== RESET DES CHAMPS ======
   useEffect(() => {
     if (isOpen) {
       setMagasinSource("");
@@ -72,91 +81,66 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
 
   if (!commande) return null;
 
-  // ====== HELPERS ======
   const getStatusColor = (statut) => {
     switch (statut) {
-      case "EN_ATTENTE":
-        return "warning";
-      case "EN_COURS":
-        return "info";
-      case "VALIDEE":
-        return "success";
-      case "REJETEE":
-        return "error";
-      default:
-        return "default";
+      case "EN_ATTENTE": return "warning";
+      case "EN_COURS": return "info";
+      case "VALIDEE": return "success";
+      case "REJETEE": return "error";
+      default: return "default";
     }
   };
 
   const getStatusLabel = (statut) => {
     switch (statut) {
-      case "EN_ATTENTE":
-        return "En attente";
-      case "EN_COURS":
-        return "En cours";
-      case "VALIDEE":
-        return "Validée";
-      case "REJETEE":
-        return "Rejetée";
-      default:
-        return statut;
+      case "EN_ATTENTE": return "En attente";
+      case "EN_COURS": return "En cours";
+      case "VALIDEE": return "Validée";
+      case "REJETEE": return "Rejetée";
+      default: return statut;
     }
   };
 
   const getStatusIcon = (statut) => {
     switch (statut) {
-      case "EN_ATTENTE":
-        return <HourglassEmptyIcon fontSize="small" />;
-      case "EN_COURS":
-        return <HourglassEmptyIcon fontSize="small" />;
-      case "VALIDEE":
-        return <CheckCircleIcon fontSize="small" />;
-      case "REJETEE":
-        return <CancelIcon fontSize="small" />;
-      default:
-        return null;
+      case "EN_ATTENTE": return <HourglassEmptyIcon fontSize="small" />;
+      case "EN_COURS": return <HourglassEmptyIcon fontSize="small" />;
+      case "VALIDEE": return <CheckCircleIcon fontSize="small" />;
+      case "REJETEE": return <CancelIcon fontSize="small" />;
+      default: return null;
     }
   };
 
-  // ====== DÉTERMINER SI ON PEUT TRAITER ======
   const peutTraiter =
     (isAgentPrincipal && commande.statut === "EN_COURS") ||
     (isAgentSecondaire && commande.statut === "EN_ATTENTE");
 
-  // ====== TRAITEMENT DE LA COMMANDE ======
   const traiter = async (statut) => {
-    // Validation : magasin source requis uniquement pour validation finale
     if (statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
       setError("Veuillez sélectionner un magasin source pour la sortie de stock.");
       return;
     }
-
     setTraitement(true);
     setError("");
     setSuccess("");
-
     try {
       const payload = {
         statut,
         commentaire_agent: commentaire.trim(),
       };
-
       if (statut === "VALIDEE" && magasinSource) {
         payload.magasin_source = Number(magasinSource);
       }
-
       await apiClient.post(
         `/api/commandes/commandes/${commande.commande_id}/traiter/`,
         payload
       );
-
       const messages = {
         EN_COURS: "Commande pré-validée avec succès.",
         VALIDEE: "Commande validée définitivement.",
         REJETEE: "Commande rejetée.",
       };
       setSuccess(messages[statut]);
-
       if (onSuccess) onSuccess();
     } catch (err) {
       const detail = err?.response?.data;
@@ -174,6 +158,16 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     }
   };
 
+  // ✅ Helper pour formater la date d'acquisition
+  const formatAcquisition = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return {
+      mois: d.toLocaleString("fr-FR", { month: "long" }),
+      annee: d.getFullYear(),
+    };
+  };
+
   return (
     <Dialog
       open={isOpen}
@@ -182,7 +176,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
       fullWidth
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
-      {/* ====== HEADER ====== */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -194,9 +187,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Typography variant="h3">
-            Commande #{commande.commande_id}
-          </Typography>
+          <Typography variant="h3">Commande #{commande.commande_id}</Typography>
           <Chip
             icon={getStatusIcon(commande.statut)}
             label={getStatusLabel(commande.statut)}
@@ -209,9 +200,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         </IconButton>
       </DialogTitle>
 
-      {/* ====== BODY ====== */}
       <DialogContent sx={{ pt: 3 }}>
-        {/* Erreurs / Succès */}
         {error && (
           <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
             {error}
@@ -223,11 +212,9 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           </Alert>
         )}
 
-        {/* ====== INFOS GÉNÉRALES ====== */}
+        {/* INFOS GÉNÉRALES */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h3" sx={{ mb: 1.5 }}>
-            Informations générales
-          </Typography>
+          <Typography variant="h3" sx={{ mb: 1.5 }}>Informations générales</Typography>
           <Box
             sx={{
               display: "grid",
@@ -235,21 +222,14 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
               gap: 2,
             }}
           >
-            {/* Objet */}
             <Box>
-              <Typography variant="body2" color="text.secondary">
-                Objet
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Objet</Typography>
               <Typography variant="body1" fontWeight={500}>
                 {commande.objet || "—"}
               </Typography>
             </Box>
-
-            {/* Demandeur */}
             <Box>
-              <Typography variant="body2" color="text.secondary">
-                Demandeur
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Demandeur</Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <PersonIcon fontSize="small" color="action" />
                 <Typography variant="body1">
@@ -257,56 +237,33 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 </Typography>
               </Box>
             </Box>
-
-            {/* Date de demande */}
             <Box>
-              <Typography variant="body2" color="text.secondary">
-                Date de demande
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Date de demande</Typography>
               <Typography variant="body1">
                 {new Date(commande.date_commande).toLocaleString("fr-FR")}
               </Typography>
             </Box>
-
-            {/* Traitant */}
             {commande.traitant && (
               <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Traité par
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Traité par</Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <PersonIcon fontSize="small" color="action" />
                   <Typography variant="body1">{commande.traitant.nom}</Typography>
                 </Box>
               </Box>
             )}
-
-            {/* Date de traitement */}
             {commande.date_traitement && (
               <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Date de traitement
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Date de traitement</Typography>
                 <Typography variant="body1">
                   {new Date(commande.date_traitement).toLocaleString("fr-FR")}
                 </Typography>
               </Box>
             )}
-
-            {/* Commentaire */}
             {commande.commentaire_agent && (
               <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
-                <Typography variant="body2" color="text.secondary">
-                  Commentaire
-                </Typography>
-                <Box
-                  sx={{
-                    bgcolor: "#FAFAFA",
-                    p: 1.5,
-                    borderRadius: 1,
-                    border: "1px solid #E0E0E0",
-                  }}
-                >
+                <Typography variant="body2" color="text.secondary">Commentaire</Typography>
+                <Box sx={{ bgcolor: "#FAFAFA", p: 1.5, borderRadius: 1, border: "1px solid #E0E0E0" }}>
                   <Typography variant="body2">{commande.commentaire_agent}</Typography>
                 </Box>
               </Box>
@@ -314,7 +271,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           </Box>
         </Box>
 
-        {/* ====== ARTICLES DEMANDÉS ====== */}
+        {/* ARTICLES DEMANDÉS */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Articles demandés ({commande.details?.length ?? 0})
@@ -323,11 +280,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
             size="small"
             sx={{
               border: "1px solid #E0E0E0",
-              "& .MuiTableCell-root": {
-                borderColor: "#E0E0E0",
-                py: 1,
-                px: 1.5,
-              },
+              "& .MuiTableCell-root": { borderColor: "#E0E0E0", py: 1, px: 1.5 },
               "& .MuiTableHead-root .MuiTableCell-root": {
                 bgcolor: "#FFF8E1",
                 fontWeight: 600,
@@ -339,10 +292,8 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
             <TableHead>
               <TableRow>
                 <TableCell>Article</TableCell>
-                <TableCell align="center" sx={{ width: 120 }}>
-                  Quantité
-                </TableCell>
-                <TableCell sx={{ width: 200 }}>Attributions</TableCell>
+                <TableCell align="center" sx={{ width: 120 }}>Quantité</TableCell>
+                <TableCell sx={{ minWidth: 200 }}>Attributions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -350,9 +301,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 commande.details.map((detail) => (
                   <TableRow key={detail.id} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {detail.article}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={500}>{detail.article}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {detail.article_designation}
                       </Typography>
@@ -401,7 +350,129 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           </Table>
         </Box>
 
-        {/* ====== FORMULAIRE DE TRAITEMENT ====== */}
+        {/* ✅ NOUVEAU : QR Codes des attributions (uniquement si commande validée) */}
+        {commande.statut === "VALIDEE" && commande.details?.some((d) => d.attributions?.length > 0) && (
+          <Box sx={{ mb: 3 }}>
+            <Divider sx={{ mb: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                <QrCodeIcon fontSize="small" />
+                <Typography variant="body2" fontWeight={600}>
+                  QR Codes de traçabilité
+                </Typography>
+              </Box>
+            </Divider>
+            <Grid container spacing={2}>
+              {commande.details.flatMap((detail) =>
+                (detail.attributions || []).map((attr) => {
+                  const qrPayload = parseQrPayload(attr.qr_code_data);
+                  if (!qrPayload) return null;
+                  const acquisition = formatAcquisition(attr.date_acquisition);
+                  return (
+                    <Grid item xs={12} sm={6} key={`${detail.id}-${attr.id}`}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          bgcolor: "#FAFAFA",
+                          borderRadius: 1,
+                          border: "1px solid #E0E0E0",
+                          height: "100%",
+                        }}
+                      >
+                        {/* QR Code */}
+                        <Box sx={{ textAlign: "center", mb: 2 }}>
+                          <QRCodeSVG
+                            value={attr.qr_code_data}
+                            size={120}
+                            level="M"
+                            includeMargin={true}
+                          />
+                        </Box>
+
+                        {/* Infos bénéficiaire */}
+                        <Box sx={{ mb: 1.5 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+                            <PersonIcon fontSize="small" color="primary" />
+                            <Typography variant="body2" fontWeight={600}>
+                              {qrPayload.beneficiaire?.emp_nom || attr.beneficiaire_nom}
+                            </Typography>
+                          </Box>
+                          {qrPayload.beneficiaire?.emp_matricule && (
+                            <Typography variant="caption" color="text.secondary">
+                              Matricule : {qrPayload.beneficiaire.emp_matricule}
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* ✅ Infos Agence/Site */}
+                        {qrPayload.agence && (
+                          <Box sx={{ mb: 1.5, p: 1, bgcolor: "#FFF8E1", borderRadius: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+                              <BusinessIcon fontSize="small" color="primary" />
+                              <Typography variant="caption" fontWeight={600}>
+                                {qrPayload.agence.site_type === "SIEGE" ? "Siège" : "Agence"}
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              {qrPayload.agence.site_nom}
+                            </Typography>
+                            {qrPayload.agence.direction && (
+                              <Typography variant="caption" color="text.secondary">
+                                {qrPayload.agence.direction}
+                              </Typography>
+                            )}
+                            {qrPayload.agence.service && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                {qrPayload.agence.service}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+
+                        {/* ✅ Infos Acquisition */}
+                        {acquisition && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+                            <CalendarIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              Acquis en{" "}
+                              <strong>
+                                {acquisition.mois} {acquisition.annee}
+                              </strong>
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Article & Quantité */}
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {qrPayload.article?.designation || detail.article_designation}
+                          </Typography>
+                          <Chip
+                            label={`×${qrPayload.quantite ?? attr.quantite}`}
+                            size="small"
+                            color="primary"
+                            sx={{ height: 20, fontSize: 11 }}
+                          />
+                        </Box>
+
+                        {/* Code unique */}
+                        <Typography
+                          variant="caption"
+                          fontFamily="monospace"
+                          color="text.secondary"
+                          sx={{ mt: 1, display: "block", textAlign: "center" }}
+                        >
+                          {qrPayload.code_unique?.substring(0, 8)}...
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  );
+                })
+              )}
+            </Grid>
+          </Box>
+        )}
+
+        {/* FORMULAIRE DE TRAITEMENT */}
         {peutTraiter && (
           <Box>
             <Divider sx={{ mb: 2 }}>
@@ -412,8 +483,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 </Typography>
               </Box>
             </Divider>
-
-            {/* Magasin source uniquement pour validation finale (agent principal) */}
             {isAgentPrincipal && commande.statut === "EN_COURS" && (
               <FormControl fullWidth margin="normal" required>
                 <InputLabel>Magasin source pour la sortie de stock</InputLabel>
@@ -425,14 +494,13 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                   <MenuItem value="">Sélectionner un magasin</MenuItem>
                   {magasins.map((m) => (
                     <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                      {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                      {m.magasin_nom}
+                      {m.localite_nom ? ` (${m.localite_nom})` : m.localite ? ` (${m.localite})` : ""}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
-
-            {/* Commentaire pour tous */}
             <TextField
               label="Commentaire (optionnel)"
               value={commentaire}
@@ -447,52 +515,37 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         )}
       </DialogContent>
 
-      {/* ====== FOOTER ====== */}
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={traitement}>
-          Fermer
-        </Button>
-
+        <Button onClick={onClose} disabled={traitement}>Fermer</Button>
         {peutTraiter && (
           <>
-            {/* Bouton Rejeter */}
             <Button
               variant="outlined"
               color="error"
               onClick={() => traiter("REJETEE")}
               disabled={traitement}
-              startIcon={
-                traitement ? <CircularProgress size={16} /> : <CancelIcon />
-              }
+              startIcon={traitement ? <CircularProgress size={16} /> : <CancelIcon />}
             >
               Rejeter
             </Button>
-
-            {/* Agent secondaire : Pré-valider (EN_ATTENTE → EN_COURS) */}
             {isAgentSecondaire && commande.statut === "EN_ATTENTE" && (
               <Button
                 variant="outlined"
                 color="info"
                 onClick={() => traiter("EN_COURS")}
                 disabled={traitement}
-                startIcon={
-                  traitement ? <CircularProgress size={16} /> : <HourglassEmptyIcon />
-                }
+                startIcon={traitement ? <CircularProgress size={16} /> : <HourglassEmptyIcon />}
               >
                 Pré-valider
               </Button>
             )}
-
-            {/* Agent principal : Valider définitivement (EN_COURS → VALIDEE) */}
             {isAgentPrincipal && commande.statut === "EN_COURS" && (
               <Button
                 variant="contained"
                 color="success"
                 onClick={() => traiter("VALIDEE")}
                 disabled={traitement || !magasinSource}
-                startIcon={
-                  traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />
-                }
+                startIcon={traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />}
               >
                 Valider
               </Button>

@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
-
 from apps.stock.models import (
     DetailMouvement,
     InventaireSession,
@@ -15,7 +14,6 @@ def valider_session_inventaire(session: InventaireSession):
     if session.statut == InventaireSession.Statut.VALIDE:
         raise serializers.ValidationError("Cet inventaire a déjà été validé.")
 
-    # Vérification s'il existe des écarts à régulariser
     lignes_ecart_positif = session.lignes.filter(ecart__gt=0)
     lignes_ecart_negatif = session.lignes.filter(ecart__lt=0)
 
@@ -27,7 +25,6 @@ def valider_session_inventaire(session: InventaireSession):
             magasin_source=None,
             magasin_destination=session.magasin,
         )
-
         for ligne in lignes_ecart_positif:
             DetailMouvement.objects.create(
                 mouvement=mouvement_gain,
@@ -35,7 +32,6 @@ def valider_session_inventaire(session: InventaireSession):
                 quantite=abs(ligne.ecart),
             )
 
-        
     if lignes_ecart_negatif.exists():
         mouvement_perte = Mouvement.objects.create(
             type_mouvement=Mouvement.Type.AJUSTEMENT,
@@ -44,7 +40,6 @@ def valider_session_inventaire(session: InventaireSession):
             magasin_source=session.magasin,
             magasin_destination=None,
         )
-
         for ligne in lignes_ecart_negatif:
             DetailMouvement.objects.create(
                 mouvement=mouvement_perte,
@@ -60,15 +55,11 @@ def valider_session_inventaire(session: InventaireSession):
 
     if lignes_a_mettre_a_jour:
         LigneInventaire.objects.bulk_update(
-            lignes_a_mettre_a_jour, 
+            lignes_a_mettre_a_jour,
             ['quantite_theorique', 'ecart']
         )
 
-    
-
-    # 2. Mise à jour de l'état de la session
     session.statut = InventaireSession.Statut.VALIDE
     session.date_validation = timezone.now()
     session.save()
-
     return session

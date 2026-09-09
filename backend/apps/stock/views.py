@@ -26,7 +26,7 @@ from .services import valider_session_inventaire
 
 
 class MagasinViewSet(viewsets.ModelViewSet):
-    queryset = Magasin.objects.all()
+    queryset = Magasin.objects.all().select_related("localite")
     serializer_class = MagasinSerializer
     permission_classes = [
         HasActionByMethod.for_methods(
@@ -44,23 +44,19 @@ class MagasinViewSet(viewsets.ModelViewSet):
     )
     def stocks(self, request, pk=None):
         magasin = self.get_object()
-
         entrees = DetailMouvement.objects.filter(
             mouvement__type_mouvement__in=[Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT],
             mouvement__magasin_destination=magasin,
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
-
         sorties = DetailMouvement.objects.filter(
             mouvement__type_mouvement__in=[Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT],
             mouvement__magasin_source=magasin,
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
-
         ajustements_plus = DetailMouvement.objects.filter(
             mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
             mouvement__magasin_destination=magasin,
             mouvement__magasin_source__isnull=True,
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
-
         ajustements_moins = DetailMouvement.objects.filter(
             mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
             mouvement__magasin_source=magasin,
@@ -68,11 +64,8 @@ class MagasinViewSet(viewsets.ModelViewSet):
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
 
         entrees_dict = {e["article"]: e["total"] for e in entrees}
-
         sorties_dict = {s["article"]: s["total"] for s in sorties}
-
         ajust_plus_dict = {a["article"]: a["total"] for a in ajustements_plus}
-
         ajust_moins_dict = {a["article"]: a["total"] for a in ajustements_moins}
 
         all_article_ids = set(
@@ -85,7 +78,7 @@ class MagasinViewSet(viewsets.ModelViewSet):
         stocks = {}
         for article in Article.objects.filter(code_article__in=all_article_ids):
             stock = (
-                entrees_dict.get(article.code_article, 0) - 
+                entrees_dict.get(article.code_article, 0) -
                 sorties_dict.get(article.code_article, 0) +
                 ajust_plus_dict.get(article.code_article, 0) -
                 ajust_moins_dict.get(article.code_article, 0)
@@ -95,7 +88,6 @@ class MagasinViewSet(viewsets.ModelViewSet):
                 "article_designation": article.designation,
                 "stock_theorique": stock,
             }
-
         return Response(stocks)
 
 
@@ -120,7 +112,7 @@ class MouvementViewSet(viewsets.ModelViewSet):
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
     queryset = DetailMouvement.objects.all().select_related(
-        "mouvement", "article", "employe_beneficiaire"
+        "mouvement", "article", "employe_beneficiaire", "fournisseur"
     )
     serializer_class = DetailMouvementSerializer
     permission_classes = [HasActionByMethod.for_methods(
@@ -130,13 +122,13 @@ class DetailMouvementViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["mouvement", "article", "employe_beneficiaire"]
+    filterset_fields = ["mouvement", "article", "employe_beneficiaire", "fournisseur"]
 
 
 class InventaireSessionViewSet(viewsets.ModelViewSet):
     queryset = (
         InventaireSession.objects.all()
-        .select_related("magasin", "service")
+        .select_related("magasin", "direction")
         .prefetch_related("lignes__article")
     )
     serializer_class = InventaireSessionSerializer
@@ -147,7 +139,14 @@ class InventaireSessionViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["statut", "magasin", "service"]
+    filterset_fields = ["statut", "magasin", "direction"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        service_id = self.request.query_params.get('service')
+        if service_id:
+            qs = qs.filter(direction_id=service_id)
+        return qs
 
     @action(
         detail=True,

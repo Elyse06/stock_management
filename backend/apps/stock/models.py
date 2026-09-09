@@ -2,13 +2,19 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.catalogue.models import Article
-from apps.employee.models import Employer, Service
+from apps.employee.models import Employer, Direction, Site
 
 
 class Magasin(models.Model):
     magasin_id = models.BigAutoField(primary_key=True)
     magasin_nom = models.CharField(max_length=50)
-    localite = models.CharField(max_length=50, blank=True)
+    localite = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="magasins",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "t_magasin"
@@ -16,7 +22,8 @@ class Magasin(models.Model):
         verbose_name_plural = "Magasins"
 
     def __str__(self):
-        return self.magasin_nom
+        site_nom = self.localite.site_nom if self.localite else "Sans site"
+        return f"{self.magasin_nom} ({site_nom})"
 
 
 class Mouvement(models.Model):
@@ -87,6 +94,13 @@ class DetailMouvement(models.Model):
         blank=True,
         related_name="dotations_recues",
     )
+    fournisseur = models.ForeignKey(
+        Fournisseur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="details_mouvement_entree",
+    )
     code_tracabilite = models.CharField(
         max_length=100,
         blank=True,
@@ -117,8 +131,8 @@ class InventaireSession(models.Model):
     magasin = models.ForeignKey(
         Magasin, on_delete=models.CASCADE, null=True, blank=True, related_name="sessions_inventaire"
     )
-    service = models.ForeignKey(
-        Service, on_delete=models.CASCADE, null=True, blank=True, related_name="sessions_inventaire"
+    direction = models.ForeignKey(
+        Direction, on_delete=models.CASCADE, null=True, blank=True, related_name="sessions_inventaire"
     )
 
     class Meta:
@@ -127,13 +141,13 @@ class InventaireSession(models.Model):
         verbose_name_plural = "Sessions d'inventaire"
 
     def clean(self):
-        if not self.magasin and not self.service:
-            raise ValidationError("Veuillez sélectionner un endroit (Magasin ou Département).")
-        if self.magasin and self.service:
-            raise ValidationError("Veuillez choisir soit un Magasin, soit un Département.")
+        if not self.magasin and not self.direction:
+            raise ValidationError("Veuillez sélectionner un endroit (Magasin ou Direction).")
+        if self.magasin and self.direction:
+            raise ValidationError("Veuillez choisir soit un Magasin, soit une Direction.")
 
     def __str__(self):
-        lieu = self.magasin.magasin_nom if self.magasin else f"Département {self.service.serv_libelle}"
+        lieu = self.magasin.magasin_nom if self.magasin else f"Direction {self.direction.dir_libelle}"
         return f"Inventaire {self.code_reference} ({lieu}) - {self.get_statut_display()}"
 
 

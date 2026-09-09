@@ -11,15 +11,18 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
         source="employe_beneficiaire.emp_nom", read_only=True
     )
     qr_code_data = serializers.SerializerMethodField()
+    date_acquisition = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = AttributionDetailCommande
         fields = [
             "id",
+            "detail_commande",
             "employe_beneficiaire",
             "beneficiaire_nom",
             "quantite",
             "code_unique",
+            "date_acquisition",
             "qr_code_data",
         ]
         read_only_fields = ["id", "code_unique", "qr_code_data"]

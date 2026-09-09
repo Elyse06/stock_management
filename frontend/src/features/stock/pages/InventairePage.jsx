@@ -16,6 +16,8 @@ import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
+  Business as BusinessIcon,
+  Store as StoreIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
@@ -31,22 +33,19 @@ const STATUTS = [
 
 export function InventairePage() {
   const { hasAnyAction } = useAuth();
-
   const canCreate = hasAnyAction("INV_GERE");
   const canValidate = hasAnyAction("INV_VAL");
 
   const [sessions, setSessions] = useState([]);
   const [magasins, setMagasins] = useState([]);
-  const [services, setServices] = useState([]);
+  const [directions, setDirections] = useState([]); // ✅ Changé de services à directions
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [rowCount, setRowCount] = useState(0);
-
   const [statutFiltre, setStatutFiltre] = useState("");
   const [lieuTypeFiltre, setLieuTypeFiltre] = useState("");
   const [lieuIdFiltre, setLieuIdFiltre] = useState("");
-
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -54,11 +53,11 @@ export function InventairePage() {
   useEffect(() => {
     Promise.all([
       apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
-      apiClient.get("/api/employee/service/", { params: { page_size: 100 } }),
+      apiClient.get("/api/employee/direction/", { params: { page_size: 100 } }), // ✅ Changé
     ])
-      .then(([magasinsRes, servicesRes]) => {
+      .then(([magasinsRes, directionsRes]) => {
         setMagasins(magasinsRes.data.results ?? magasinsRes.data);
-        setServices(servicesRes.data.results ?? servicesRes.data);
+        setDirections(directionsRes.data.results ?? directionsRes.data);
       })
       .catch(() => {});
   }, []);
@@ -75,10 +74,10 @@ export function InventairePage() {
       if (lieuTypeFiltre === "magasin" && lieuIdFiltre) {
         params.magasin = lieuIdFiltre;
       }
-      if (lieuTypeFiltre === "service" && lieuIdFiltre) {
+      // ✅ On envoie toujours "service" car le backend mappe service → direction
+      if (lieuTypeFiltre === "direction" && lieuIdFiltre) {
         params.service = lieuIdFiltre;
       }
-
       const { data } = await apiClient.get("/api/stock/inventaires/", { params });
       setSessions(data.results ?? data);
       setRowCount(data.count ?? (data.results ?? data).length);
@@ -232,7 +231,6 @@ export function InventairePage() {
       renderCell: (params) => {
         const session = params.row;
         const canValidateSession = canValidate && session.statut === "EN_ATTENTE";
-
         return (
           <Box sx={{ display: "flex", gap: 0.5 }}>
             <Tooltip title="Voir les détails">
@@ -271,8 +269,7 @@ export function InventairePage() {
           mb: 2,
         }}
       >
-        <Box>
-        </Box>
+        <Box></Box>
         {canCreate && (
           <Button
             variant="contained"
@@ -317,7 +314,6 @@ export function InventairePage() {
             ))}
           </Select>
         </FormControl>
-
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Type de lieu</InputLabel>
           <Select
@@ -327,10 +323,9 @@ export function InventairePage() {
           >
             <MenuItem value="">Tous lieux</MenuItem>
             <MenuItem value="magasin">Magasins</MenuItem>
-            <MenuItem value="service">Départements</MenuItem>
+            <MenuItem value="direction">Directions</MenuItem> {/* ✅ Changé */}
           </Select>
         </FormControl>
-
         {lieuTypeFiltre && (
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Lieu</InputLabel>
@@ -343,18 +338,28 @@ export function InventairePage() {
               {lieuTypeFiltre === "magasin"
                 ? magasins.map((m) => (
                     <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                      {m.magasin_nom}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <StoreIcon fontSize="small" />
+                        {m.magasin_nom}
+                        {m.localite_nom && (
+                          <Typography variant="caption" color="text.secondary">
+                            ({m.localite_nom})
+                          </Typography>
+                        )}
+                      </Box>
                     </MenuItem>
                   ))
-                : services.map((s) => (
-                    <MenuItem key={s.serv_id} value={s.serv_id}>
-                      {s.serv_libelle}
+                : directions.map((d) => (
+                    <MenuItem key={d.dir_id} value={d.dir_id}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <BusinessIcon fontSize="small" />
+                        {d.dir_libelle}
+                      </Box>
                     </MenuItem>
                   ))}
             </Select>
           </FormControl>
         )}
-
         {(statutFiltre || lieuTypeFiltre || lieuIdFiltre) && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
@@ -386,9 +391,8 @@ export function InventairePage() {
         onClose={closeFormModal}
         onSuccess={charger}
         magasins={magasins}
-        services={services}
+        directions={directions} // ✅ Changé de services à directions
       />
-
       <InventaireDetailsModal
         session={selectedSession}
         isOpen={isDetailModalOpen}

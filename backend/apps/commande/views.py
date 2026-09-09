@@ -35,6 +35,10 @@ class CommandeViewSet(viewsets.ModelViewSet):
             "employe_traitant",
             "employe_demandeur__emp_serv_id",
             "employe_traitant__emp_serv_id",
+            "employe_demandeur__emp_serv_id__serv_dir_id",
+            "employe_traitant__emp_serv_id__serv_dir_id",
+            "employe_demandeur__emp_serv_id__serv_dir_id__site",
+            "employe_traitant__emp_serv_id__serv_dir_id__site",
         )
         .prefetch_related(
             "details__article",
@@ -62,9 +66,9 @@ class CommandeViewSet(viewsets.ModelViewSet):
             if has_cat_gere and has_com_val:
                 pass
             elif has_com_val:
-                if employee and employee.emp_serv_id:
+                if employee and employee.emp_serv_id and employee.emp_serv_id.serv_dir_id:
                     queryset = queryset.filter(
-                        employe_demandeur__emp_serv_id=employee.emp_serv_id
+                        employe_demandeur__emp_serv_id__serv_dir_id=employee.emp_serv_id.serv_dir_id
                     )
             else:
                 if employee:
@@ -136,7 +140,12 @@ class DetailCommandeViewSet(viewsets.ModelViewSet):
 )
 class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = AttributionDetailCommande.objects.all().select_related(
-        "detail_commande", "employe_beneficiaire"
+        "detail_commande", 
+        "detail_commande__article",
+        "employe_beneficiaire",
+        "employe_beneficiaire__emp_serv_id",
+        "employe_beneficiaire__emp_serv_id__serv_dir_id",
+        "employe_beneficiaire__emp_serv_id__serv_dir_id__site",
     )
     serializer_class = AttributionDetailCommandeSerializer
 

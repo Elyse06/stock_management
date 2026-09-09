@@ -28,6 +28,7 @@ import {
   Delete as DeleteIcon,
   Login as LoginIcon,
   SwapHoriz as SwapHorizIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
@@ -46,49 +47,51 @@ export function MouvementFormModal({
 }) {
   const { hasAnyAction } = useAuth();
   const canCreate = hasAnyAction("INV_GERE", "CAT_GERE");
-
+  
   const [magasins, setMagasins] = useState([]);
   const [articles, setArticles] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]); // ✅ Nouveau
   const [typeMouvement, setTypeMouvement] = useState("ENTREE");
   const [origine, setOrigine] = useState("");
   const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
-  const [details, setDetails] = useState([{ article: "", quantite: 1 }]);
+  // ✅ Chaque détail a maintenant un fournisseur
+  const [details, setDetails] = useState([{ article: "", quantite: 1, fournisseur: "" }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ✅ Reset + pré-remplissage à l'ouverture
   useEffect(() => {
     if (!isOpen) return;
-
     setTypeMouvement("ENTREE");
     setOrigine("");
     setMotif("");
     setMagasinSource("");
     setMagasinDestination("");
-
-    // ✅ Pré-remplir avec l'article suggéré si fourni
+    
     if (preselectedArticle) {
       setDetails([
         {
           article: preselectedArticle,
           quantite: preselectedQuantite || 1,
+          fournisseur: "",
         },
       ]);
     } else {
-      setDetails([{ article: "", quantite: 1 }]);
+      setDetails([{ article: "", quantite: 1, fournisseur: "" }]);
     }
-
     setError("");
-
+    
+    // ✅ Charger aussi les fournisseurs
     Promise.all([
       apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
       apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
+      apiClient.get("/api/catalogue/fournisseurs/", { params: { page_size: 100 } }),
     ])
-      .then(([magasinsRes, articlesRes]) => {
+      .then(([magasinsRes, articlesRes, fournisseursRes]) => {
         setMagasins(magasinsRes.data.results ?? magasinsRes.data);
         setArticles(articlesRes.data.results ?? articlesRes.data);
+        setFournisseurs(fournisseursRes.data.results ?? fournisseursRes.data);
       })
       .catch(() => setError("Impossible de charger les données initiales."));
   }, [isOpen, preselectedArticle, preselectedQuantite]);
@@ -100,7 +103,7 @@ export function MouvementFormModal({
   };
 
   const addDetailRow = () => {
-    setDetails([...details, { article: "", quantite: 1 }]);
+    setDetails([...details, { article: "", quantite: 1, fournisseur: "" }]);
   };
 
   const removeDetailRow = (index) => {
@@ -143,15 +146,17 @@ export function MouvementFormModal({
       setError(erreur);
       return;
     }
-
+    
     const payload = {
       type_mouvement: typeMouvement,
       details: details.map((d) => ({
         article: String(d.article),
         quantite: parseInt(d.quantite, 10),
+        // ✅ Ajouter le fournisseur (uniquement s'il est renseigné)
+        ...(d.fournisseur ? { fournisseur: Number(d.fournisseur) } : {}),
       })),
     };
-
+    
     if (typeMouvement === "ENTREE") {
       payload.magasin_destination = Number(magasinDestination);
       if (origine.trim()) payload.origine = origine.trim();
@@ -159,7 +164,7 @@ export function MouvementFormModal({
       payload.magasin_source = Number(magasinSource);
       payload.magasin_destination = Number(magasinDestination);
     }
-
+    
     setLoading(true);
     try {
       await apiClient.post("/api/stock/mouvements/", payload);
@@ -208,21 +213,18 @@ export function MouvementFormModal({
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-
         <DialogContent sx={{ pt: 3 }}>
           {error && (
             <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
-
           {preselectedArticle && (
             <Alert severity="info" sx={{ mb: 2 }}>
               Article pré-sélectionné : <strong>{preselectedArticle}</strong>
               {preselectedQuantite && ` — Quantité suggérée : ${preselectedQuantite}`}
             </Alert>
           )}
-
           <FormControl fullWidth margin="normal">
             <InputLabel>Type de mouvement</InputLabel>
             <Select
@@ -240,7 +242,6 @@ export function MouvementFormModal({
               ))}
             </Select>
           </FormControl>
-
           {typeMouvement === "ENTREE" && (
             <TextField
               label="Origine (optionnel)"
@@ -252,7 +253,6 @@ export function MouvementFormModal({
               inputProps={{ maxLength: 100 }}
             />
           )}
-
           {typeMouvement === "TRANSFERT" && (
             <FormControl fullWidth margin="normal" required>
               <InputLabel>Magasin source *</InputLabel>
@@ -264,13 +264,14 @@ export function MouvementFormModal({
                 <MenuItem value="">Sélectionner un magasin</MenuItem>
                 {magasins.map((m) => (
                   <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                    {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                    {m.magasin_nom}
+                    {/* ✅ Afficher le site (localite) si disponible */}
+                    {m.localite_nom ? ` (${m.localite_nom})` : m.localite ? ` (${m.localite})` : ""}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
           )}
-
           <FormControl fullWidth margin="normal" required>
             <InputLabel>Magasin destination *</InputLabel>
             <Select
@@ -281,16 +282,16 @@ export function MouvementFormModal({
               <MenuItem value="">Sélectionner un magasin</MenuItem>
               {magasins.map((m) => (
                 <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                  {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+                  {m.magasin_nom}
+                  {/* ✅ Afficher le site (localite) si disponible */}
+                  {m.localite_nom ? ` (${m.localite_nom})` : m.localite ? ` (${m.localite})` : ""}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             Articles concernés
           </Typography>
-
           <Table
             size="small"
             sx={{
@@ -311,6 +312,15 @@ export function MouvementFormModal({
                 <TableCell align="center" sx={{ width: 120 }}>
                   Quantité
                 </TableCell>
+                {/* ✅ Colonne Fournisseur (uniquement pour les entrées) */}
+                {typeMouvement === "ENTREE" && (
+                  <TableCell sx={{ minWidth: 200 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <BusinessIcon fontSize="small" />
+                      Fournisseur
+                    </Box>
+                  </TableCell>
+                )}
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
@@ -349,6 +359,29 @@ export function MouvementFormModal({
                       sx={{ width: 100 }}
                     />
                   </TableCell>
+                  {/* ✅ Cellule Fournisseur (uniquement pour les entrées) */}
+                  {typeMouvement === "ENTREE" && (
+                    <TableCell>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={row.fournisseur}
+                          onChange={(e) =>
+                            handleDetailChange(index, "fournisseur", e.target.value)
+                          }
+                          displayEmpty
+                        >
+                          <MenuItem value="" disabled>
+                            -- Sélectionner --
+                          </MenuItem>
+                          {fournisseurs.map((f) => (
+                            <MenuItem key={f.fournisseur_id} value={f.fournisseur_id}>
+                              {f.nom}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </TableCell>
+                  )}
                   <TableCell align="center">
                     {details.length > 1 && (
                       <IconButton
@@ -364,7 +397,6 @@ export function MouvementFormModal({
               ))}
             </TableBody>
           </Table>
-
           <Button
             variant="outlined"
             startIcon={<AddIcon />}
@@ -374,7 +406,6 @@ export function MouvementFormModal({
             Ajouter une ligne
           </Button>
         </DialogContent>
-
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose} disabled={loading}>
             Annuler
