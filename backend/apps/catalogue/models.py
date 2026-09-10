@@ -30,7 +30,6 @@ class Marque(models.Model):
         return self.mq_libelle
 
 class Article(models.Model):
-    class ModeSuivi(models.TextChoices):
     code_article = models.CharField(max_length=20, primary_key=True)
     code_barre = models.CharField(max_length=100, unique=True, null=True, blank=True)
     designation = models.CharField(max_length=50)
@@ -43,7 +42,7 @@ class Article(models.Model):
         Categorie, on_delete=models.PROTECT, related_name="articles"
     )
     marque = models.ForeignKey(
-        Marque, on_delete=models.PROTECT, related_name="articles"
+        Marque, on_delete=models.PROTECT, related_name="articles", blank=True, null=True
     )
 
     class Meta:

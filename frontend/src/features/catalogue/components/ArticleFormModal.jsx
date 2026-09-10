@@ -40,7 +40,7 @@ const EMPTY_FORM = {
   modele: "",
   unite: "Unité",
   seuil: "0",
-  numero_de_serie: "QUANTITE",
+  numero_de_serie: "",
   categorie: "",
 };
 
@@ -369,7 +369,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               placeholder="Ex: SN-2026-001234"
               inputProps={{ maxLength: 100 }}
               fullWidth
-              helperText="Optionnel - Numéro de série unique de l'article"
             />
 
             <TextField

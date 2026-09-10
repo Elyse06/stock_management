@@ -90,7 +90,10 @@ export function ArticlePremiumPage() {
   const { article, stocks_par_magasin, fournisseurs, historique_recents, attributions_actives, commandes_recentes } = data;
 
   // Calcul du stock total
-  const stock_total = Object.values(stocks_par_magasin).reduce((sum, val) => sum + val, 0);
+  const stock_total = Object.values(stocks_par_magasin).reduce((sum, val) => {
+    const quantite = typeof val === "object" && val !== null ? val.stock : val;
+    return sum + (quantite || 0);
+  }, 0);
   const est_en_rupture = stock_total === 0;
   const est_sous_seuil = stock_total > 0 && stock_total < article.seuil;
 
@@ -316,7 +319,7 @@ export function ArticlePremiumPage() {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                   Répartition par magasin
                 </Typography>
-                {Object.entries(stocks_par_magasin).map(([magasin, stock]) => (
+                {Object.entries(stocks_par_magasin).map(([magasin, stockData]) => (
                   <Box
                     key={magasin}
                     sx={{
@@ -328,7 +331,7 @@ export function ArticlePremiumPage() {
                   >
                     <Typography variant="body2">{magasin}</Typography>
                     <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                      {stock}
+                      {typeof stockData === 'object' && stockData !== null ? stockData.stock : stockData}
                     </Typography>
                   </Box>
                 ))}
