@@ -375,7 +375,7 @@ class DashboardArticlesView(APIView):
     def get(self, request):
         search = request.query_params.get("search", "")
         categorie = request.query_params.get("categorie", "")
-        numero_de_serie = request.query_params.get("numero_de_serie", "")
+        mode_suivi = request.query_params.get("mode_suivi", "")
 
         filtre_entree = Q(details_mouvement__mouvement__type_mouvement__in=["ENTREE", "TRANSFERT"])
         filtre_sortie = Q(details_mouvement__mouvement__type_mouvement__in=["SORTIE", "TRANSFERT"])
@@ -403,8 +403,8 @@ class DashboardArticlesView(APIView):
             queryset = queryset.filter(Q(code_article__icontains=search) | Q(designation__icontains=search))
         if categorie:
             queryset = queryset.filter(categorie_id=categorie)
-        if numero_de_serie:
-            queryset = queryset.filter(numero_de_serie=numero_de_serie)
+        if mode_suivi:
+            queryset = queryset.filter(mode_suivi=mode_suivi)
 
         queryset = queryset.order_by("-stock_calcule")
         paginated = custom_paginate(queryset, request)
@@ -417,7 +417,7 @@ class DashboardArticlesView(APIView):
                 "marque_libelle": a.marque.mq_libelle if a.marque else None,
                 "stock_calcule": a.stock_calcule,
                 "seuil": a.seuil,
-                "numero_de_serie": a.numero_de_serie,
+                "mode_suivi": a.mode_suivi,
             }
             for a in paginated["results"]
         ]

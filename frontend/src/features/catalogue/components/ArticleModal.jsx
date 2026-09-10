@@ -190,32 +190,6 @@ export function ArticleModal({ article, isOpen, onClose }) {
               </Box>
             </Grid>
           )}
-
-          {article.numero_de_serie && (
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                <QrCodeIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary">
-                  Numéro de série
-                </Typography>
-              </Box>
-              <Typography
-                variant="body1"
-                fontFamily="monospace"
-                fontWeight={600}
-                sx={{
-                  bgcolor: "#E3F2FD",
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: 1,
-                  border: "1px solid #1976D2",
-                  display: "inline-block",
-                }}
-              >
-                {article.numero_de_serie}
-              </Typography>
-            </Grid>
-          )}
         </Grid>
 
         <Box sx={{ mt: 3 }}>

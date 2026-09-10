@@ -30,6 +30,11 @@ import {
 import { apiClient } from "../../../api/client";
 import { ArticleFournisseurEditor } from "./ArticleFournisseurEditor";
 
+const MODES_SUIVI = [
+  { value: "QUANTITE", label: "Quantité simple" },
+  { value: "LOT", label: "Suivi par lot" },
+  { value: "NUMERO_SERIE", label: "Suivi par numéro de série" },
+];
 
 const EMPTY_FORM = {
   code_article: "",
@@ -40,7 +45,7 @@ const EMPTY_FORM = {
   modele: "",
   unite: "Unité",
   seuil: "0",
-  numero_de_serie: "",
+  mode_suivi: "QUANTITE",
   categorie: "",
 };
 
@@ -87,7 +92,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         modele: articleToEdit.modele ?? "",
         unite: articleToEdit.unite ?? "Unité",
         seuil: articleToEdit.seuil ?? "0",
-        numero_de_serie: articleToEdit.numero_de_serie ?? "",
+        mode_suivi: articleToEdit.mode_suivi ?? "QUANTITE",
         categorie: articleToEdit.categorie ?? "",
       });
       const fours = articleToEdit.fournisseurs ?? [];
@@ -178,7 +183,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         categorie: Number(form.categorie),
         marque: form.marque ? Number(form.marque) : null,
         seuil: form.seuil === "" ? 0 : Number(form.seuil),
-        numero_de_serie: form.numero_de_serie?.trim() || null,
       };
       if (isEditMode) {
         await apiClient.put(`/api/catalogue/articles/${articleToEdit.code_article}/`, payload);
@@ -362,14 +366,16 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
               fullWidth
             />
 
-            <TextField
-              label="Numéro de série"
-              value={form.numero_de_serie}
-              onChange={handleChange("numero_de_serie")}
-              placeholder="Ex: SN-2026-001234"
-              inputProps={{ maxLength: 100 }}
-              fullWidth
-            />
+            <FormControl>
+              <InputLabel>Mode de suivi</InputLabel>
+              <Select value={form.mode_suivi} label="Mode de suivi" onChange={handleChange("mode_suivi")}>
+                {MODES_SUIVI.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>
+                    {m.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <TextField
               label="Description"
