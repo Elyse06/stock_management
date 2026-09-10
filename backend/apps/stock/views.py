@@ -14,6 +14,7 @@ from .models import (
     LigneInventaire,
     Magasin,
     Mouvement,
+    UniteArticle,
 )
 from .serializers import (
     DetailMouvementSerializer,
@@ -21,6 +22,7 @@ from .serializers import (
     LigneInventaireSerializer,
     MagasinSerializer,
     MouvementSerializer,
+    UniteArticleSerializer,
 )
 from .services import valider_session_inventaire
 
@@ -113,7 +115,7 @@ class MouvementViewSet(viewsets.ModelViewSet):
 class DetailMouvementViewSet(viewsets.ModelViewSet):
     queryset = DetailMouvement.objects.all().select_related(
         "mouvement", "article", "employe_beneficiaire", "fournisseur"
-    )
+    ).prefetch_related("unites_creees", "unites_attribuees")
     serializer_class = DetailMouvementSerializer
     permission_classes = [HasActionByMethod.for_methods(
         GET=("MOV_LIRE",),
@@ -123,6 +125,33 @@ class DetailMouvementViewSet(viewsets.ModelViewSet):
     )]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mouvement", "article", "employe_beneficiaire", "fournisseur"]
+
+
+class UniteArticleViewSet(viewsets.ModelViewSet):
+    queryset = UniteArticle.objects.all().select_related(
+        "article", "mouvement_entree", "mouvement_sortie", "employe_attribue"
+    )
+    serializer_class = UniteArticleSerializer
+    permission_classes = [HasActionByMethod.for_methods(
+        GET=("CAT_LIRE", "INV_LIRE"),
+        HEAD=("CAT_LIRE", "INV_LIRE"),
+        OPTIONS=("CAT_LIRE", "INV_LIRE"),
+        **{"*": ("INV_GERE",)},
+    )]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["article", "statut", "employe_attribue"]
+
+    @action(detail=True, methods=["post"])
+    def retourner_stock(self, request, pk=None):
+        unite = self.get_object()
+        if unite.statut != UniteArticle.Statut.ATTRIBUE:
+            return Response(
+                {"error": "Cette unité n'est pas attribuée."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        unite.retourner_stock()
+        serializer = self.get_serializer(unite)
+        return Response(serializer.data)
 
 
 class InventaireSessionViewSet(viewsets.ModelViewSet):

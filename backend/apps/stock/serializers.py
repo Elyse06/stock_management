@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.catalogue.models import Article
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
 from apps.employee.models import Direction
@@ -11,6 +12,7 @@ from apps.stock.models import (
     LigneInventaire,
     Magasin,
     Mouvement,
+    UniteArticle,
 )
 from apps.stock.utils import calculer_stock_theorique
 
@@ -27,6 +29,48 @@ class MagasinSerializer(serializers.ModelSerializer):
         model = Magasin
         fields = ["magasin_id", "magasin_nom", "localite", "localite_nom", "localite_type"]
 
+
+class UniteArticleSerializer(serializers.ModelSerializer):
+    article_designation = serializers.CharField(
+        source="article.designation", read_only=True
+    )
+    article_code = serializers.CharField(
+        source="article.code_article", read_only=True
+    )
+    employe_attribue_nom = serializers.CharField(
+        source="employe_attribue.emp_nom", read_only=True, default=None
+    )
+    employe_attribue_matricule = serializers.CharField(
+        source="employe_attribue.emp_matricule", read_only=True, default=None
+    )
+
+    class Meta:
+        model = UniteArticle
+        fields = [
+            "unite_id",
+            "article",
+            "article_code",
+            "article_designation",
+            "numero_de_serie",
+            "statut",
+            "date_creation",
+            "mouvement_entree",
+            "mouvement_sortie",
+            "employe_attribue",
+            "employe_attribue_nom",
+            "employe_attribue_matricule",
+        ]
+        read_only_fields = ["unite_id", "date_creation", "mouvement_entree", "mouvement_sortie"]
+
+    def validate_numero_de_serie(self, value):
+        if value and value.strip():
+            if UniteArticle.objects.filter(numero_de_serie=value.strip()).exists():
+                raise serializers.ValidationError(
+                    "Ce numéro de série existe déjà."
+                )
+            return value.strip()
+        return value
+    
 
 class DetailMouvementSerializer(serializers.ModelSerializer):
     article_designation = serializers.CharField(
@@ -47,6 +91,9 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
 
     qr_code_data = serializers.SerializerMethodField()
 
+    unites_creees = UniteArticleSerializer(many=True, read_only=True)
+    unites_attribuees = UniteArticleSerializer(many=True, read_only=True)
+
     class Meta:
         model = DetailMouvement
         fields = [
@@ -63,6 +110,8 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             "fournisseur_nom",
             "code_tracabilite",
             "qr_code_data",
+            "unites_creees",
+            "unites_attribuees",
         ]
         read_only_fields = ["mouvement"]
 
@@ -137,7 +186,35 @@ class MouvementSerializer(serializers.ModelSerializer):
         details_data = validated_data.pop("details", [])
         mouvement = Mouvement.objects.create(**validated_data)
         for detail in details_data:
-            DetailMouvement.objects.create(mouvement=mouvement, **detail)
+            detail_mouvement = DetailMouvement.objects.create(
+                mouvement=mouvement, **detail
+            )
+
+            article = detail_mouvement.article
+            if article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE:
+                numeros_de_serie = detail.get("numeros_de_serie", [])
+                
+                if mouvement.type_mouvement == Mouvement.Type.ENTREE:
+                    for numero in numeros_de_serie:
+                        UniteArticle.objects.create(
+                            article=article,
+                            numero_de_serie=numero,
+                            statut=UniteArticle.Statut.EN_STOCK,
+                            mouvement_entree=detail_mouvement,
+                        )
+                elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
+                    employe = detail_mouvement.employe_beneficiaire
+                    for numero in numeros_de_serie:
+                        unite = UniteArticle.objects.get(
+                            article=article,
+                            numero_de_serie=numero,
+                            statut=UniteArticle.Statut.EN_STOCK
+                        )
+                        unite.attribuer(
+                            employe=employe,
+                            mouvement_sortie=detail_mouvement
+                        )
+
         return mouvement
 
 
