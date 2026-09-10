@@ -116,6 +116,85 @@ class DetailMouvement(models.Model):
         return f"{self.article.designation} x{self.quantite} (mvt #{self.mouvement_id})"
 
 
+class UniteArticle(models.Model):
+    class Statut(models.TextChoices):
+        EN_STOCK = "EN_STOCK", "En stock"
+        ATTRIBUE = "ATTRIBUE", "Attribué"
+
+    unite_id = models.BigAutoField(primary_key=True)
+    article = models.ForeignKey(
+        Article,
+        on_delete=models.PROTECT,
+        related_name="unites",
+    )
+    numero_de_serie = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+    statut = models.CharField(
+        max_length=20,
+        choices=Statut.choices,
+        default=Statut.EN_STOCK
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    
+    mouvement_entree = models.ForeignKey(
+        DetailMouvement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="unites_creees",
+    )
+    
+    mouvement_sortie = models.ForeignKey(
+        DetailMouvement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="unites_attribuees",
+    )
+    
+    employe_attribue = models.ForeignKey(
+        Employer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="unites_attribuees",
+    )
+
+    class Meta:
+        db_table = "t_unite_article"
+        verbose_name = "Unité d'article"
+        verbose_name_plural = "Unités d'articles"
+        ordering = ["-date_creation"]
+        indexes = [
+            models.Index(fields=["article", "statut"]),
+            models.Index(fields=["numero_de_serie"]),
+        ]
+
+    def __str__(self):
+        return f"{self.article.designation} - {self.numero_de_serie} ({self.get_statut_display()})"
+
+    def clean(self):
+        if self.statut == self.Statut.ATTRIBUE and not self.employe_attribue:
+            raise ValidationError({
+                "employe_attribue": "Requis quand le statut est ATTRIBUE."
+            })
+
+    def attribuer(self, employe, mouvement_sortie):
+        self.statut = self.Statut.ATTRIBUE
+        self.employe_attribue = employe
+        self.mouvement_sortie = mouvement_sortie
+        self.full_clean()
+        self.save()
+
+    def retourner_stock(self):
+        self.statut = self.Statut.EN_STOCK
+        self.employe_attribue = None
+        self.mouvement_sortie = None
+        self.save()
+
+
 class InventaireSession(models.Model):
     class Statut(models.TextChoices):
         EN_ATTENTE = "EN_ATTENTE", "En attente de validation"

@@ -22,7 +22,8 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Grid,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -32,22 +33,9 @@ import {
   Person as PersonIcon,
   Store as StoreIcon,
   QrCode as QrCodeIcon,
-  Business as BusinessIcon,
-  CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
-import { QRCodeSVG } from "qrcode.react";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
-
-// ✅ Helper pour parser le payload QR code
-const parseQrPayload = (qrData) => {
-  if (!qrData) return null;
-  try {
-    return typeof qrData === "string" ? JSON.parse(qrData) : qrData;
-  } catch {
-    return null;
-  }
-};
 
 export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const { hasAction, hasAnyAction } = useAuth();
@@ -55,31 +43,92 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const isAgentSecondaire = !hasAction("CAT_GERE") && hasAction("COM_VAL");
 
   const [magasins, setMagasins] = useState([]);
+  const [articles, setArticles] = useState([]); // ✅ Pour connaître le mode_suivi
   const [magasinSource, setMagasinSource] = useState("");
+  const [unitesParArticle, setUnitesParArticle] = useState({}); // ✅ { code_article: [unites] }
+  const [unitesSelectionnees, setUnitesSelectionnees] = useState({}); // ✅ { detail_id: [unite_id] }
   const [commentaire, setCommentaire] = useState("");
   const [traitement, setTraitement] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loadingUnites, setLoadingUnites] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      apiClient
-        .get("/api/stock/magasins/", { params: { page_size: 100 } })
-        .then((res) => setMagasins(res.data.results ?? res.data))
-        .catch(() => setError("Impossible de charger les magasins."));
+      Promise.all([
+        apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
+        apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
+      ])
+        .then(([magasinsRes, articlesRes]) => {
+          setMagasins(magasinsRes.data.results ?? magasinsRes.data);
+          setArticles(articlesRes.data.results ?? articlesRes.data);
+        })
+        .catch(() => setError("Impossible de charger les données."));
     }
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
       setMagasinSource("");
+      setUnitesParArticle({});
+      setUnitesSelectionnees({});
       setCommentaire("");
       setError("");
       setSuccess("");
     }
   }, [isOpen, commande]);
 
+  // ✅ Charger les unités EN_STOCK quand le magasin source change
+  useEffect(() => {
+    if (!magasinSource || !commande?.details?.length) {
+      setUnitesParArticle({});
+      return;
+    }
+    setLoadingUnites(true);
+    setError("");
+
+    // Récupérer les codes articles des détails en mode NUMERO_SERIE
+    const articlesNS = commande.details
+      .map((d) => {
+        const article = articles.find((a) => a.code_article === d.article);
+        return article?.mode_suivi === "NUMERO_SERIE" ? d.article : null;
+      })
+      .filter(Boolean);
+
+    if (articlesNS.length === 0) {
+      setLoadingUnites(false);
+      return;
+    }
+
+    // Charger les unités EN_STOCK pour chaque article
+    Promise.all(
+      articlesNS.map((codeArticle) =>
+        apiClient.get("/api/stock/unites-article/", {
+          params: {
+            article: codeArticle,
+            statut: "EN_STOCK",
+            page_size: 100,
+          },
+        })
+      )
+    )
+      .then((responses) => {
+        const newUnites = {};
+        responses.forEach((res, idx) => {
+          const codeArticle = articlesNS[idx];
+          newUnites[codeArticle] = res.data.results ?? res.data;
+        });
+        setUnitesParArticle(newUnites);
+      })
+      .catch(() => {
+        setError("Impossible de charger les unités disponibles.");
+      })
+      .finally(() => setLoadingUnites(false));
+  }, [magasinSource, commande, articles]);
+
   if (!commande) return null;
+
+  const getArticle = (codeArticle) => articles.find((a) => a.code_article === codeArticle);
 
   const getStatusColor = (statut) => {
     switch (statut) {
@@ -115,11 +164,44 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     (isAgentPrincipal && commande.statut === "EN_COURS") ||
     (isAgentSecondaire && commande.statut === "EN_ATTENTE");
 
+  // ✅ Handler : toggle une unité pour un détail
+  const toggleUnite = (detailId, uniteId) => {
+    setUnitesSelectionnees((prev) => {
+      const current = prev[detailId] || [];
+      const updated = current.includes(uniteId)
+        ? current.filter((id) => id !== uniteId)
+        : [...current, uniteId];
+      return { ...prev, [detailId]: updated };
+    });
+  };
+
+  // ✅ Validation avant traitement
+  const validerAvantTraitement = () => {
+    if (commande.statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
+      return "Veuillez sélectionner un magasin source pour la sortie de stock.";
+    }
+
+    // ✅ Vérifier que toutes les unités requises sont sélectionnées
+    for (const detail of commande.details || []) {
+      const article = getArticle(detail.article);
+      if (article?.mode_suivi === "NUMERO_SERIE") {
+        const unitesSel = unitesSelectionnees[detail.id] || [];
+        const quantiteRequise = Number(detail.quantite);
+        if (unitesSel.length !== quantiteRequise) {
+          return `Pour "${article.designation}", veuillez sélectionner exactement ${quantiteRequise} unité(s) (actuellement ${unitesSel.length}).`;
+        }
+      }
+    }
+    return null;
+  };
+
   const traiter = async (statut) => {
-    if (statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
-      setError("Veuillez sélectionner un magasin source pour la sortie de stock.");
+    const erreur = validerAvantTraitement();
+    if (erreur) {
+      setError(erreur);
       return;
     }
+
     setTraitement(true);
     setError("");
     setSuccess("");
@@ -130,6 +212,18 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
       };
       if (statut === "VALIDEE" && magasinSource) {
         payload.magasin_source = Number(magasinSource);
+        // ✅ Ajouter les unités à attribuer par détail
+        const detailsPayload = (commande.details || []).map((detail) => {
+          const article = getArticle(detail.article);
+          if (article?.mode_suivi === "NUMERO_SERIE") {
+            return {
+              detail_id: detail.id,
+              unites_a_attribuer: unitesSelectionnees[detail.id] || [],
+            };
+          }
+          return { detail_id: detail.id, unites_a_attribuer: [] };
+        });
+        payload.details = detailsPayload;
       }
       await apiClient.post(
         `/api/commandes/commandes/${commande.commande_id}/traiter/`,
@@ -156,16 +250,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     } finally {
       setTraitement(false);
     }
-  };
-
-  // ✅ Helper pour formater la date d'acquisition
-  const formatAcquisition = (dateStr) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    return {
-      mois: d.toLocaleString("fr-FR", { month: "long" }),
-      annee: d.getFullYear(),
-    };
   };
 
   return (
@@ -215,18 +299,10 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         {/* INFOS GÉNÉRALES */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>Informations générales</Typography>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 2,
-            }}
-          >
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
             <Box>
               <Typography variant="body2" color="text.secondary">Objet</Typography>
-              <Typography variant="body1" fontWeight={500}>
-                {commande.objet || "—"}
-              </Typography>
+              <Typography variant="body1" fontWeight={500}>{commande.objet || "—"}</Typography>
             </Box>
             <Box>
               <Typography variant="body2" color="text.secondary">Demandeur</Typography>
@@ -243,23 +319,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 {new Date(commande.date_commande).toLocaleString("fr-FR")}
               </Typography>
             </Box>
-            {commande.traitant && (
-              <Box>
-                <Typography variant="body2" color="text.secondary">Traité par</Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <PersonIcon fontSize="small" color="action" />
-                  <Typography variant="body1">{commande.traitant.nom}</Typography>
-                </Box>
-              </Box>
-            )}
-            {commande.date_traitement && (
-              <Box>
-                <Typography variant="body2" color="text.secondary">Date de traitement</Typography>
-                <Typography variant="body1">
-                  {new Date(commande.date_traitement).toLocaleString("fr-FR")}
-                </Typography>
-              </Box>
-            )}
             {commande.commentaire_agent && (
               <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
                 <Typography variant="body2" color="text.secondary">Commentaire</Typography>
@@ -292,51 +351,68 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
             <TableHead>
               <TableRow>
                 <TableCell>Article</TableCell>
-                <TableCell align="center" sx={{ width: 120 }}>Quantité</TableCell>
+                <TableCell align="center" sx={{ width: 100 }}>Quantité</TableCell>
                 <TableCell sx={{ minWidth: 200 }}>Attributions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {commande.details?.length > 0 ? (
-                commande.details.map((detail) => (
-                  <TableRow key={detail.id} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{detail.article}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {detail.article_designation}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                        {detail.quantite}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {detail.attributions?.length > 0 ? (
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                          {detail.attributions.map((attr) => (
+                commande.details.map((detail) => {
+                  const article = getArticle(detail.article);
+                  const isNS = article?.mode_suivi === "NUMERO_SERIE";
+                  return (
+                    <TableRow key={detail.id} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography variant="body2" fontWeight={500}>
+                            {detail.article}
+                          </Typography>
+                          {isNS && (
                             <Chip
-                              key={attr.id}
-                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                              label="N° Série"
                               size="small"
-                              color="primary"
+                              color="info"
                               variant="outlined"
-                              icon={<PersonIcon />}
+                              sx={{ height: 18, fontSize: 10 }}
                             />
-                          ))}
+                          )}
                         </Box>
-                      ) : (
-                        <Chip
-                          label={commande.demandeur?.nom || commande.employe_demandeur}
-                          size="small"
-                          variant="outlined"
-                          color="default"
-                          sx={{ fontStyle: "italic", opacity: 0.7 }}
-                        />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                        <Typography variant="caption" color="text.secondary">
+                          {detail.article_designation}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" fontWeight={600} fontFamily="monospace">
+                          {detail.quantite}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {detail.attributions?.length > 0 ? (
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                            {detail.attributions.map((attr) => (
+                              <Chip
+                                key={attr.id}
+                                label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                icon={<PersonIcon />}
+                              />
+                            ))}
+                          </Box>
+                        ) : (
+                          <Chip
+                            label={commande.demandeur?.nom || commande.employe_demandeur}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            sx={{ fontStyle: "italic", opacity: 0.7 }}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
@@ -350,128 +426,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
           </Table>
         </Box>
 
-        {/* ✅ NOUVEAU : QR Codes des attributions (uniquement si commande validée) */}
-        {commande.statut === "VALIDEE" && commande.details?.some((d) => d.attributions?.length > 0) && (
-          <Box sx={{ mb: 3 }}>
-            <Divider sx={{ mb: 2 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                <QrCodeIcon fontSize="small" />
-                <Typography variant="body2" fontWeight={600}>
-                  QR Codes de traçabilité
-                </Typography>
-              </Box>
-            </Divider>
-            <Grid container spacing={2}>
-              {commande.details.flatMap((detail) =>
-                (detail.attributions || []).map((attr) => {
-                  const qrPayload = parseQrPayload(attr.qr_code_data);
-                  if (!qrPayload) return null;
-                  const acquisition = formatAcquisition(attr.date_acquisition);
-                  return (
-                    <Grid item xs={12} sm={6} key={`${detail.id}-${attr.id}`}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          bgcolor: "#FAFAFA",
-                          borderRadius: 1,
-                          border: "1px solid #E0E0E0",
-                          height: "100%",
-                        }}
-                      >
-                        {/* QR Code */}
-                        <Box sx={{ textAlign: "center", mb: 2 }}>
-                          <QRCodeSVG
-                            value={attr.qr_code_data}
-                            size={120}
-                            level="M"
-                            includeMargin={true}
-                          />
-                        </Box>
-
-                        {/* Infos bénéficiaire */}
-                        <Box sx={{ mb: 1.5 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-                            <PersonIcon fontSize="small" color="primary" />
-                            <Typography variant="body2" fontWeight={600}>
-                              {qrPayload.beneficiaire?.emp_nom || attr.beneficiaire_nom}
-                            </Typography>
-                          </Box>
-                          {qrPayload.beneficiaire?.emp_matricule && (
-                            <Typography variant="caption" color="text.secondary">
-                              Matricule : {qrPayload.beneficiaire.emp_matricule}
-                            </Typography>
-                          )}
-                        </Box>
-
-                        {/* ✅ Infos Agence/Site */}
-                        {qrPayload.agence && (
-                          <Box sx={{ mb: 1.5, p: 1, bgcolor: "#FFF8E1", borderRadius: 1 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-                              <BusinessIcon fontSize="small" color="primary" />
-                              <Typography variant="caption" fontWeight={600}>
-                                {qrPayload.agence.site_type === "SIEGE" ? "Siège" : "Agence"}
-                              </Typography>
-                            </Box>
-                            <Typography variant="body2" fontWeight={500}>
-                              {qrPayload.agence.site_nom}
-                            </Typography>
-                            {qrPayload.agence.direction && (
-                              <Typography variant="caption" color="text.secondary">
-                                {qrPayload.agence.direction}
-                              </Typography>
-                            )}
-                            {qrPayload.agence.service && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {qrPayload.agence.service}
-                              </Typography>
-                            )}
-                          </Box>
-                        )}
-
-                        {/* ✅ Infos Acquisition */}
-                        {acquisition && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-                            <CalendarIcon fontSize="small" color="action" />
-                            <Typography variant="caption" color="text.secondary">
-                              Acquis en{" "}
-                              <strong>
-                                {acquisition.mois} {acquisition.annee}
-                              </strong>
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {/* Article & Quantité */}
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {qrPayload.article?.designation || detail.article_designation}
-                          </Typography>
-                          <Chip
-                            label={`×${qrPayload.quantite ?? attr.quantite}`}
-                            size="small"
-                            color="primary"
-                            sx={{ height: 20, fontSize: 11 }}
-                          />
-                        </Box>
-
-                        {/* Code unique */}
-                        <Typography
-                          variant="caption"
-                          fontFamily="monospace"
-                          color="text.secondary"
-                          sx={{ mt: 1, display: "block", textAlign: "center" }}
-                        >
-                          {qrPayload.code_unique?.substring(0, 8)}...
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  );
-                })
-              )}
-            </Grid>
-          </Box>
-        )}
-
         {/* FORMULAIRE DE TRAITEMENT */}
         {peutTraiter && (
           <Box>
@@ -483,24 +437,122 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 </Typography>
               </Box>
             </Divider>
+
             {isAgentPrincipal && commande.statut === "EN_COURS" && (
-              <FormControl fullWidth margin="normal" required>
-                <InputLabel>Magasin source pour la sortie de stock</InputLabel>
-                <Select
-                  value={magasinSource}
-                  label="Magasin source pour la sortie de stock"
-                  onChange={(e) => setMagasinSource(e.target.value)}
-                >
-                  <MenuItem value="">Sélectionner un magasin</MenuItem>
-                  {magasins.map((m) => (
-                    <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                      {m.magasin_nom}
-                      {m.localite_nom ? ` (${m.localite_nom})` : m.localite ? ` (${m.localite})` : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <>
+                <FormControl fullWidth margin="normal" required>
+                  <InputLabel>Magasin source pour la sortie de stock</InputLabel>
+                  <Select
+                    value={magasinSource}
+                    label="Magasin source pour la sortie de stock"
+                    onChange={(e) => setMagasinSource(e.target.value)}
+                  >
+                    <MenuItem value="">Sélectionner un magasin</MenuItem>
+                    {magasins.map((m) => (
+                      <MenuItem key={m.magasin_id} value={m.magasin_id}>
+                        {m.magasin_nom}
+                        {m.localite ? ` (${m.localite})` : ""}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* ✅ SÉLECTION DES UNITÉS ARTICLE */}
+                {magasinSource && loadingUnites && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 2 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2" color="text.secondary">
+                      Chargement des unités disponibles...
+                    </Typography>
+                  </Box>
+                )}
+
+                {magasinSource && !loadingUnites && Object.keys(unitesParArticle).length > 0 && (
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ mb: 1.5 }}>
+                      <QrCodeIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: "middle" }} />
+                      Sélection des unités à attribuer
+                    </Typography>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Sélectionnez exactement le nombre d'unités requis pour chaque article en mode "Numéro de série".
+                    </Alert>
+
+                    {commande.details.map((detail) => {
+                      const article = getArticle(detail.article);
+                      if (article?.mode_suivi !== "NUMERO_SERIE") return null;
+
+                      const unitesDisponibles = unitesParArticle[detail.article] || [];
+                      const unitesSel = unitesSelectionnees[detail.id] || [];
+                      const quantiteRequise = Number(detail.quantite);
+                      const estComplet = unitesSel.length === quantiteRequise;
+
+                      return (
+                        <Box
+                          key={detail.id}
+                          sx={{
+                            mb: 2,
+                            p: 2,
+                            bgcolor: "#FAFAFA",
+                            borderRadius: 1,
+                            border: `1px solid ${estComplet ? "#4CAF50" : "#E0E0E0"}`,
+                          }}
+                        >
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              {article.designation} ({detail.article})
+                            </Typography>
+                            <Chip
+                              label={`${unitesSel.length} / ${quantiteRequise}`}
+                              size="small"
+                              color={estComplet ? "success" : "warning"}
+                              variant={estComplet ? "filled" : "outlined"}
+                            />
+                          </Box>
+
+                          {unitesDisponibles.length === 0 ? (
+                            <Alert severity="warning" sx={{ mt: 1 }}>
+                              Aucune unité EN_STOCK disponible pour cet article dans ce magasin.
+                            </Alert>
+                          ) : (
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, maxHeight: 200, overflow: "auto" }}>
+                              {unitesDisponibles.map((unite) => {
+                                const isSelected = unitesSel.includes(unite.unite_id);
+                                return (
+                                  <FormControlLabel
+                                    key={unite.unite_id}
+                                    control={
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onChange={() => toggleUnite(detail.id, unite.unite_id)}
+                                        size="small"
+                                      />
+                                    }
+                                    label={
+                                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <QrCodeIcon fontSize="small" color="action" />
+                                        <Typography
+                                          variant="body2"
+                                          fontFamily="monospace"
+                                          fontWeight={isSelected ? 600 : 400}
+                                        >
+                                          {unite.numero_de_serie}
+                                        </Typography>
+                                      </Box>
+                                    }
+                                    sx={{ ml: 0.5 }}
+                                  />
+                                );
+                              })}
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </>
             )}
+
             <TextField
               label="Commentaire (optionnel)"
               value={commentaire}
