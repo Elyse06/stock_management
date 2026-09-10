@@ -1,8 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.catalogue.models import Article
-from apps.employee.models import Employer, Direction, Site
+from apps.catalogue.models import Article, Fournisseur
+from apps.employee.models import Direction, Employer, Site
 
 
 class Magasin(models.Model):
