@@ -47,7 +47,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
     lookup_field = "code_article"
     permission_classes = CategorieViewSet.permission_classes
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["categorie", "numero_de_serie"]
+    filterset_fields = ["categorie", "mode_suivi"]
     search_fields = ["code_article", "designation", "code_barre"]
 
     def get_queryset(self):
