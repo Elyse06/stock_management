@@ -175,25 +175,28 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     });
   };
 
-  // ✅ Validation avant traitement
-  const validerAvantTraitement = () => {
-    if (commande.statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
-      return "Veuillez sélectionner un magasin source pour la sortie de stock.";
-    }
+    const validerAvantTraitement = (targetStatut) => {
+      if (targetStatut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
+        return "Veuillez sélectionner un magasin source pour la sortie de stock.";
+      }
 
-    // ✅ Vérifier que toutes les unités requises sont sélectionnées
-    for (const detail of commande.details || []) {
-      const article = getArticle(detail.article);
-      if (article?.mode_suivi === "NUMERO_SERIE") {
-        const unitesSel = unitesSelectionnees[detail.id] || [];
-        const quantiteRequise = Number(detail.quantite);
-        if (unitesSel.length !== quantiteRequise) {
-          return `Pour "${article.designation}", veuillez sélectionner exactement ${quantiteRequise} unité(s) (actuellement ${unitesSel.length}).`;
+      if (targetStatut === "VALIDEE") {
+        for (const detail of commande.details || []) {
+          const article = getArticle(detail.article);
+          
+          if (article?.mode_suivi === "NUMERO_SERIE") {
+            const unitesSel = unitesSelectionnees[detail.id] || [];
+            const quantiteRequise = Number(detail.quantite);
+            
+            if (unitesSel.length !== quantiteRequise) {
+              return `Pour "${article.designation}", veuillez sélectionner exactement ${quantiteRequise} unité(s) physique(s). Actuellement : ${unitesSel.length} sélectionnée(s).`;
+            }
+          }
         }
       }
-    }
-    return null;
-  };
+      
+      return null;
+    };
 
   const traiter = async (statut) => {
     const erreur = validerAvantTraitement();
@@ -470,12 +473,8 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
                 {magasinSource && !loadingUnites && Object.keys(unitesParArticle).length > 0 && (
                   <Box sx={{ mt: 2, mb: 2 }}>
                     <Typography variant="body2" fontWeight={600} sx={{ mb: 1.5 }}>
-                      <QrCodeIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: "middle" }} />
                       Sélection des unités à attribuer
                     </Typography>
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      Sélectionnez exactement le nombre d'unités requis pour chaque article en mode "Numéro de série".
-                    </Alert>
 
                     {commande.details.map((detail) => {
                       const article = getArticle(detail.article);
