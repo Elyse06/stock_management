@@ -31,14 +31,24 @@ import {
   Login as LoginIcon,
   SwapHoriz as SwapHorizIcon,
   QrCode as QrCodeIcon,
+  QrCodeScanner as QrCodeScannerIcon,
   Business as BusinessIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
+import { SaisieRapideNumerosSerie } from "./SaisieRapideNumerosSerie";
 
 const TYPES_MANUELS = [
-  { value: "ENTREE", label: "Entrée de stock", icon: <LoginIcon fontSize="small" /> },
-  { value: "TRANSFERT", label: "Transfert entre magasins", icon: <SwapHorizIcon fontSize="small" /> },
+  {
+    value: "ENTREE",
+    label: "Entrée de stock",
+    icon: <LoginIcon fontSize="small" />,
+  },
+  {
+    value: "TRANSFERT",
+    label: "Transfert entre magasins",
+    icon: <SwapHorizIcon fontSize="small" />,
+  },
 ];
 
 export function MouvementFormModal({
@@ -59,18 +69,19 @@ export function MouvementFormModal({
   const [motif, setMotif] = useState("");
   const [magasinSource, setMagasinSource] = useState("");
   const [magasinDestination, setMagasinDestination] = useState("");
-  // ✅ Chaque détail a maintenant un tableau de numéros de série et un fournisseur
   const [details, setDetails] = useState([
     { article: "", quantite: 1, numeros_de_serie: [], fournisseur: "" },
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ✅ Helper : récupérer l'article sélectionné
+  // États pour la modale de saisie rapide
+  const [saisieRapideOpen, setSaisieRapideOpen] = useState(false);
+  const [saisieRapideDetailIndex, setSaisieRapideDetailIndex] = useState(null);
+
   const getArticle = (codeArticle) =>
     articles.find((a) => a.code_article === codeArticle);
 
-  // ✅ Helper : vérifier si un article est en mode NUMERO_SERIE
   const isModeNumeroSerie = (codeArticle) => {
     const article = getArticle(codeArticle);
     return article?.mode_suivi === "NUMERO_SERIE";
@@ -103,7 +114,9 @@ export function MouvementFormModal({
     Promise.all([
       apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
       apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
-      apiClient.get("/api/catalogue/fournisseurs/", { params: { page_size: 100 } }), // ✅ Chargement des fournisseurs
+      apiClient.get("/api/catalogue/fournisseurs/", {
+        params: { page_size: 100 },
+      }), // ✅ Chargement des fournisseurs
     ])
       .then(([magasinsRes, articlesRes, fournisseursRes]) => {
         setMagasins(magasinsRes.data.results ?? magasinsRes.data);
@@ -152,11 +165,38 @@ export function MouvementFormModal({
   const removeNumeroSerieRow = (detailIndex, nsIndex) => {
     const updated = [...details];
     const numeros = updated[detailIndex].numeros_de_serie.filter(
-      (_, i) => i !== nsIndex
+      (_, i) => i !== nsIndex,
     );
     updated[detailIndex].numeros_de_serie = numeros;
     updated[detailIndex].quantite = numeros.filter((ns) => ns.trim()).length;
     setDetails(updated);
+  };
+
+  const ouvrirSaisieRapide = (detailIndex) => {
+    setSaisieRapideDetailIndex(detailIndex);
+    setSaisieRapideOpen(true);
+  };
+
+  const handleSaisieRapideSubmit = (nouveauxNumeros) => {
+    if (saisieRapideDetailIndex === null) return;
+
+    const updated = [...details];
+    const detail = updated[saisieRapideDetailIndex];
+
+    const existantsSet = new Set(
+      detail.numeros_de_serie.map((n) => n.toLowerCase()),
+    );
+    const nouveauxFiltres = nouveauxNumeros.filter(
+      (n) => !existantsSet.has(n.toLowerCase()),
+    );
+
+    detail.numeros_de_serie = [...detail.numeros_de_serie, ...nouveauxFiltres];
+    // Recalculer la quantité
+    detail.quantite = detail.numeros_de_serie.filter((ns) => ns.trim()).length;
+
+    setDetails(updated);
+    setSaisieRapideOpen(false);
+    setSaisieRapideDetailIndex(null);
   };
 
   const addDetailRow = () => {
@@ -174,7 +214,7 @@ export function MouvementFormModal({
 
   const valider = () => {
     const hasInvalidArticle = details.some(
-      (d) => !d.article || String(d.article).trim() === ""
+      (d) => !d.article || String(d.article).trim() === "",
     );
     if (hasInvalidArticle) {
       return "Veuillez sélectionner un article valide pour chaque ligne.";
@@ -183,7 +223,9 @@ export function MouvementFormModal({
     // ✅ Validation des numéros de série
     for (const detail of details) {
       if (isModeNumeroSerie(detail.article)) {
-        const numerosValides = detail.numeros_de_serie.filter((ns) => ns.trim());
+        const numerosValides = detail.numeros_de_serie.filter((ns) =>
+          ns.trim(),
+        );
         if (numerosValides.length === 0) {
           return `Veuillez saisir au moins un numéro de série pour "${
             getArticle(detail.article)?.designation
@@ -191,7 +233,7 @@ export function MouvementFormModal({
         }
         // Vérifier les doublons
         const uniqueNumeros = new Set(
-          numerosValides.map((ns) => ns.trim().toLowerCase())
+          numerosValides.map((ns) => ns.trim().toLowerCase()),
         );
         if (uniqueNumeros.size !== numerosValides.length) {
           return `Numéros de série en doublon pour "${
@@ -272,7 +314,7 @@ export function MouvementFormModal({
         setError(
           Object.entries(detail)
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | ")
+            .join(" | "),
         );
       } else {
         setError("Erreur lors de l'enregistrement du mouvement.");
@@ -395,7 +437,11 @@ export function MouvementFormModal({
             sx={{
               mb: 2,
               border: "1px solid #E0E0E0",
-              "& .MuiTableCell-root": { borderColor: "#E0E0E0", py: 1, px: 1.5 },
+              "& .MuiTableCell-root": {
+                borderColor: "#E0E0E0",
+                py: 1,
+                px: 1.5,
+              },
               "& .MuiTableHead-root .MuiTableCell-root": {
                 bgcolor: "#FFF8E1",
                 fontWeight: 600,
@@ -414,7 +460,9 @@ export function MouvementFormModal({
                 {/* ✅ Colonne Fournisseur (uniquement pour les entrées) */}
                 {typeMouvement === "ENTREE" && (
                   <TableCell sx={{ minWidth: 180 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
                       <BusinessIcon fontSize="small" />
                       Fournisseur
                     </Box>
@@ -460,15 +508,6 @@ export function MouvementFormModal({
                                 <span>
                                   {a.code_article} - {a.designation}
                                 </span>
-                                {a.mode_suivi === "NUMERO_SERIE" && (
-                                  <Chip
-                                    label="N° Série"
-                                    size="small"
-                                    color="info"
-                                    variant="outlined"
-                                    sx={{ height: 18, fontSize: 10 }}
-                                  />
-                                )}
                               </Box>
                             </MenuItem>
                           ))}
@@ -477,15 +516,17 @@ export function MouvementFormModal({
                     </TableCell>
                     <TableCell align="center">
                       {modeNS ? (
-                        // ✅ En mode NUMERO_SERIE, la quantité = nombre de NS (readonly)
-                        <Chip
-                          label={
-                            row.numeros_de_serie.filter((ns) => ns.trim()).length
-                          }
-                          color="primary"
-                          size="small"
-                          sx={{ fontWeight: 700, fontFamily: "monospace" }}
-                        />
+                        <Box>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<QrCodeScannerIcon />}
+                            onClick={() => ouvrirSaisieRapide(index)}
+                            sx={{ mb: 1, width: "100%" }}
+                          >
+                            Saisie rapide ({row.numeros_de_serie.length})
+                          </Button>
+                        </Box>
                       ) : (
                         <TextField
                           type="number"
@@ -512,10 +553,7 @@ export function MouvementFormModal({
                                 mb: 0.5,
                               }}
                             >
-                              <QrCodeIcon
-                                fontSize="small"
-                                color="action"
-                              />
+                              <QrCodeIcon fontSize="small" color="action" />
                               <TextField
                                 size="small"
                                 value={ns}
@@ -523,7 +561,7 @@ export function MouvementFormModal({
                                   handleNumeroSerieChange(
                                     index,
                                     nsIndex,
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 placeholder={`N° série ${nsIndex + 1}`}
@@ -551,10 +589,7 @@ export function MouvementFormModal({
                           </Button>
                         </Box>
                       ) : (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                        >
+                        <Typography variant="body2" color="text.secondary">
                           —
                         </Typography>
                       )}
@@ -569,7 +604,7 @@ export function MouvementFormModal({
                               handleDetailChange(
                                 index,
                                 "fournisseur",
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             displayEmpty
@@ -634,6 +669,32 @@ export function MouvementFormModal({
           </Button>
         </DialogActions>
       </form>
+
+      {/* ✅ MODALE DE SAISIE RAPIDE */}
+      <SaisieRapideNumerosSerie
+        isOpen={saisieRapideOpen}
+        onClose={() => {
+          setSaisieRapideOpen(false);
+          setSaisieRapideDetailIndex(null);
+        }}
+        onSubmit={handleSaisieRapideSubmit}
+        numerosExistant={
+          saisieRapideDetailIndex !== null
+            ? (details[saisieRapideDetailIndex]?.numeros_de_serie ?? [])
+            : []
+        }
+        quantiteRequise={
+          saisieRapideDetailIndex !== null
+            ? (details[saisieRapideDetailIndex]?.quantite ?? 0)
+            : 0
+        }
+        articleDesignation={
+          saisieRapideDetailIndex !== null
+            ? (getArticle(details[saisieRapideDetailIndex]?.article)
+                ?.designation ?? "")
+            : ""
+        }
+      />
     </Dialog>
   );
 }

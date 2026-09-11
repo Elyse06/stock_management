@@ -94,6 +94,12 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     unites_creees = UniteArticleSerializer(many=True, read_only=True)
     unites_attribuees = UniteArticleSerializer(many=True, read_only=True)
 
+    numeros_de_serie = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        write_only=True,
+    )
+
     class Meta:
         model = DetailMouvement
         fields = [
@@ -112,6 +118,7 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             "qr_code_data",
             "unites_creees",
             "unites_attribuees",
+            "numeros_de_serie",
         ]
         read_only_fields = ["mouvement"]
 
@@ -185,36 +192,43 @@ class MouvementSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         details_data = validated_data.pop("details", [])
         mouvement = Mouvement.objects.create(**validated_data)
+        
         for detail in details_data:
+            numeros_de_serie = detail.pop("numeros_de_serie", [])
             detail_mouvement = DetailMouvement.objects.create(
                 mouvement=mouvement, **detail
             )
-
+            
             article = detail_mouvement.article
-            if article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE:
-                numeros_de_serie = detail.get("numeros_de_serie", [])
+            if hasattr(article, 'mode_suivi') and article.mode_suivi == "NUMERO_SERIE":
                 
                 if mouvement.type_mouvement == Mouvement.Type.ENTREE:
                     for numero in numeros_de_serie:
                         UniteArticle.objects.create(
                             article=article,
-                            numero_de_serie=numero,
+                            numero_de_serie=numero.strip(),
                             statut=UniteArticle.Statut.EN_STOCK,
                             mouvement_entree=detail_mouvement,
                         )
+                        
                 elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
                     employe = detail_mouvement.employe_beneficiaire
                     for numero in numeros_de_serie:
-                        unite = UniteArticle.objects.get(
-                            article=article,
-                            numero_de_serie=numero,
-                            statut=UniteArticle.Statut.EN_STOCK
-                        )
-                        unite.attribuer(
-                            employe=employe,
-                            mouvement_sortie=detail_mouvement
-                        )
-
+                        try:
+                            unite = UniteArticle.objects.get(
+                                article=article,
+                                numero_de_serie=numero.strip(),
+                                statut=UniteArticle.Statut.EN_STOCK
+                            )
+                            unite.attribuer(
+                                employe=employe,
+                                mouvement_sortie=detail_mouvement
+                            )
+                        except UniteArticle.DoesNotExist:
+                            raise serializers.ValidationError(
+                                f"L'unité avec le N° série '{numero}' n'existe pas ou n'est plus en stock."
+                            )
+        
         return mouvement
 
 
