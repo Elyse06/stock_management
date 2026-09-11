@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.catalogue.models import Article, Fournisseur
 from apps.employee.models import Direction, Employer, Site
@@ -34,7 +35,7 @@ class Mouvement(models.Model):
         AJUSTEMENT = "AJUSTEMENT", "Ajustement d'inventaire"
 
     mouvement_id = models.BigAutoField(primary_key=True)
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateTimeField(default=timezone.now)
     type_mouvement = models.CharField(max_length=20, choices=Type.choices)
     origine = models.CharField(max_length=100, blank=True)  # Ex: "Commande #12"
     motif = models.CharField(max_length=255, blank=True)
