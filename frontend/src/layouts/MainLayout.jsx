@@ -36,7 +36,8 @@ import {
   History as HistoryIcon,
   Public as PublicIcon,
   LocationOn as LocationOnIcon,
-  Article as ArticleIcon
+  Article as ArticleIcon,
+  UploadFile as UploadFileIcon
 } from "@mui/icons-material";
 
 const MENU_STRUCTURE = [
@@ -109,6 +110,12 @@ const MENU_STRUCTURE = [
     label: "Commandes",
     icon: <ShoppingCartIcon fontSize="small" />,
     actions: ["COM_DEM", "COM_VAL"],
+  },
+  {
+    path: "/import/immobilisations",
+    label: "Import immobilisations",
+    icon: <UploadFileIcon fontSize="small" />,
+    actions: [],
   },
   {
     key: "historique",
