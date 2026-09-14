@@ -19,6 +19,7 @@ import { CommandesPage } from "./features/commandes/pages/CommandesPage";
 import { HistoriqueGlobalePage } from "./features/historique/pages/HistoriqueGlobalePage";
 import { HistoriqueLocalisationPage } from "./features/historique/pages/HistoriqueLocalisationPage";
 import { HistoriqueArticlePage } from "./features/historique/pages/HistoriqueArticlePage";
+import { ImportImmobilisationsPage } from "./features/import/pages/ImportImmobilisationsPage";
 
 function App() {
   return (
@@ -108,6 +109,8 @@ function App() {
           element={<HistoriqueLocalisationPage />}
         />
         <Route path="/historique/article" element={<HistoriqueArticlePage />} />
+
+        <Route path="/import/immobilisations" element={<ImportImmobilisationsPage />} />
       </Route>
     </Routes>
   );
