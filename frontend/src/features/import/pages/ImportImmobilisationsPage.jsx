@@ -43,10 +43,6 @@ export function ImportImmobilisationsPage() {
           <Typography variant="h5" fontWeight={600}>
             Import des immobilisations
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Importez le fichier Excel de suivi des immobilisations. Prévisualisez
-            le résultat, puis confirmez pour écrire les données.
-          </Typography>
         </Box>
       </Stack>
 
