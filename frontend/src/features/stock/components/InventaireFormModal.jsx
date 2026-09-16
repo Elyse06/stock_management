@@ -8,9 +8,6 @@ import {
   Button,
   Typography,
   Box,
-  Alert,
-  Chip,
-  Autocomplete,
   RadioGroup,
   FormControlLabel,
   Radio,
@@ -27,11 +24,15 @@ import {
   ListAlt as ListAltIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { useNotification } from "../../../components/common/NotificationProvider";
 import { WizardDialog } from "../../../components/wizard/WizardDialog";
 import { WizardActions } from "../../../components/wizard/WizardActions";
 import { StyledTable } from "../../../components/wizard/StyledTable";
 import { InfoBox } from "../../../components/wizard/InfoBox";
 import { FormSection } from "../../../components/wizard/FormSection";
+import { Autocomplete } from "@mui/material";
+import { Chip } from "@mui/material";
 
 const STEPS = [
   { label: "Lieu", icon: <StoreIcon /> },
@@ -40,9 +41,10 @@ const STEPS = [
 ];
 
 export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, directions }) {
+  const notify = useNotification();
+
   const [activeStep, setActiveStep] = useState(0);
   const [articles, setArticles] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [stocksTheoriques, setStocksTheoriques] = useState({});
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [lieuType, setLieuType] = useState("magasin");
@@ -51,25 +53,18 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
   const [currentCommentaire, setCurrentCommentaire] = useState("");
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    Promise.all([
-      apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
-      apiClient.get("/api/employee/employee/", { params: { page_size: 500 } }),
-    ])
-      .then(([articlesRes, employeesRes]) => {
-        setArticles(articlesRes.data.results ?? articlesRes.data);
-        setEmployees(employeesRes.data.results ?? employeesRes.data);
-      })
-      .catch(() => setError("Impossible de charger les données."));
+    apiClient
+      .get(API_ENDPOINTS.ARTICLES, { params: { page_size: 500 } })
+      .then((res) => setArticles(res.data.results ?? res.data))
+      .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    if (!lieuId) {
+    if (!isOpen || !lieuId) {
       setStocksTheoriques({});
       return;
     }
@@ -77,10 +72,10 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       const fetchStocks = async () => {
         setLoadingStocks(true);
         try {
-          const { data } = await apiClient.get(`/api/stock/magasins/${lieuId}/stocks/`);
+          const { data } = await apiClient.get(`${API_ENDPOINTS.MAGASINS}${lieuId}/stocks/`);
           setStocksTheoriques(data);
         } catch {
-          setError("Impossible de calculer les stocks théoriques.");
+          notify.error("Impossible de calculer les stocks théoriques.");
           setStocksTheoriques({});
         } finally {
           setLoadingStocks(false);
@@ -102,7 +97,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
     setCurrentQuantite("");
     setCurrentCommentaire("");
     setActiveStep(0);
-    setError("");
   }, [isOpen]);
 
   const resetCurrentArticle = () => {
@@ -115,12 +109,11 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
     resetCurrentArticle();
     setLignes([]);
     setStocksTheoriques({});
-    setError("");
     setActiveStep(0);
     onClose();
   };
 
-  const lieuxDisponibles = lieuType === "magasin" ? magasins : directions; // ✅ Changé
+  const lieuxDisponibles = lieuType === "magasin" ? magasins : directions;
   const lieuSelectionne = lieuxDisponibles.find((l) =>
     String(lieuType === "magasin" ? l.magasin_id : l.dir_id) === String(lieuId)
   );
@@ -130,14 +123,11 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       : lieuSelectionne.dir_libelle
     : "";
 
-  const getStockTheorique = (articleCode) => {
-    return stocksTheoriques[articleCode]?.stock_theorique ?? 0;
-  };
+  const getStockTheorique = (articleCode) => stocksTheoriques[articleCode]?.stock_theorique ?? 0;
 
   const handleNext = () => {
-    setError("");
     if (activeStep === 0 && !lieuId) {
-      setError("Veuillez sélectionner un lieu.");
+      notify.error("Veuillez sélectionner un lieu.");
       return;
     }
     if (activeStep < STEPS.length - 1) {
@@ -146,7 +136,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
   };
 
   const handleBack = () => {
-    setError("");
     if (activeStep > 0) {
       setActiveStep((prev) => prev - 1);
     }
@@ -154,17 +143,18 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
 
   const ajouterLigne = () => {
     if (!currentArticle) {
-      setError("Veuillez sélectionner un article.");
+      notify.error("Veuillez sélectionner un article.");
       return;
     }
     if (!currentQuantite || Number(currentQuantite) < 0) {
-      setError("Veuillez saisir une quantité physique valide (≥ 0).");
+      notify.error("Veuillez saisir une quantité physique valide (≥ 0).");
       return;
     }
     if (lignes.some((l) => l.article === currentArticle.code_article)) {
-      setError("Cet article est déjà dans la liste.");
+      notify.error("Cet article est déjà dans la liste.");
       return;
     }
+
     const quantiteTheorique = getStockTheorique(currentArticle.code_article);
     const quantitePhysique = Number(currentQuantite);
     setLignes([
@@ -178,7 +168,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
         commentaire: currentCommentaire.trim(),
       },
     ]);
-    setError("");
     resetCurrentArticle();
   };
 
@@ -186,17 +175,20 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
+  const getEcartColor = (ecart) => (ecart === 0 ? "success.main" : "error.main");
+  const formatEcart = (ecart) => (ecart > 0 ? `+${ecart}` : String(ecart));
+
   const handleSubmit = async () => {
     if (lignes.length === 0) {
-      setError("Ajoutez au moins un article à l'inventaire.");
+      notify.error("Ajoutez au moins un article à l'inventaire.");
       return;
     }
     if (!lieuId) {
-      setError("Veuillez sélectionner un lieu.");
+      notify.error("Veuillez sélectionner un lieu.");
       return;
     }
+
     setSaving(true);
-    setError("");
     try {
       const payload = {
         lignes: lignes.map((l) => ({
@@ -205,39 +197,31 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
           commentaire: l.commentaire || null,
         })),
       };
+
       if (lieuType === "magasin") {
         payload.magasin = Number(lieuId);
       } else {
-        // ✅ On envoie "service" avec l'ID d'une direction (le backend mappe automatiquement)
         payload.service = lieuId;
       }
-      await apiClient.post("/api/stock/inventaires/", payload);
+
+      await apiClient.post(API_ENDPOINTS.INVENTAIRES, payload);
+      notify.success("Inventaire enregistré avec succès");
       if (onSuccess) onSuccess();
       handleClose();
     } catch (err) {
       const detail = err?.response?.data;
       if (detail && typeof detail === "object") {
-        setError(
+        notify.error(
           Object.entries(detail)
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
             .join(" | ")
         );
       } else {
-        setError("Erreur lors de l'enregistrement de l'inventaire.");
+        notify.error(ERROR_MESSAGES.SAVE_FAILED);
       }
     } finally {
       setSaving(false);
     }
-  };
-
-  const getEcartColor = (ecart) => {
-    if (ecart === 0) return "success.main";
-    return "error.main";
-  };
-
-  const formatEcart = (ecart) => {
-    if (ecart > 0) return `+${ecart}`;
-    return String(ecart);
   };
 
   const renderStepContent = () => {
@@ -245,9 +229,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       case 0:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Lieu de l'inventaire
-            </Typography>
+            <Typography variant="h3" sx={{ mb: 2 }}>Lieu de l'inventaire</Typography>
             <FormControl component="fieldset" sx={{ mb: 2 }}>
               <FormLabel component="legend">Type de lieu</FormLabel>
               <RadioGroup
@@ -269,7 +251,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                   }
                 />
                 <FormControlLabel
-                  value="direction" // ✅ Changé de "service" à "direction"
+                  value="direction"
                   control={<Radio color="primary" />}
                   label={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -281,9 +263,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
               </RadioGroup>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>
-                {lieuType === "magasin" ? "Magasin" : "Direction"}
-              </InputLabel>
+              <InputLabel>{lieuType === "magasin" ? "Magasin" : "Direction"}</InputLabel>
               <Select
                 value={lieuId}
                 label={lieuType === "magasin" ? "Magasin" : "Direction"}
@@ -293,10 +273,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                   Sélectionner un {lieuType === "magasin" ? "magasin" : "direction"}...
                 </MenuItem>
                 {lieuxDisponibles.map((l) => (
-                  <MenuItem
-                    key={lieuType === "magasin" ? l.magasin_id : l.dir_id}
-                    value={lieuType === "magasin" ? l.magasin_id : l.dir_id}
-                  >
+                  <MenuItem key={lieuType === "magasin" ? l.magasin_id : l.dir_id} value={lieuType === "magasin" ? l.magasin_id : l.dir_id}>
                     {lieuType === "magasin"
                       ? `${l.magasin_nom}${l.localite_nom ? ` (${l.localite_nom})` : ""}`
                       : l.dir_libelle}
@@ -306,15 +283,9 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
             </FormControl>
             {lieuSelectionne && (
               <InfoBox
-                icon={
-                  lieuType === "magasin" ? (
-                    <StoreIcon fontSize="small" />
-                  ) : (
-                    <BusinessIcon fontSize="small" />
-                  )
-                }
+                icon={lieuType === "magasin" ? <StoreIcon fontSize="small" /> : <BusinessIcon fontSize="small" />}
                 title={lieuNom}
-                subtitle={`${lieuType === "magasin" ? "Magasin" : "Direction"}`}
+                subtitle={lieuType === "magasin" ? "Magasin" : "Direction"}
               />
             )}
             {loadingStocks && (
@@ -327,32 +298,20 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
             )}
           </Box>
         );
+
       case 1:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Articles à inventorier
-            </Typography>
+            <Typography variant="h3" sx={{ mb: 2 }}>Articles à inventorier</Typography>
             <FormSection>
               <Autocomplete
-                options={articles.filter(
-                  (a) => !lignes.some((l) => l.article === a.code_article)
-                )}
-                getOptionLabel={(option) =>
-                  `${option.code_article} - ${option.designation}`
-                }
-                isOptionEqualToValue={(option, value) =>
-                  option?.code_article === value?.code_article
-                }
+                options={articles.filter((a) => !lignes.some((l) => l.article === a.code_article))}
+                getOptionLabel={(option) => `${option.code_article} - ${option.designation}`}
+                isOptionEqualToValue={(option, value) => option?.code_article === value?.code_article}
                 value={currentArticle}
                 onChange={(_, newValue) => setCurrentArticle(newValue)}
                 renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Article"
-                    placeholder="Rechercher un article..."
-                    autoFocus
-                  />
+                  <TextField {...params} label="Article" placeholder="Rechercher un article..." autoFocus />
                 )}
                 renderOption={(props, option) => {
                   const stockTheo = getStockTheorique(option.code_article);
@@ -373,36 +332,14 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                 noOptionsText="Aucun article disponible"
               />
               {currentArticle && (
-                <Box
-                  sx={{
-                    mt: 1.5,
-                    p: 1.5,
-                    bgcolor: "#FFFFFF",
-                    borderRadius: 1,
-                    border: "1px solid #E0E0E0",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+                <Box sx={{ mt: 1.5, p: 1.5, bgcolor: "#FFFFFF", borderRadius: 1, border: "1px solid #E0E0E0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>
-                      {currentArticle.designation}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {currentArticle.code_article}
-                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>{currentArticle.designation}</Typography>
+                    <Typography variant="caption" color="text.secondary">{currentArticle.code_article}</Typography>
                   </Box>
                   <Box sx={{ textAlign: "right" }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Stock théorique
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      fontWeight={700}
-                      fontFamily="monospace"
-                      color="primary.main"
-                    >
+                    <Typography variant="caption" color="text.secondary">Stock théorique</Typography>
+                    <Typography variant="body1" fontWeight={700} fontFamily="monospace" color="primary.main">
                       {getStockTheorique(currentArticle.code_article)}
                     </Typography>
                   </Box>
@@ -426,18 +363,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                 />
               </Box>
               {currentArticle && currentQuantite !== "" && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 1.5,
-                    bgcolor: "#FAFAFA",
-                    borderRadius: 1,
-                    border: "1px solid #E0E0E0",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+                <Box sx={{ mt: 2, p: 1.5, bgcolor: "#FAFAFA", borderRadius: 1, border: "1px solid #E0E0E0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Typography variant="body2">Aperçu :</Typography>
                   <Box sx={{ display: "flex", gap: 2 }}>
                     <Typography variant="body2">
@@ -449,16 +375,9 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                     <Typography
                       variant="body2"
                       fontWeight={700}
-                      sx={{
-                        color: getEcartColor(
-                          Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)
-                        ),
-                      }}
+                      sx={{ color: getEcartColor(Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)) }}
                     >
-                      Écart :{" "}
-                      {formatEcart(
-                        Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article)
-                      )}
+                      Écart : {formatEcart(Number(currentQuantite || 0) - getStockTheorique(currentArticle.code_article))}
                     </Typography>
                   </Box>
                 </Box>
@@ -487,48 +406,29 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                 {lignes.map((ligne, index) => (
                   <tr key={index}>
                     <td>
-                      <Typography variant="body2" fontWeight={600}>
-                        {ligne.article}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {ligne.article_designation}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>{ligne.article}</Typography>
+                      <Typography variant="caption" color="text.secondary">{ligne.article_designation}</Typography>
                     </td>
                     <td align="center">
-                      <Typography variant="body2" fontFamily="monospace">
-                        {ligne.quantite_theorique}
-                      </Typography>
+                      <Typography variant="body2" fontFamily="monospace">{ligne.quantite_theorique}</Typography>
                     </td>
                     <td align="center">
-                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                        {ligne.quantite_physique}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">{ligne.quantite_physique}</Typography>
                     </td>
                     <td align="center">
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        fontFamily="monospace"
-                        sx={{ color: getEcartColor(ligne.ecart) }}
-                      >
+                      <Typography variant="body2" fontWeight={700} fontFamily="monospace" sx={{ color: getEcartColor(ligne.ecart) }}>
                         {formatEcart(ligne.ecart)}
                       </Typography>
                     </td>
                     <td>
                       {ligne.commentaire ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {ligne.commentaire}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">{ligne.commentaire}</Typography>
                       ) : (
                         <Chip label="—" size="small" variant="outlined" />
                       )}
                     </td>
                     <td align="center">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => retirerLigne(index)}
-                      >
+                      <IconButton size="small" color="error" onClick={() => retirerLigne(index)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </td>
@@ -538,37 +438,28 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
             )}
           </Box>
         );
+
       case 2:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Récapitulatif de l'inventaire
-            </Typography>
+            <Typography variant="h3" sx={{ mb: 2 }}>Récapitulatif de l'inventaire</Typography>
             <InfoBox
-              icon={
-                lieuType === "magasin" ? (
-                  <StoreIcon fontSize="small" color="primary" />
-                ) : (
-                  <BusinessIcon fontSize="small" color="primary" />
-                )
-              }
+              icon={lieuType === "magasin" ? <StoreIcon fontSize="small" color="primary" /> : <BusinessIcon fontSize="small" color="primary" />}
             >
               <Typography variant="body2">
-                <strong>Lieu :</strong> {lieuNom}
-                <Chip
-                  label={lieuType === "magasin" ? "Magasin" : "Direction"}
-                  size="small"
-                  sx={{ ml: 1, height: 20, fontSize: 11 }}
-                />
+                <strong>Lieu : </strong> {lieuNom}
+                <Chip label={lieuType === "magasin" ? "Magasin" : "Direction"} size="small" sx={{ ml: 1, height: 20, fontSize: 11 }} />
               </Typography>
             </InfoBox>
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1, mt: 2 }}>
               Articles à inventorier ({lignes.length})
             </Typography>
             {lignes.length === 0 ? (
-              <Alert severity="warning">
-                Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
-              </Alert>
+              <Box sx={{ p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
+                <Typography variant="body2" color="primary.main">
+                  ⚠️ Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
+                </Typography>
+              </Box>
             ) : (
               <StyledTable
                 columns={[
@@ -582,37 +473,22 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                 {lignes.map((ligne, index) => (
                   <tr key={index}>
                     <td>
-                      <Typography variant="body2" fontWeight={600}>
-                        {ligne.article}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {ligne.article_designation}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>{ligne.article}</Typography>
+                      <Typography variant="caption" color="text.secondary">{ligne.article_designation}</Typography>
                     </td>
                     <td align="center">
-                      <Typography variant="body2" fontFamily="monospace">
-                        {ligne.quantite_theorique}
-                      </Typography>
+                      <Typography variant="body2" fontFamily="monospace">{ligne.quantite_theorique}</Typography>
                     </td>
                     <td align="center">
-                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                        {ligne.quantite_physique}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">{ligne.quantite_physique}</Typography>
                     </td>
                     <td align="center">
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        fontFamily="monospace"
-                        sx={{ color: getEcartColor(ligne.ecart) }}
-                      >
+                      <Typography variant="body2" fontWeight={700} fontFamily="monospace" sx={{ color: getEcartColor(ligne.ecart) }}>
                         {formatEcart(ligne.ecart)}
                       </Typography>
                     </td>
                     <td>
-                      {ligne.commentaire || (
-                        <Chip label="—" size="small" variant="outlined" />
-                      )}
+                      {ligne.commentaire || <Chip label="—" size="small" variant="outlined" />}
                     </td>
                   </tr>
                 ))}
@@ -620,6 +496,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
             )}
           </Box>
         );
+
       default:
         return null;
     }
@@ -633,8 +510,6 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       activeStep={activeStep}
       title="Nouvel inventaire"
       mode="CRÉATION"
-      error={error}
-      onErrorClose={() => setError("")}
       actions={
         <WizardActions
           activeStep={activeStep}

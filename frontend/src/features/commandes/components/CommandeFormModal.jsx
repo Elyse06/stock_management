@@ -7,11 +7,9 @@ import {
   InputLabel,
   Typography,
   Box,
-  Alert,
-  Chip,
-  Autocomplete,
-  IconButton,
   Button,
+  IconButton,
+  Autocomplete,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -22,19 +20,20 @@ import {
   Inventory as InventoryIcon,
   Numbers as NumbersIcon,
   ListAlt as ListAltIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
-import { AttributionEditor } from "./AttributionEditor";
-
-// Composants wizard réutilisables
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePermission } from "../../../hooks/usePermission";
+import { useNotification } from "../../../components/common/NotificationProvider";
 import { WizardDialog } from "../../../components/wizard/WizardDialog";
 import { WizardActions } from "../../../components/wizard/WizardActions";
 import { StyledTable } from "../../../components/wizard/StyledTable";
 import { InfoBox } from "../../../components/wizard/InfoBox";
 import { FormSection } from "../../../components/wizard/FormSection";
+import { AttributionEditor } from "./AttributionEditor";
+import { Chip } from "@mui/material";
 
-// ====== CONSTANTES ======
 const STEPS = [
   { label: "Article", icon: <InventoryIcon /> },
   { label: "Quantité", icon: <NumbersIcon /> },
@@ -49,63 +48,43 @@ const OBJETS_DEMANDE = [
   "Autre",
 ];
 
-const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
-
 export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit = null }) {
-  const { hasAction, user } = useAuth();
+  const notify = useNotification();
+  const { user, canCreateCommande } = usePermission();
 
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('COM_DEM');
-  const canEdit = true;
-
-  // ====== STATE WIZARD ======
   const [activeStep, setActiveStep] = useState(0);
-
-  // ====== DONNÉES DE RÉFÉRENCE ======
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
-
-  // ====== DONNÉES DU FORMULAIRE ======
   const [objet, setObjet] = useState("");
   const [lignes, setLignes] = useState([]);
-
-  // Données de l'étape en cours
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
   const [currentAttributions, setCurrentAttributions] = useState([]);
-
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isEditMode = Boolean(commandeToEdit);
 
-  // ====== DÉTECTION DE L'EMPLOYÉ LIÉ À L'UTILISATEUR CONNECTÉ ======
   const employeeDemandeur = employees.find(
     (e) => String(e.emp_utilisateur_id) === String(user?.utilisateur_id)
   );
 
-  // ====== CHARGEMENT DES DONNÉES ======
   useEffect(() => {
     if (!isOpen) return;
-
     Promise.all([
-      apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
-      apiClient.get(EMPLOYEES_ENDPOINT, { params: { page_size: 500 } }),
+      apiClient.get(API_ENDPOINTS.ARTICLES, { params: { page_size: 500 } }),
+      apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
     ])
       .then(([articlesRes, employeesRes]) => {
         setArticles(articlesRes.data.results ?? articlesRes.data);
         setEmployees(employeesRes.data.results ?? employeesRes.data);
       })
-      .catch(() => setError("Impossible de charger les données."));
+      .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen]);
 
-  // ====== MODE ÉDITION : charger la commande existante ======
   useEffect(() => {
     if (!isOpen) return;
-
     if (commandeToEdit) {
       setObjet(commandeToEdit.objet || "");
-      
       const lignesTransformees = (commandeToEdit.details || []).map((detail) => {
         const article = articles.find((a) => a.code_article === detail.article);
         const attributions = (detail.attributions || []).map((attr) => {
@@ -124,7 +103,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           attributions,
         };
       });
-
       setLignes(lignesTransformees);
     } else {
       setObjet("");
@@ -132,22 +110,15 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
     resetCurrentStep();
     setActiveStep(0);
-    setError("");
   }, [isOpen, commandeToEdit, articles, employees]);
 
-  // ====== PRÉ-REMPLISSAGE DU BÉNÉFICIAIRE PAR DÉFAUT ======
   useEffect(() => {
-    if (!isOpen) return;
-    if (activeStep !== 2) return;
-    if (employees.length === 0) return;
-    if (currentAttributions) return;
-
+    if (!isOpen || activeStep !== 2 || employees.length === 0 || currentAttributions) return;
     if (employeeDemandeur) {
       setCurrentAttributions(employeeDemandeur);
     }
   }, [isOpen, activeStep, employees, currentAttributions, employeeDemandeur]);
 
-  // ====== HELPERS ======
   const resetCurrentStep = () => {
     setCurrentArticle(null);
     setCurrentQuantite("");
@@ -158,80 +129,60 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     resetCurrentStep();
     setObjet("");
     setLignes([]);
-    setError("");
     setActiveStep(0);
     onClose();
   };
 
-  // ====== NAVIGATION ======
   const handleNext = () => {
-    setError("");
-
     if (activeStep === 0 && !currentArticle) {
-      setError("Veuillez sélectionner un article.");
+      notify.error("Veuillez sélectionner un article.");
       return;
     }
     if (activeStep === 1) {
       if (!currentQuantite || Number(currentQuantite) <= 0) {
-        setError("Veuillez saisir une quantité valide.");
+        notify.error("Veuillez saisir une quantité valide.");
         return;
       }
     }
-
     if (activeStep < STEPS.length - 1) {
       setActiveStep((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
-    setError("");
     if (activeStep > 0) {
       setActiveStep((prev) => prev - 1);
     }
   };
 
+  const creerNouvelleLigne = () => ({
+    article: currentArticle.code_article,
+    article_designation: currentArticle.designation,
+    stock_calcule: currentArticle.stock_calcule ?? 0,
+    quantite: Number(currentQuantite),
+    attributions: currentAttributions.map((a) => ({
+      employe_beneficiaire: a.employe.emp_id,
+      beneficiaire_nom: a.employe.emp_nom,
+      quantite: a.quantite,
+    })),
+  });
+
   const handleAjouterEtContinuer = () => {
     if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
-      setError("Données invalides.");
+      notify.error("Données invalides.");
       return;
     }
-
-    const nouvelleLigne = {
-      article: currentArticle.code_article,
-      article_designation: currentArticle.designation,
-      stock_calcule: currentArticle.stock_calcule ?? 0,
-      quantite: Number(currentQuantite),
-      attributions: currentAttributions.map((a) => ({
-        employe_beneficiaire: a.employe.emp_id,
-        beneficiaire_nom: a.employe.emp_nom,
-        quantite: a.quantite,
-      })),
-    };
-
-    setLignes([...lignes, nouvelleLigne]);
+    setLignes([...lignes, creerNouvelleLigne()]);
     resetCurrentStep();
     setActiveStep(0);
   };
 
   const handleVoirRecap = () => {
     if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
-      setError("Données invalides. Veuillez compléter les étapes précédentes.");
+      notify.error("Données invalides. Veuillez compléter les étapes précédentes.");
       return;
     }
-
-    const nouvelleLigne = {
-      article: currentArticle.code_article,
-      article_designation: currentArticle.designation,
-      stock_calcule: currentArticle.stock_calcule ?? 0,
-      quantite: Number(currentQuantite),
-      attributions: currentAttributions.map((a) => ({
-        employe_beneficiaire: a.employe.emp_id,
-        beneficiaire_nom: a.employe.emp_nom,
-        quantite: a.quantite,
-      })),
-    };
-
-    setLignes([...lignes, nouvelleLigne]);
+    setLignes([...lignes, creerNouvelleLigne()]);
     resetCurrentStep();
     setActiveStep(3);
   };
@@ -245,34 +196,24 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
-  // ====== ENREGISTREMENT ======
   const handleSubmit = async () => {
     if (lignes.length === 0) {
-      setError("Ajoutez au moins un article à la commande.");
+      notify.error("Ajoutez au moins un article à la commande.");
       return;
     }
     if (!objet.trim()) {
-      setError("Veuillez saisir l'objet de la demande.");
+      notify.error("Veuillez saisir l'objet de la demande.");
       return;
     }
-
     if (!employeeDemandeur) {
-      setError(
-        "Votre compte utilisateur n'est pas lié à un employé. " +
-        "Veuillez contacter l'administrateur."
-      );
+      notify.error("Votre compte utilisateur n'est pas lié à un employé. Veuillez contacter l'administrateur.");
       return;
     }
 
     setSaving(true);
-    setError("");
-
     try {
       const detailsPayload = lignes.map((ligne) => {
-        const detail = {
-          article: ligne.article,
-          quantite: ligne.quantite,
-        };
+        const detail = { article: ligne.article, quantite: ligne.quantite };
         if (ligne.attributions && ligne.attributions.length > 0) {
           detail.attributions = ligne.attributions.map((a) => ({
             employe_beneficiaire: a.employe_beneficiaire,
@@ -289,9 +230,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       };
 
       if (isEditMode) {
-        await apiClient.put(`/api/commandes/commandes/${commandeToEdit.commande_id}/`, payload);
+        await apiClient.put(`${API_ENDPOINTS.COMMANDES}${commandeToEdit.commande_id}/`, payload);
+        notify.success("Commande modifiée avec succès");
       } else {
-        await apiClient.post("/api/commandes/commandes/", payload);
+        await apiClient.post(API_ENDPOINTS.COMMANDES, payload);
+        notify.success("Commande créée avec succès");
       }
 
       if (onSuccess) onSuccess();
@@ -299,46 +242,33 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     } catch (err) {
       const detail = err?.response?.data;
       if (detail && typeof detail === "object") {
-        setError(
+        notify.error(
           Object.entries(detail)
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
             .join(" | ")
         );
       } else {
-        setError("Erreur lors de l'enregistrement de la commande.");
+        notify.error(ERROR_MESSAGES.SAVE_FAILED);
       }
     } finally {
       setSaving(false);
     }
   };
 
-  // ====== RENDU DES ÉTAPES ======
   const renderStepContent = () => {
     switch (activeStep) {
-      // ====== ÉTAPE 1 : SÉLECTION ARTICLE ======
       case 0:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Choisissez un article
-            </Typography>
+            <Typography variant="h3" sx={{ mb: 2 }}>Choisissez un article</Typography>
             <Autocomplete
               options={articles}
-              getOptionLabel={(option) =>
-                `${option.code_article} - ${option.designation}`
-              }
-              isOptionEqualToValue={(option, value) =>
-                option?.code_article === value?.code_article
-              }
+              getOptionLabel={(option) => `${option.code_article} - ${option.designation}`}
+              isOptionEqualToValue={(option, value) => option?.code_article === value?.code_article}
               value={currentArticle}
               onChange={(_, newValue) => setCurrentArticle(newValue)}
               renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Article"
-                  placeholder="Rechercher un article..."
-                  autoFocus
-                />
+                <TextField {...params} label="Article" placeholder="Rechercher un article..." autoFocus />
               )}
               renderOption={(props, option) => (
                 <li {...props} key={option.code_article}>
@@ -355,7 +285,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               )}
               noOptionsText="Aucun article trouvé"
             />
-
             {currentArticle && (
               <InfoBox
                 title={currentArticle.designation}
@@ -365,25 +294,16 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           </Box>
         );
 
-      // ====== ÉTAPE 2 : QUANTITÉ ======
       case 1:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Quantité demandée
-            </Typography>
-
+            <Typography variant="h3" sx={{ mb: 2 }}>Quantité demandée</Typography>
             {currentArticle && (
               <FormSection>
-                <Typography variant="body2" fontWeight={600}>
-                  {currentArticle.designation}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {currentArticle.code_article}
-                </Typography>
+                <Typography variant="body2" fontWeight={600}>{currentArticle.designation}</Typography>
+                <Typography variant="caption" color="text.secondary">{currentArticle.code_article}</Typography>
               </FormSection>
             )}
-
             <TextField
               label="Quantité"
               type="number"
@@ -393,37 +313,26 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               autoFocus
               inputProps={{ min: 1, step: 1 }}
               placeholder="Ex: 5"
-              helperText={
-                currentArticle?.stock_calcule !== undefined
-                  ? `Stock disponible : ${currentArticle.stock_calcule}`
-                  : ""
-              }
+              helperText={currentArticle?.stock_calcule !== undefined ? `Stock disponible : ${currentArticle.stock_calcule}` : ""}
             />
-
-            {currentArticle &&
-              currentQuantite &&
-              Number(currentQuantite) > currentArticle.stock_calcule && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  La quantité demandée dépasse le stock disponible. Une commande sera
-                  nécessaire pour {Number(currentQuantite) - currentArticle.stock_calcule}{" "}
-                  unité(s).
-                </Alert>
-              )}
+            {currentArticle && currentQuantite && Number(currentQuantite) > currentArticle.stock_calcule && (
+              <Box sx={{ mt: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
+                <Typography variant="body2" color="primary.main">
+                  La quantité demandée dépasse le stock disponible. Une commande sera nécessaire pour{" "}
+                  {Number(currentQuantite) - currentArticle.stock_calcule} unité(s).
+                </Typography>
+              </Box>
+            )}
           </Box>
         );
 
-      // ====== ÉTAPE 3 : BÉNÉFICIAIRE ======
       case 2:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Attributions
-            </Typography>
-
+            <Typography variant="h3" sx={{ mb: 2 }}>Attributions</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Répartissions du quantité entre plusieurs bénéficiaires
+              Répartition de la quantité entre plusieurs bénéficiaires
             </Typography>
-
             <AttributionEditor
               quantiteTotale={Number(currentQuantite)}
               attributions={currentAttributions}
@@ -434,44 +343,33 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           </Box>
         );
 
-      // ====== ÉTAPE 4 : RÉCAPITULATIF ======
       case 3:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>
-              Récapitulatif de la commande
-            </Typography>
-
+            <Typography variant="h3" sx={{ mb: 2 }}>Récapitulatif de la commande</Typography>
             {employeeDemandeur && (
               <InfoBox
                 icon={<PersonIcon fontSize="small" color="primary" />}
                 title={`Demandeur : ${employeeDemandeur.emp_nom}${employeeDemandeur.emp_matricule ? ` (${employeeDemandeur.emp_matricule})` : ""}`}
               />
             )}
-
             <FormControl fullWidth sx={{ mb: 2, mt: 2 }}>
               <InputLabel>Objet de la demande</InputLabel>
-              <Select
-                value={objet}
-                label="Objet de la demande"
-                onChange={(e) => setObjet(e.target.value)}
-              >
+              <Select value={objet} label="Objet de la demande" onChange={(e) => setObjet(e.target.value)}>
                 {OBJETS_DEMANDE.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
+                  <MenuItem key={option} value={option}>{option}</MenuItem>
                 ))}
               </Select>
             </FormControl>
-
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
               Articles commandés ({lignes.length})
             </Typography>
-
             {lignes.length === 0 ? (
-              <Alert severity="warning">
-                Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
-              </Alert>
+              <Box sx={{ p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
+                <Typography variant="body2" color="primary.main">
+                  Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
+                </Typography>
+              </Box>
             ) : (
               <StyledTable
                 columns={[
@@ -482,36 +380,22 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                 ]}
               >
                 {lignes.map((ligne, index) => (
-                  <tr key={index} style={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
+                  <tr key={index}>
                     <td>
-                      <Typography variant="body2" fontWeight={600}>
-                        {ligne.article}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {ligne.article_designation}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>{ligne.article}</Typography>
+                      <Typography variant="caption" color="text.secondary">{ligne.article_designation}</Typography>
                     </td>
                     <td align="center">
-                      <Typography
-                        variant="body2"
-                        fontWeight={600}
-                        fontFamily="monospace"
-                      >
-                        {ligne.quantite}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={600} fontFamily="monospace">{ligne.quantite}</Typography>
                     </td>
                     <td>
                       {ligne.attributions && ligne.attributions.length > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                           {ligne.attributions.map((attr, idx) => {
-                            // ✅ Récupérer l'employé complet pour afficher sa localisation
-                            const employeComplet = employees.find(
-                              (e) => e.emp_id === attr.employe_beneficiaire
-                            );
+                            const employeComplet = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
                             const service = employeComplet?.emp_serv_id;
                             const direction = service?.serv_dir_id;
                             const site = direction?.site;
-                            
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>
                                 <Chip
@@ -521,7 +405,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                                   variant="outlined"
                                   icon={<PersonIcon />}
                                 />
-                                {/* ✅ Affichage de la localisation sous le chip */}
                                 {(direction || site) && (
                                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3, ml: 1 }}>
                                     <BusinessIcon sx={{ fontSize: 12 }} color="action" />
@@ -546,11 +429,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                       )}
                     </td>
                     <td align="center">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleRetirerLigne(index)}
-                      >
+                      <IconButton size="small" color="error" onClick={() => handleRetirerLigne(index)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </td>
@@ -566,9 +445,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
   };
 
-  // ====== BOUTONS D'ACTION ======
   const renderActions = () => {
-    // Étape 0, 1 : Précédent + Suivant
     if (activeStep === 0 || activeStep === 1) {
       return (
         <WizardActions
@@ -580,43 +457,25 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         />
       );
     }
-
-    // Étape 2 : Ajouter un autre OU Voir le récap
     if (activeStep === 2) {
       return (
         <>
-          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>
-            Précédent
-          </Button>
+          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>Précédent</Button>
           <Box sx={{ flex: 1 }} />
-          <Button
-            variant="outlined"
-            onClick={handleAjouterEtContinuer}
-            startIcon={<AddIcon />}
-          >
+          <Button variant="outlined" onClick={handleAjouterEtContinuer} startIcon={<AddIcon />}>
             Ajouter un autre article
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleVoirRecap}
-            endIcon={<ArrowForwardIcon />}
-          >
+          <Button variant="contained" onClick={handleVoirRecap} endIcon={<ArrowForwardIcon />}>
             Voir le récapitulatif
           </Button>
         </>
       );
     }
-
-    // Étape 3 : Ajouter un autre OU Enregistrer
     if (activeStep === STEPS.length - 1) {
       return (
         <>
           <Box sx={{ flex: 1 }} />
-          <Button
-            variant="outlined"
-            onClick={handleAjouterAutreDepuisRecap}
-            startIcon={<AddIcon />}
-          >
+          <Button variant="outlined" onClick={handleAjouterAutreDepuisRecap} startIcon={<AddIcon />}>
             Ajouter un autre article
           </Button>
           <WizardActions
@@ -632,7 +491,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         </>
       );
     }
-
     return null;
   };
 
@@ -644,19 +502,17 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       activeStep={activeStep}
       title={isEditMode ? "Modifier la commande" : "Nouvelle commande"}
       mode={isEditMode ? "ÉDITION" : "CRÉATION"}
-      error={error}
-      onErrorClose={() => setError("")}
       actions={renderActions()}
     >
-      {/* Alerte si l'utilisateur n'est pas lié à un employé */}
       {!employeeDemandeur && employees.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          ⚠️ Votre compte utilisateur n'est pas lié à un employé.
-          Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
-          Veuillez contacter l'administrateur.
-        </Alert>
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
+          <Typography variant="body2" color="primary.main">
+            ⚠️ Votre compte utilisateur n'est pas lié à un employé.
+            Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
+            Veuillez contacter l'administrateur.
+          </Typography>
+        </Box>
       )}
-
       {renderStepContent()}
     </WizardDialog>
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Typography, Grid } from "@mui/material";
+import { Box, Grid, Typography } from "@mui/material";
 import {
   Inventory as InventoryIcon,
   AccountBalance as AccountBalanceIcon,
@@ -17,6 +17,8 @@ import { StockEvolutionChart } from "./components/charts/StockEvolutionChart";
 import { ConsommationMensuelleChart } from "./components/charts/ConsommationMensuelleChart";
 import { CategorieDistributionChart } from "./components/charts/CategorieDistributionChart";
 import { MagasinDistributionChart } from "./components/charts/MagasinDistributionChart";
+import { PageHeader } from "../../components/common/PageHeader";
+import { ErrorAlert } from "../../components/common/ErrorAlert";
 
 export function DashboardPage() {
   const {
@@ -31,8 +33,8 @@ export function DashboardPage() {
     error,
   } = useDashboardData();
 
-  // État pour les modals de détails
   const [modalKPI, setModalKPI] = useState(null);
+
   const refreshDashboard = () => {
     window.location.reload();
   };
@@ -47,19 +49,10 @@ export function DashboardPage() {
     );
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
-  }
-
   return (
     <Box>
-      <Typography variant="h2" sx={{ mb: 3 }}>
-        Tableau de bord
-      </Typography>
+      <PageHeader title="Tableau de bord" />
+      <ErrorAlert error={error} />
 
       {/* KPIs */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -84,11 +77,7 @@ export function DashboardPage() {
             label="Produits en rupture"
             value={kpis?.produits_en_rupture ?? 0}
             onClick={() => setModalKPI("produits_en_rupture")}
-            badge={
-              kpis?.produits_en_rupture > 0
-                ? { label: "CRITIQUE", color: "error.main" }
-                : null
-            }
+            badge={kpis?.produits_en_rupture > 0 ? { label: "CRITIQUE", color: "#F9A825" } : null}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -97,11 +86,7 @@ export function DashboardPage() {
             label="Produits sous seuil"
             value={kpis?.produits_sous_seuil ?? 0}
             onClick={() => setModalKPI("produits_sous_seuil")}
-            badge={
-              kpis?.produits_sous_seuil > 0
-                ? { label: "ATTENTION", color: "warning.main" }
-                : null
-            }
+            badge={kpis?.produits_sous_seuil > 0 ? { label: "ATTENTION", color: "#F9A825" } : null}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -148,7 +133,6 @@ export function DashboardPage() {
         </Grid>
       </Grid>
 
-      {/* Modal de détails KPI */}
       <KPIDetailModal
         kpiType={modalKPI}
         isOpen={modalKPI !== null}

@@ -1,66 +1,72 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Chip,
-  Tooltip,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-} from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+import { useState } from "react";
+import { Box, TextField } from "@mui/material";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePagination } from "../../../hooks/usePagination";
+import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { useNotification } from "../../../components/common/NotificationProvider";
+import { PageHeader } from "../../../components/common/PageHeader";
+import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { ActionButtons } from "../../../components/common/ActionButtons";
+import { EmptyValue } from "../../../components/common/EmptyValue";
+import { FormDialog } from "../../../components/common/FormDialog";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 export function CategoriesPage() {
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [rowCount, setRowCount] = useState(0);
+  const notify = useNotification();
+  const queryClient = useQueryClient();
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+  const { paginationModel, setPaginationModel } = usePagination(25);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formLibelle, setFormLibelle] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const charger = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await apiClient.get("/api/catalogue/categories/", {
-        params: {
-          page: paginationModel.page + 1,
-          page_size: paginationModel.pageSize,
-        },
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["categories", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize }],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.CATEGORIES, {
+        params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
       });
-      setCategories(data.results ?? data);
-      setRowCount(data.count ?? (data.results ?? data).length);
-    } catch {
-      setError("Impossible de charger les catégories.");
-    } finally {
-      setLoading(false);
-    }
-  }, [paginationModel.page, paginationModel.pageSize]);
+      return {
+        categories: data.results ?? data,
+        totalCount: data.count ?? (data.results ?? data).length,
+      };
+    },
+    keepPreviousData: true,
+  });
 
-  useEffect(() => {
-    charger();
-  }, [charger]);
+  const createMutation = useMutation({
+    mutationFn: async (payload) => {
+      const { data } = await apiClient.post(API_ENDPOINTS.CATEGORIES, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...payload }) => {
+      const { data } = await apiClient.put(`${API_ENDPOINTS.CATEGORIES}${id}/`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      await apiClient.delete(`${API_ENDPOINTS.CATEGORIES}${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
 
   const ouvrirCreation = () => {
     setFormLibelle("");
@@ -83,64 +89,49 @@ export function CategoriesPage() {
 
   const enregistrer = async (e) => {
     e.preventDefault();
-    setSaving(true);
-    setError("");
+    const payload = {
+      cat_libelle: formLibelle.trim(),
+      cat_description: formDescription.trim(),
+    };
+
     try {
-      const payload = {
-        cat_libelle: formLibelle.trim(),
-        cat_description: formDescription.trim(),
-      };
       if (editing?.categorie_id) {
-        await apiClient.put(
-          `/api/catalogue/categories/${editing.categorie_id}/`,
-          payload,
-        );
+        await updateMutation.mutateAsync({ id: editing.categorie_id, ...payload });
+        notify.success("Catégorie modifiée avec succès");
       } else {
-        await apiClient.post("/api/catalogue/categories/", payload);
+        await createMutation.mutateAsync(payload);
+        notify.success("Catégorie créée avec succès");
       }
       fermerModal();
-      charger();
     } catch {
-      setError("Erreur lors de l'enregistrement de la catégorie.");
-    } finally {
-      setSaving(false);
+      notify.error(ERROR_MESSAGES.SAVE_FAILED);
     }
   };
 
-  const supprimer = async (cat) => {
-    if (!window.confirm(`Supprimer la catégorie "${cat.cat_libelle}" ?`))
-      return;
-    try {
-      await apiClient.delete(`/api/catalogue/categories/${cat.categorie_id}/`);
-      charger();
-    } catch {
-      setError(
-        "Suppression impossible (des articles utilisent probablement cette catégorie).",
-      );
-    }
+  const supprimer = (cat) => {
+    confirm(
+      "Supprimer la catégorie",
+      `Êtes-vous sûr de vouloir supprimer la catégorie "${cat.cat_libelle}" ?`,
+      async () => {
+        try {
+          await deleteMutation.mutateAsync(cat.categorie_id);
+          notify.success("Catégorie supprimée avec succès");
+        } catch {
+          notify.error("Suppression impossible (des articles utilisent probablement cette catégorie).");
+        }
+      }
+    );
   };
 
   const columns = [
-    {
-      field: "categorie_id",
-      headerName: "ID",
-      width: 80,
-      headerAlign: "center",
-      align: "center",
-    },
-    {
-      field: "cat_libelle",
-      headerName: "Libellé",
-      flex: 1,
-      minWidth: 200,
-    },
+    { field: "categorie_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
+    { field: "cat_libelle", headerName: "Libellé", flex: 1, minWidth: 200 },
     {
       field: "cat_description",
       headerName: "Description",
       flex: 2,
       minWidth: 300,
-      renderCell: (params) =>
-        params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
       field: "actions",
@@ -152,139 +143,65 @@ export function CategoriesPage() {
       headerAlign: "center",
       align: "center",
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 0.5 }}>
-          <Tooltip title="Modifier">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => ouvrirEdition(params.row)}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Supprimer">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => supprimer(params.row)}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <ActionButtons
+          onEdit={() => ouvrirEdition(params.row)}
+          onDelete={() => supprimer(params.row)}
+        />
       ),
     },
   ];
 
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
   return (
     <Box>
-      {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <Typography variant="h2">Catégories</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={ouvrirCreation}
-        >
-          Nouvelle catégorie
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={categories}
-          columns={columns}
-          loading={loading}
-          rowCount={rowCount}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.categorie_id}
-          localeText={{
-            noRowsLabel: "Aucune catégorie",
-            loadingOverlay: "Chargement...",
-          }}
-        />
-      </Box>
-
-      <Dialog
+      <PageHeader title="Catégories" actionLabel="Nouvelle catégorie" onAction={ouvrirCreation} />
+      <ErrorAlert error={error?.message} />
+      <PaginatedDataGrid
+        rows={data?.categories || []}
+        columns={columns}
+        loading={isLoading}
+        rowCount={data?.totalCount || 0}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.categorie_id}
+        noRowsLabel="Aucune catégorie"
+      />
+      <FormDialog
         open={modalOpen}
         onClose={fermerModal}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
+        title={editing?.categorie_id ? "Modifier la catégorie" : "Nouvelle catégorie"}
+        onSubmit={enregistrer}
+        saving={isSaving}
+        disabled={!formLibelle.trim()}
       >
-        <form onSubmit={enregistrer}>
-          <DialogTitle
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              bgcolor: "#FFF8E1",
-              borderBottom: "2px solid",
-              borderColor: "primary.main",
-            }}
-          >
-            <Typography variant="h3">
-              {editing?.categorie_id
-                ? "Modifier la catégorie"
-                : "Nouvelle catégorie"}
-            </Typography>
-            <IconButton onClick={fermerModal} size="small">
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <TextField
-              label="Libellé"
-              value={formLibelle}
-              onChange={(e) => setFormLibelle(e.target.value)}
-              required
-              autoFocus
-              fullWidth
-              margin="normal"
-              inputProps={{ maxLength: 20 }}
-            />
-            <TextField
-              label="Description"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              fullWidth
-              margin="normal"
-              multiline
-              rows={3}
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={fermerModal} disabled={saving}>
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={saving || !formLibelle.trim()}
-              startIcon={saving ? <CircularProgress size={16} /> : null}
-            >
-              {saving ? "Enregistrement..." : "Enregistrer"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+        <TextField
+          label="Libellé"
+          value={formLibelle}
+          onChange={(e) => setFormLibelle(e.target.value)}
+          required
+          autoFocus
+          fullWidth
+          margin="normal"
+          inputProps={{ maxLength: 20 }}
+        />
+        <TextField
+          label="Description"
+          value={formDescription}
+          onChange={(e) => setFormDescription(e.target.value)}
+          fullWidth
+          margin="normal"
+          multiline
+          rows={3}
+        />
+      </FormDialog>
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 }

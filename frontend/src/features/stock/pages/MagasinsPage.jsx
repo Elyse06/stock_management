@@ -1,84 +1,88 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Chip,
-  Tooltip,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-  AccountBalance as AccountBalanceIcon,
-  Business as BusinessIcon,
-} from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+import { useState } from "react";
+import { Box, TextField, Typography } from "@mui/material";
+import { AccountBalance as AccountBalanceIcon, Business as BusinessIcon } from "@mui/icons-material";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePagination } from "../../../hooks/usePagination";
+import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { useNotification } from "../../../components/common/NotificationProvider";
+import { PageHeader } from "../../../components/common/PageHeader";
+import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { ActionButtons } from "../../../components/common/ActionButtons";
+import { EmptyValue } from "../../../components/common/EmptyValue";
+import { FormDialog } from "../../../components/common/FormDialog";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { SelectFilter } from "../../../components/common/SelectFilter";
 
-const EMPTY_FORM = {
-  magasin_nom: "",
-  localite: "",
-};
+const EMPTY_FORM = { magasin_nom: "", localite: "" };
 
 export function MagasinsPage() {
-  const [magasins, setMagasins] = useState([]);
-  const [sites, setSites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [rowCount, setRowCount] = useState(0);
+  const notify = useNotification();
+  const queryClient = useQueryClient();
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+  const { paginationModel, setPaginationModel } = usePagination(25);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
 
-  const charger = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await apiClient.get("/api/stock/magasins/", {
-        params: {
-          page: paginationModel.page + 1,
-          page_size: paginationModel.pageSize,
-        },
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["magasins", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize }],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.MAGASINS, {
+        params: { page: paginationModel.page + 1, page_size: paginationModel.pageSize },
       });
-      setMagasins(data.results ?? data);
-      setRowCount(data.count ?? (data.results ?? data).length);
-    } catch {
-      setError("Impossible de charger les magasins.");
-    } finally {
-      setLoading(false);
-    }
-  }, [paginationModel.page, paginationModel.pageSize]);
+      return {
+        magasins: data.results ?? data,
+        totalCount: data.count ?? (data.results ?? data).length,
+      };
+    },
+    keepPreviousData: true,
+  });
 
-  useEffect(() => {
-    charger();
-  }, [charger]);
+  const { data: sites = [] } = useQuery({
+    queryKey: ["sites", "options"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } });
+      return data.results ?? data;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
-  // Charger les sites au montage
-  useEffect(() => {
-    apiClient
-      .get("/api/employee/sites/", { params: { page_size: 100 } })
-      .then((res) => setSites(res.data.results ?? res.data))
-      .catch(() => {});
-  }, []);
+  const createMutation = useMutation({
+    mutationFn: async (payload) => {
+      const { data } = await apiClient.post(API_ENDPOINTS.MAGASINS, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["magasins"] });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...payload }) => {
+      const { data } = await apiClient.put(`${API_ENDPOINTS.MAGASINS}${id}/`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["magasins"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      await apiClient.delete(`${API_ENDPOINTS.MAGASINS}${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["magasins"] });
+    },
+  });
+
+  const handleChange = (field) => (e) => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const ouvrirCreation = () => {
     setForm(EMPTY_FORM);
@@ -89,7 +93,7 @@ export function MagasinsPage() {
   const ouvrirEdition = (magasin) => {
     setForm({
       magasin_nom: magasin.magasin_nom || "",
-      localite: magasin.localite || "", // ID du site
+      localite: magasin.localite || "",
     });
     setEditing(magasin);
     setModalOpen(true);
@@ -100,80 +104,70 @@ export function MagasinsPage() {
     setEditing(null);
   };
 
-  const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
-
   const enregistrer = async (e) => {
     e.preventDefault();
-    setSaving(true);
-    setError("");
+    const payload = {
+      magasin_nom: form.magasin_nom.trim(),
+      localite: form.localite ? Number(form.localite) : null,
+    };
+
     try {
-      const payload = {
-        magasin_nom: form.magasin_nom.trim(),
-        localite: form.localite ? Number(form.localite) : null,
-      };
       if (editing?.magasin_id) {
-        await apiClient.put(
-          `/api/stock/magasins/${editing.magasin_id}/`,
-          payload
-        );
+        await updateMutation.mutateAsync({ id: editing.magasin_id, ...payload });
+        notify.success("Magasin modifié avec succès");
       } else {
-        await apiClient.post("/api/stock/magasins/", payload);
+        await createMutation.mutateAsync(payload);
+        notify.success("Magasin créé avec succès");
       }
       fermerModal();
-      charger();
-    } catch (err) {
-      const detail = err?.response?.data;
-      if (detail && typeof detail === "object") {
-        setError(
-          Object.entries(detail)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | ")
-        );
-      } else {
-        setError("Erreur lors de l'enregistrement du magasin.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const supprimer = async (magasin) => {
-    if (!window.confirm(`Supprimer le magasin "${magasin.magasin_nom}" ?`))
-      return;
-    try {
-      await apiClient.delete(`/api/stock/magasins/${magasin.magasin_id}/`);
-      charger();
     } catch {
-      setError(
-        "Suppression impossible (des mouvements y sont probablement liés)."
-      );
+      notify.error(ERROR_MESSAGES.SAVE_FAILED);
     }
   };
 
-  const getSiteIcon = (type) => {
-    return type === "SIEGE" ? (
+  const supprimer = (magasin) => {
+    confirm(
+      "Supprimer le magasin",
+      `Êtes-vous sûr de vouloir supprimer le magasin "${magasin.magasin_nom}" ?`,
+      async () => {
+        try {
+          await deleteMutation.mutateAsync(magasin.magasin_id);
+          notify.success("Magasin supprimé avec succès");
+        } catch {
+          notify.error("Suppression impossible (des mouvements y sont probablement liés).");
+        }
+      }
+    );
+  };
+
+  const getSiteIcon = (type) =>
+    type === "SIEGE" ? (
       <AccountBalanceIcon fontSize="small" sx={{ mr: 0.5 }} />
     ) : (
       <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
     );
-  };
+
+  const siteOptions = [
+    { value: "", label: "-- Aucun site --" },
+    ...sites.map((s) => ({
+      value: s.site_id,
+      label: (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {getSiteIcon(s.site_type)}
+          <Typography variant="body2">{s.site_nom}</Typography>
+          {s.localite && (
+            <Typography variant="caption" color="text.secondary">
+              ({s.localite})
+            </Typography>
+          )}
+        </Box>
+      ),
+    })),
+  ];
 
   const columns = [
-    {
-      field: "magasin_id",
-      headerName: "ID",
-      width: 80,
-      headerAlign: "center",
-      align: "center",
-    },
-    {
-      field: "magasin_nom",
-      headerName: "Nom",
-      flex: 1,
-      minWidth: 200,
-    },
+    { field: "magasin_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
+    { field: "magasin_nom", headerName: "Nom", flex: 1, minWidth: 200 },
     {
       field: "localite_nom",
       headerName: "Site",
@@ -182,16 +176,10 @@ export function MagasinsPage() {
       renderCell: (params) => {
         const nom = params.row.localite_nom;
         const type = params.row.localite_type;
-        if (!nom) return <Chip label="—" size="small" variant="outlined" />;
+        if (!nom) return <EmptyValue />;
         return (
           <Box sx={{ display: "flex", alignItems: "center" }}>
             {getSiteIcon(type)}
-            <Chip
-              label={type === "SIEGE" ? "Siège" : "Agence"}
-              size="small"
-              color={type === "SIEGE" ? "primary" : "secondary"}
-              sx={{ mr: 1 }}
-            />
             <Typography variant="body2">{nom}</Typography>
           </Box>
         );
@@ -207,155 +195,63 @@ export function MagasinsPage() {
       headerAlign: "center",
       align: "center",
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 0.5 }}>
-          <Tooltip title="Modifier">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => ouvrirEdition(params.row)}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Supprimer">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => supprimer(params.row)}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <ActionButtons
+          onEdit={() => ouvrirEdition(params.row)}
+          onDelete={() => supprimer(params.row)}
+        />
       ),
     },
   ];
 
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <Typography variant="h2">Magasins</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={ouvrirCreation}
-        >
-          Nouveau magasin
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={magasins}
-          columns={columns}
-          loading={loading}
-          rowCount={rowCount}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.magasin_id}
-          localeText={{
-            noRowsLabel: "Aucun magasin",
-            loadingOverlay: "Chargement...",
-          }}
-        />
-      </Box>
-
-      <Dialog
+      <PageHeader title="Magasins" actionLabel="Nouveau magasin" onAction={ouvrirCreation} />
+      <ErrorAlert error={error?.message} />
+      <PaginatedDataGrid
+        rows={data?.magasins || []}
+        columns={columns}
+        loading={isLoading}
+        rowCount={data?.totalCount || 0}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.magasin_id}
+        noRowsLabel="Aucun magasin"
+      />
+      <FormDialog
         open={modalOpen}
         onClose={fermerModal}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
+        title={editing?.magasin_id ? "Modifier le magasin" : "Nouveau magasin"}
+        onSubmit={enregistrer}
+        saving={isSaving}
+        disabled={!form.magasin_nom.trim()}
       >
-        <form onSubmit={enregistrer}>
-          <DialogTitle
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              bgcolor: "#FFF8E1",
-              borderBottom: "2px solid",
-              borderColor: "primary.main",
-            }}
-          >
-            <Typography variant="h3">
-              {editing?.magasin_id ? "Modifier le magasin" : "Nouveau magasin"}
-            </Typography>
-            <IconButton onClick={fermerModal} size="small">
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <TextField
-              label="Nom"
-              value={form.magasin_nom}
-              onChange={handleChange("magasin_nom")}
-              required
-              autoFocus
-              fullWidth
-              margin="normal"
-              inputProps={{ maxLength: 50 }}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Site (Siège/Agence)</InputLabel>
-              <Select
-                value={form.localite}
-                label="Site (Siège/Agence)"
-                onChange={handleChange("localite")}
-              >
-                <MenuItem value="">-- Aucun site --</MenuItem>
-                {sites.map((s) => (
-                  <MenuItem key={s.site_id} value={s.site_id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {getSiteIcon(s.site_type)}
-                      <Chip
-                        label={s.site_type === "SIEGE" ? "Siège" : "Agence"}
-                        size="small"
-                        color={s.site_type === "SIEGE" ? "primary" : "secondary"}
-                      />
-                      <Typography variant="body2">{s.site_nom}</Typography>
-                      {s.localite && (
-                        <Typography variant="caption" color="text.secondary">
-                          ({s.localite})
-                        </Typography>
-                      )}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={fermerModal} disabled={saving}>
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={saving || !form.magasin_nom.trim()}
-              startIcon={saving ? <CircularProgress size={16} /> : null}
-            >
-              {saving ? "Enregistrement..." : "Enregistrer"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+        <TextField
+          label="Nom"
+          value={form.magasin_nom}
+          onChange={handleChange("magasin_nom")}
+          required
+          autoFocus
+          fullWidth
+          margin="normal"
+          inputProps={{ maxLength: 50 }}
+        />
+        <SelectFilter
+          label="Site (Siège/Agence)"
+          value={form.localite}
+          onChange={handleChange("localite")}
+          options={siteOptions}
+          minWidth={250}
+        />
+      </FormDialog>
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 }

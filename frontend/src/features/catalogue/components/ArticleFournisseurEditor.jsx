@@ -1,25 +1,10 @@
 import { useState } from "react";
-import {
-  Box,
-  Typography,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  TextField,
-  IconButton,
-  Button,
-  Tooltip,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-} from "@mui/icons-material";
+import { Box, TextField, Button, FormControl, InputLabel, Select, MenuItem, Typography, Tooltip, IconButton } from "@mui/material";
+import { Add as AddIcon, Delete as DeleteIcon, People as PeopleIcon } from "@mui/icons-material";
+import { StyledTable } from "../../../components/wizard/StyledTable";
+import { FormSection } from "../../../components/wizard/FormSection";
+import { EmptyValue } from "../../../components/common/EmptyValue";
+import { formatCurrency } from "../../../utils/formatters";
 
 export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
   const [fournisseurId, setFournisseurId] = useState("");
@@ -31,9 +16,7 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
 
   const ajouterLigne = () => {
     if (!fournisseurId || !prix) return;
-    const fournisseur = fournisseurs.find(
-      (f) => String(f.fournisseur_id) === String(fournisseurId)
-    );
+    const fournisseur = fournisseurs.find((f) => String(f.fournisseur_id) === String(fournisseurId));
     setLignes([
       ...lignes,
       {
@@ -52,89 +35,39 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
 
   return (
     <Box>
-      <Table
-        size="small"
-        sx={{
-          mb: 2,
-          border: "1px solid #E0E0E0",
-          "& .MuiTableCell-root": {
-            borderColor: "#E0E0E0",
-            py: 1,
-            px: 1.5,
-          },
-          "& .MuiTableHead-root .MuiTableCell-root": {
-            bgcolor: "#FFF8E1",
-            fontWeight: 600,
-            fontSize: 13,
-            borderBottom: "2px solid #F9A825",
-          },
-        }}
+      <StyledTable
+        columns={[
+          { label: "Fournisseur" },
+          { label: "Prix d'achat", align: "right", width: 150 },
+          { label: "", align: "center", width: 60 },
+        ]}
+        emptyMessage="Aucun fournisseur associé"
+        emptyIcon={<PeopleIcon sx={{ fontSize: 32, mb: 1, opacity: 0.5 }} />}
       >
-        <TableHead>
-          <TableRow>
-            <TableCell>Fournisseur</TableCell>
-            <TableCell align="right" sx={{ width: 150 }}>
-              Prix d'achat
-            </TableCell>
-            <TableCell align="center" sx={{ width: 60 }}>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {lignes.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={3} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Aucun fournisseur associé
-                </Typography>
-              </TableCell>
-            </TableRow>
-          ) : (
-            lignes.map((ligne, index) => (
-              <TableRow
-                key={ligne.id ?? `new-${index}`}
-                sx={{
-                  "&:hover": { bgcolor: "#FFFDE7" },
-                }}
-              >
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {ligne.fournisseur_nom}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontFamily="monospace">
-                    {Number(ligne.prix_achat).toLocaleString("fr-FR")} Ar
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Tooltip title="Retirer">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => retirerLigne(index)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+        {lignes.map((ligne, index) => (
+          <tr key={ligne.id ?? `new-${index}`}>
+            <td>
+              <Typography variant="body2" fontWeight={500}>
+                {ligne.fournisseur_nom}
+              </Typography>
+            </td>
+            <td align="right">
+              <Typography variant="body2" fontFamily="monospace">
+                {formatCurrency(ligne.prix_achat)}
+              </Typography>
+            </td>
+            <td align="center">
+              <Tooltip title="Retirer">
+                <IconButton size="small" color="error" onClick={() => retirerLigne(index)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </td>
+          </tr>
+        ))}
+      </StyledTable>
 
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1.5,
-          alignItems: "center",
-          p: 2,
-          bgcolor: "#FAFAFA",
-          borderRadius: 1,
-          border: "1px dashed #E0E0E0",
-        }}
-      >
+      <FormSection>
         <FormControl size="small" sx={{ flex: 2 }}>
           <InputLabel>Fournisseur</InputLabel>
           <Select
@@ -155,7 +88,6 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
             ))}
           </Select>
         </FormControl>
-
         <TextField
           label="Prix d'achat"
           type="number"
@@ -166,7 +98,6 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
           sx={{ flex: 1 }}
           placeholder="0.00"
         />
-
         <Button
           variant="contained"
           size="small"
@@ -177,7 +108,7 @@ export function ArticleFournisseurEditor({ lignes, setLignes, fournisseurs }) {
         >
           Ajouter
         </Button>
-      </Box>
+      </FormSection>
     </Box>
   );
 }

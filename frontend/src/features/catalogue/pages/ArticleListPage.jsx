@@ -1,74 +1,51 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Alert,
-  Chip,
-  Tooltip,
-  CircularProgress,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Visibility as VisibilityIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-} from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+import { Box, TextField } from "@mui/material";
+import { Search as SearchIcon } from "@mui/icons-material";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
-import { ArticleModal } from "../components/ArticleModal";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePermission } from "../../../hooks/usePermission";
+import { usePagination } from "../../../hooks/usePagination";
+import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { useNotification } from "../../../components/common/NotificationProvider";
+import { useCategoryOptions } from "../../../hooks/useCategoryOptions";
+import { PageHeader } from "../../../components/common/PageHeader";
+import { FilterBar } from "../../../components/common/FilterBar";
+import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { ActionButtons } from "../../../components/common/ActionButtons";
+import { CodeChip } from "../../../components/common/CodeChip";
+import { EmptyValue } from "../../../components/common/EmptyValue";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { SelectFilter } from "../../../components/common/SelectFilter";
 import { ArticleFormModal } from "../components/ArticleFormModal";
 
 export function ArticleListPage() {
-  const { hasAction, hasAnyAction } = useAuth();
-
-  // TODO: Implémenter les permissions réelles avec hasAction
-  // Exemple: const canCreate = hasAction('ART_CREATE');
-  // Exemple: const canUpdate = hasAction('ART_UPDATE');
-  // Exemple: const canDelete = hasAction('ART_DELETE');
-  // Pour l'instant, tous les utilisateurs connectés peuvent éditer
-  // const canEdit = true;
-  const canEdit = hasAnyAction("CAT_GERE");
   const navigate = useNavigate();
-
-  const [articles, setArticles] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [rowCount, setRowCount] = useState(0);
+  const notify = useNotification();
+  const queryClient = useQueryClient();
+  const { confirmState, confirm, handleConfirm, handleCancel } =
+    useConfirmDialog();
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { canManageCatalogue, canReadCatalogue } = usePermission();
 
   const [search, setSearch] = useState("");
   const [categorieFiltre, setCategorieFiltre] = useState("");
-
-  const [selectedArticle, setSelectedArticle] = useState(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [articleToEdit, setArticleToEdit] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
-  useEffect(() => {
-    apiClient
-      .get("/api/catalogue/categories/", { params: { page_size: 100 } })
-      .then((res) => setCategories(res.data.results ?? res.data))
-      .catch(() => {});
-  }, []);
-
-  const charger = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
+  const { data, isLoading, error } = useQuery({
+    queryKey: [
+      "articles",
+      {
+        page: paginationModel.page + 1,
+        pageSize: paginationModel.pageSize,
+        search,
+        categorie: categorieFiltre,
+      },
+    ],
+    queryFn: async () => {
       const params = {
         page: paginationModel.page + 1,
         page_size: paginationModel.pageSize,
@@ -76,46 +53,38 @@ export function ArticleListPage() {
       if (search) params.search = search;
       if (categorieFiltre) params.categorie = categorieFiltre;
 
-      const { data } = await apiClient.get("/api/catalogue/articles/", {
-        params,
-      });
-      setArticles(data.results ?? data);
-      setRowCount(data.count ?? (data.results ?? data).length);
-    } catch {
-      setError("Impossible de charger les articles.");
-    } finally {
-      setLoading(false);
-    }
-  }, [paginationModel.page, paginationModel.pageSize, search, categorieFiltre]);
+      const { data } = await apiClient.get(API_ENDPOINTS.ARTICLES, { params });
+      return {
+        articles: data.results ?? data,
+        totalCount: data.count ?? (data.results ?? data).length,
+      };
+    },
+    keepPreviousData: true,
+  });
 
-  useEffect(() => {
-    charger();
-  }, [charger]);
+  const { data: categories = [] } = useCategoryOptions();
 
-  // ====== HANDLERS ======
+  const deleteMutation = useMutation({
+    mutationFn: async (code) => {
+      await apiClient.delete(`${API_ENDPOINTS.ARTICLES}${code}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+    },
+  });
+
   const handleSearchChange = (value) => {
     setSearch(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    resetPage();
   };
 
   const handleCategorieChange = (value) => {
     setCategorieFiltre(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    resetPage();
   };
 
-  /*
-  const openDetailModal = (article) => {
-    setSelectedArticle(article);
-    setIsDetailModalOpen(true);
-  };
-  */
   const openDetailModal = (article) => {
     navigate(`/catalogue/articles/${article.code_article}`);
-  };
-
-  const closeDetailModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedArticle(null);
   };
 
   const openFormModalForCreate = () => {
@@ -126,12 +95,14 @@ export function ArticleListPage() {
   const openFormModalForEdit = async (article) => {
     try {
       const { data } = await apiClient.get(
-        `/api/catalogue/articles/${article.code_article}/`,
+        `${API_ENDPOINTS.ARTICLES}${article.code_article}/`,
       );
       setArticleToEdit(data);
       setIsFormModalOpen(true);
     } catch {
-      setError("Impossible de charger les détails de l'article à modifier.");
+      notify.error(
+        "Impossible de charger les détails de l'article à modifier.",
+      );
     }
   };
 
@@ -140,29 +111,21 @@ export function ArticleListPage() {
     setArticleToEdit(null);
   };
 
-  const handleDelete = async (article) => {
-    if (!window.confirm(`Supprimer l'article "${article.designation}" ?`))
-      return;
-    try {
-      await apiClient.delete(
-        `/api/catalogue/articles/${article.code_article}/`,
-      );
-      charger();
-    } catch {
-      setError(
-        "Suppression impossible (article probablement référencé ailleurs).",
-      );
-    }
-  };
-
-  // ====== COULEUR CATÉGORIE ======
-  const getCategorieColor = (cat) => {
-    if (!cat) return "default";
-    const c = cat.toLowerCase();
-    if (c.includes("info")) return "info";
-    if (c.includes("bureau")) return "primary";
-    if (c.includes("consommable")) return "warning";
-    return "default";
+  const handleDelete = (article) => {
+    confirm(
+      "Supprimer l'article",
+      `Êtes-vous sûr de vouloir supprimer l'article "${article.designation}" ?`,
+      async () => {
+        try {
+          await deleteMutation.mutateAsync(article.code_article);
+          notify.success("Article supprimé avec succès");
+        } catch {
+          notify.error(
+            "Suppression impossible (article probablement référencé ailleurs).",
+          );
+        }
+      },
+    );
   };
 
   const columns = [
@@ -170,51 +133,20 @@ export function ArticleListPage() {
       field: "code_article",
       headerName: "Code",
       width: 130,
-      renderCell: (params) => (
-        <Typography
-          variant="body2"
-          fontFamily="monospace"
-          fontWeight={600}
-          sx={{
-            bgcolor: "#FFF8E1",
-            px: 1,
-            py: 0.3,
-            borderRadius: 0.5,
-            border: "1px solid #F9A825",
-          }}
-        >
-          {params.value}
-        </Typography>
-      ),
+      renderCell: (params) => <CodeChip value={params.value} />,
     },
-    {
-      field: "designation",
-      headerName: "Désignation",
-      flex: 1,
-      minWidth: 200,
-    },
+    { field: "designation", headerName: "Désignation", flex: 1, minWidth: 200 },
     {
       field: "categorie_nom",
       headerName: "Catégorie",
       width: 160,
-      renderCell: (params) =>
-        params.value ? (
-          <Chip
-            label={params.value}
-            color={getCategorieColor(params.value)}
-            size="small"
-            variant="outlined"
-          />
-        ) : (
-          <Chip label="—" size="small" variant="outlined" />
-        ),
+      renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
       field: "marque_libelle",
       headerName: "Marque",
       width: 130,
-      renderCell: (params) =>
-        params.value || <Chip label="—" size="small" variant="outlined" />,
+      renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
       field: "actions",
@@ -226,82 +158,37 @@ export function ArticleListPage() {
       headerAlign: "center",
       align: "center",
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 0.5 }}>
-          <Tooltip title="Détails">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => openDetailModal(params.row)}
-            >
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {canEdit && (
-            <>
-              <Tooltip title="Modifier">
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={() => openFormModalForEdit(params.row)}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Supprimer">
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => handleDelete(params.row)}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
-        </Box>
+        <ActionButtons
+          onView={() => openDetailModal(params.row)}
+          onEdit={
+            canManageCatalogue ? () => openFormModalForEdit(params.row) : null
+          }
+          onDelete={canManageCatalogue ? () => handleDelete(params.row) : null}
+        />
       ),
     },
   ];
 
+  const categoryOptions = [
+    { value: "", label: "Toutes catégories" },
+    ...categories.map((c) => ({ value: c.categorie_id, label: c.cat_libelle })),
+  ];
+
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <Box></Box>
-        {canEdit && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={openFormModalForCreate}
-          >
-            Nouvel article
-          </Button>
-        )}
-      </Box>
+      <PageHeader
+        actionLabel="Nouvel article"
+        onAction={openFormModalForCreate}
+        canAction={canManageCatalogue}
+      />
+      <ErrorAlert error={error?.message} />
 
-      {error && (
-        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          alignItems: "center",
-          mb: 2,
-          p: 2,
-          bgcolor: "#FAFAFA",
-          borderRadius: 1,
-          border: "1px solid #E0E0E0",
+      <FilterBar
+        onReset={() => {
+          setSearch("");
+          setCategorieFiltre("");
         }}
+        hasFilters={Boolean(search || categorieFiltre)}
       >
         <TextField
           placeholder="Rechercher"
@@ -320,67 +207,40 @@ export function ArticleListPage() {
             },
           }}
         />
-
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Catégorie</InputLabel>
-          <Select
-            value={categorieFiltre}
-            label="Catégorie"
-            onChange={(e) => handleCategorieChange(e.target.value)}
-          >
-            <MenuItem value="">Toutes catégories</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c.categorie_id} value={c.categorie_id}>
-                {c.cat_libelle}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {(search || categorieFiltre) && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => {
-              setSearch("");
-              setCategorieFiltre("");
-            }}
-          >
-            Réinitialiser
-          </Button>
-        )}
-      </Box>
-
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={articles}
-          columns={columns}
-          loading={loading}
-          rowCount={rowCount}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.code_article}
-          localeText={{
-            noRowsLabel: "Aucun article trouvé",
-            loadingOverlay: "Chargement...",
-          }}
+        <SelectFilter
+          label="Catégorie"
+          value={categorieFiltre}
+          onChange={handleCategorieChange}
+          options={categoryOptions}
+          minWidth={200}
         />
-      </Box>
+      </FilterBar>
 
-      <ArticleModal
-        article={selectedArticle}
-        isOpen={isDetailModalOpen}
-        onClose={closeDetailModal}
+      <PaginatedDataGrid
+        rows={data?.articles || []}
+        columns={columns}
+        loading={isLoading}
+        rowCount={data?.totalCount || 0}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.code_article}
+        noRowsLabel="Aucun article trouvé"
       />
 
       <ArticleFormModal
         isOpen={isFormModalOpen}
         onClose={closeFormModal}
-        onSuccess={charger}
+        onSuccess={() =>
+          queryClient.invalidateQueries({ queryKey: ["articles"] })
+        }
         articleToEdit={articleToEdit}
+      />
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
       />
     </Box>
   );

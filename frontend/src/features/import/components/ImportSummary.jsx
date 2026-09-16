@@ -37,7 +37,7 @@ export function ImportSummary({ rapport }) {
       {/* Statut global */}
       {rapport.dry_run ? (
         <Alert severity="info" variant="outlined" icon={<InfoIcon />}>
-          <strong>Aperçu uniquement</strong> — rien n'a été enregistré en base.
+          <strong>Aperçu uniquement</strong>
         </Alert>
       ) : (
         <Alert severity="success" variant="outlined" icon={<CheckCircleIcon />}>

@@ -1,48 +1,43 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  Box,
-  Typography,
-  Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Alert,
-  Chip,
-  Tooltip,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Visibility as VisibilityIcon,
-  CheckCircle as CheckCircleIcon,
-  Business as BusinessIcon,
-  Store as StoreIcon,
-} from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+import { useState, useMemo } from "react";
+import { Box, Typography } from "@mui/material";
+import { Business as BusinessIcon, Store as StoreIcon } from "@mui/icons-material";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
-import { useAuth } from "../../../context/AuthContext";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePagination } from "../../../hooks/usePagination";
+import { usePermission } from "../../../hooks/usePermission";
+import { useNotification } from "../../../components/common/NotificationProvider";
+import { PageHeader } from "../../../components/common/PageHeader";
+import { FilterBar } from "../../../components/common/FilterBar";
+import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { StatusChip } from "../../../components/common/StatusChip";
+import { ActionButtons } from "../../../components/common/ActionButtons";
+import { CodeChip } from "../../../components/common/CodeChip";
+import { SelectFilter } from "../../../components/common/SelectFilter";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
 import { InventaireFormModal } from "../components/InventaireFormModal";
 import { InventaireDetailsModal } from "../components/InventaireDetailsModal";
+import { formatDateTime } from "../../../utils/formatters";
 
 const STATUTS = [
+  { value: "", label: "Tous statuts" },
   { value: "EN_ATTENTE", label: "En attente" },
   { value: "VALIDE", label: "Validé" },
   { value: "REJETE", label: "Rejeté" },
 ];
 
-export function InventairePage() {
-  const { hasAnyAction } = useAuth();
-  const canCreate = hasAnyAction("INV_GERE");
-  const canValidate = hasAnyAction("INV_VAL");
+const TYPES_LIEU = [
+  { value: "", label: "Tous lieux" },
+  { value: "magasin", label: "Magasins" },
+  { value: "direction", label: "Directions" },
+];
 
-  const [sessions, setSessions] = useState([]);
-  const [magasins, setMagasins] = useState([]);
-  const [directions, setDirections] = useState([]); // ✅ Changé de services à directions
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
-  const [rowCount, setRowCount] = useState(0);
+export function InventairePage() {
+  const notify = useNotification();
+  const queryClient = useQueryClient();
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { canManageInventaire, canValidateInventaire } = usePermission();
+
   const [statutFiltre, setStatutFiltre] = useState("");
   const [lieuTypeFiltre, setLieuTypeFiltre] = useState("");
   const [lieuIdFiltre, setLieuIdFiltre] = useState("");
@@ -50,63 +45,94 @@ export function InventairePage() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
-      apiClient.get("/api/employee/direction/", { params: { page_size: 100 } }), // ✅ Changé
-    ])
-      .then(([magasinsRes, directionsRes]) => {
-        setMagasins(magasinsRes.data.results ?? magasinsRes.data);
-        setDirections(directionsRes.data.results ?? directionsRes.data);
-      })
-      .catch(() => {});
-  }, []);
-
-  const charger = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const params = {
-        page: paginationModel.page + 1,
-        page_size: paginationModel.pageSize,
-      };
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["inventaires", {
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
+      statut: statutFiltre,
+      lieuType: lieuTypeFiltre,
+      lieuId: lieuIdFiltre,
+    }],
+    queryFn: async () => {
+      const params = { page: paginationModel.page + 1, page_size: paginationModel.pageSize };
       if (statutFiltre) params.statut = statutFiltre;
-      if (lieuTypeFiltre === "magasin" && lieuIdFiltre) {
-        params.magasin = lieuIdFiltre;
-      }
-      // ✅ On envoie toujours "service" car le backend mappe service → direction
-      if (lieuTypeFiltre === "direction" && lieuIdFiltre) {
-        params.service = lieuIdFiltre;
-      }
-      const { data } = await apiClient.get("/api/stock/inventaires/", { params });
-      setSessions(data.results ?? data);
-      setRowCount(data.count ?? (data.results ?? data).length);
-    } catch {
-      setError("Impossible de charger les inventaires.");
-    } finally {
-      setLoading(false);
+      if (lieuTypeFiltre === "magasin" && lieuIdFiltre) params.magasin = lieuIdFiltre;
+      if (lieuTypeFiltre === "direction" && lieuIdFiltre) params.service = lieuIdFiltre;
+
+      const { data } = await apiClient.get(API_ENDPOINTS.INVENTAIRES, { params });
+      return {
+        sessions: data.results ?? data,
+        totalCount: data.count ?? (data.results ?? data).length,
+      };
+    },
+    keepPreviousData: true,
+  });
+
+  const { data: magasins = [] } = useQuery({
+    queryKey: ["magasins", "options"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } });
+      return data.results ?? data;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: directions = [] } = useQuery({
+    queryKey: ["directions", "options"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } });
+      return data.results ?? data;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const validerMutation = useMutation({
+    mutationFn: async (id) => {
+      const { data } = await apiClient.post(`${API_ENDPOINTS.INVENTAIRES}${id}/valider/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventaires"] });
+    },
+  });
+
+  const lieuOptions = useMemo(() => {
+    const base = [{ value: "", label: "Tous" }];
+    if (lieuTypeFiltre === "magasin") {
+      return [
+        ...base,
+        ...magasins.map((m) => ({
+          value: m.magasin_id,
+          label: (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <StoreIcon fontSize="small" />
+              {m.magasin_nom}
+              {m.localite_nom && (
+                <Typography variant="caption" color="text.secondary">
+                  ({m.localite_nom})
+                </Typography>
+              )}
+            </Box>
+          ),
+        })),
+      ];
     }
-  }, [paginationModel.page, paginationModel.pageSize, statutFiltre, lieuTypeFiltre, lieuIdFiltre]);
-
-  useEffect(() => {
-    charger();
-  }, [charger]);
-
-  const handleStatutChange = (value) => {
-    setStatutFiltre(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  };
-
-  const handleLieuTypeChange = (value) => {
-    setLieuTypeFiltre(value);
-    setLieuIdFiltre("");
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  };
-
-  const handleLieuIdChange = (value) => {
-    setLieuIdFiltre(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  };
+    if (lieuTypeFiltre === "direction") {
+      return [
+        ...base,
+        ...directions.map((d) => ({
+          value: d.dir_id,
+          label: (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <BusinessIcon fontSize="small" />
+              {d.dir_libelle}
+            </Box>
+          ),
+        })),
+      ];
+    }
+    return base;
+  }, [lieuTypeFiltre, magasins, directions]);
 
   const reinitialiserFiltres = () => {
     setStatutFiltre("");
@@ -114,21 +140,13 @@ export function InventairePage() {
     setLieuIdFiltre("");
   };
 
-  const openFormModal = () => {
-    setIsFormModalOpen(true);
-  };
-
-  const closeFormModal = () => {
-    setIsFormModalOpen(false);
-  };
-
   const openDetailModal = async (session) => {
     try {
-      const { data } = await apiClient.get(`/api/stock/inventaires/${session.inventaire_id}/`);
+      const { data } = await apiClient.get(`${API_ENDPOINTS.INVENTAIRES}${session.inventaire_id}/`);
       setSelectedSession(data);
       setIsDetailModalOpen(true);
     } catch {
-      setError("Impossible de charger les détails de l'inventaire.");
+      notify.error("Impossible de charger les détails de l'inventaire.");
     }
   };
 
@@ -137,30 +155,19 @@ export function InventairePage() {
     setSelectedSession(null);
   };
 
-  const getStatutColor = (statut) => {
-    switch (statut) {
-      case "EN_ATTENTE":
-        return "warning";
-      case "VALIDE":
-        return "success";
-      case "REJETE":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
-  const getStatutLabel = (statut) => {
-    switch (statut) {
-      case "EN_ATTENTE":
-        return "En attente";
-      case "VALIDE":
-        return "Validé";
-      case "REJETE":
-        return "Rejeté";
-      default:
-        return statut;
-    }
+  const handleValidate = (session) => {
+    confirm(
+      "Valider l'inventaire",
+      `Êtes-vous sûr de vouloir valider l'inventaire "${session.code_reference}" ?`,
+      async () => {
+        try {
+          await validerMutation.mutateAsync(session.inventaire_id);
+          notify.success("Inventaire validé avec succès");
+        } catch {
+          notify.error("Erreur lors de la validation de l'inventaire.");
+        }
+      }
+    );
   };
 
   const columns = [
@@ -169,47 +176,20 @@ export function InventairePage() {
       headerName: "Référence",
       flex: 1,
       minWidth: 180,
-      renderCell: (params) => (
-        <Typography
-          variant="body2"
-          fontFamily="monospace"
-          fontWeight={600}
-          sx={{
-            bgcolor: "#FFF8E1",
-            px: 1,
-            py: 0.3,
-            borderRadius: 0.5,
-            border: "1px solid #F9A825",
-          }}
-        >
-          {params.value}
-        </Typography>
-      ),
+      renderCell: (params) => <CodeChip value={params.value} />,
     },
-    {
-      field: "lieu_nom",
-      headerName: "Lieu",
-      flex: 1,
-      minWidth: 200,
-    },
+    { field: "lieu_nom", headerName: "Lieu", flex: 1, minWidth: 200 },
     {
       field: "date_creation",
       headerName: "Date création",
       width: 160,
-      renderCell: (params) => new Date(params.value).toLocaleDateString("fr-FR"),
+      renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: "statut",
       headerName: "Statut",
       width: 140,
-      renderCell: (params) => (
-        <Chip
-          label={getStatutLabel(params.value)}
-          color={getStatutColor(params.value)}
-          size="small"
-          variant="filled"
-        />
-      ),
+      renderCell: (params) => <StatusChip status={params.value} />,
     },
     {
       field: "nb_lignes",
@@ -230,30 +210,15 @@ export function InventairePage() {
       align: "center",
       renderCell: (params) => {
         const session = params.row;
-        const canValidateSession = canValidate && session.statut === "EN_ATTENTE";
+        const canValidateSession = canValidateInventaire && session.statut === "EN_ATTENTE";
         return (
-          <Box sx={{ display: "flex", gap: 0.5 }}>
-            <Tooltip title="Voir les détails">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => openDetailModal(session)}
-              >
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {canValidateSession && (
-              <Tooltip title="Valider l'inventaire">
-                <IconButton
-                  size="small"
-                  color="success"
-                  onClick={() => openDetailModal(session)}
-                >
-                  <CheckCircleIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
+          <ActionButtons
+            onView={() => openDetailModal(session)}
+            onValidate={canValidateSession ? () => handleValidate(session) : null}
+            canValidate={canValidateSession}
+            canEdit={false}
+            canDelete={false}
+          />
         );
       },
     },
@@ -261,143 +226,76 @@ export function InventairePage() {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
+      <PageHeader
+        title="Inventaires"
+        actionLabel="Nouvel inventaire"
+        onAction={() => setIsFormModalOpen(true)}
+        canAction={canManageInventaire}
+      />
+      <ErrorAlert error={error?.message} />
+
+      <FilterBar
+        onReset={reinitialiserFiltres}
+        hasFilters={statutFiltre || lieuTypeFiltre || lieuIdFiltre}
       >
-        <Box></Box>
-        {canCreate && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={openFormModal}
-          >
-            Nouvel inventaire
-          </Button>
-        )}
-      </Box>
-
-      {error && (
-        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          alignItems: "center",
-          mb: 2,
-          p: 2,
-          bgcolor: "#FAFAFA",
-          borderRadius: 1,
-          border: "1px solid #E0E0E0",
-        }}
-      >
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Statut</InputLabel>
-          <Select
-            value={statutFiltre}
-            label="Statut"
-            onChange={(e) => handleStatutChange(e.target.value)}
-          >
-            <MenuItem value="">Tous statuts</MenuItem>
-            {STATUTS.map((s) => (
-              <MenuItem key={s.value} value={s.value}>
-                {s.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Type de lieu</InputLabel>
-          <Select
-            value={lieuTypeFiltre}
-            label="Type de lieu"
-            onChange={(e) => handleLieuTypeChange(e.target.value)}
-          >
-            <MenuItem value="">Tous lieux</MenuItem>
-            <MenuItem value="magasin">Magasins</MenuItem>
-            <MenuItem value="direction">Directions</MenuItem> {/* ✅ Changé */}
-          </Select>
-        </FormControl>
-        {lieuTypeFiltre && (
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Lieu</InputLabel>
-            <Select
-              value={lieuIdFiltre}
-              label="Lieu"
-              onChange={(e) => handleLieuIdChange(e.target.value)}
-            >
-              <MenuItem value="">Tous</MenuItem>
-              {lieuTypeFiltre === "magasin"
-                ? magasins.map((m) => (
-                    <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <StoreIcon fontSize="small" />
-                        {m.magasin_nom}
-                        {m.localite_nom && (
-                          <Typography variant="caption" color="text.secondary">
-                            ({m.localite_nom})
-                          </Typography>
-                        )}
-                      </Box>
-                    </MenuItem>
-                  ))
-                : directions.map((d) => (
-                    <MenuItem key={d.dir_id} value={d.dir_id}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <BusinessIcon fontSize="small" />
-                        {d.dir_libelle}
-                      </Box>
-                    </MenuItem>
-                  ))}
-            </Select>
-          </FormControl>
-        )}
-        {(statutFiltre || lieuTypeFiltre || lieuIdFiltre) && (
-          <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
-            Réinitialiser
-          </Button>
-        )}
-      </Box>
-
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={sessions}
-          columns={columns}
-          loading={loading}
-          rowCount={rowCount}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.inventaire_id}
-          localeText={{
-            noRowsLabel: "Aucun inventaire trouvé",
-            loadingOverlay: "Chargement...",
+        <SelectFilter
+          label="Statut"
+          value={statutFiltre}
+          onChange={(value) => {
+            setStatutFiltre(value);
+            resetPage();
           }}
+          options={STATUTS}
+          minWidth={150}
         />
-      </Box>
+        <SelectFilter
+          label="Type de lieu"
+          value={lieuTypeFiltre}
+          onChange={(value) => {
+            setLieuTypeFiltre(value);
+            setLieuIdFiltre("");
+            resetPage();
+          }}
+          options={TYPES_LIEU}
+          minWidth={150}
+        />
+        {lieuTypeFiltre && (
+          <SelectFilter
+            label="Lieu"
+            value={lieuIdFiltre}
+            onChange={(value) => {
+              setLieuIdFiltre(value);
+              resetPage();
+            }}
+            options={lieuOptions}
+            minWidth={200}
+          />
+        )}
+      </FilterBar>
+
+      <PaginatedDataGrid
+        rows={data?.sessions || []}
+        columns={columns}
+        loading={isLoading}
+        rowCount={data?.totalCount || 0}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.inventaire_id}
+        noRowsLabel="Aucun inventaire trouvé"
+      />
 
       <InventaireFormModal
         isOpen={isFormModalOpen}
-        onClose={closeFormModal}
-        onSuccess={charger}
+        onClose={() => setIsFormModalOpen(false)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["inventaires"] })}
         magasins={magasins}
-        directions={directions} // ✅ Changé de services à directions
+        directions={directions}
       />
       <InventaireDetailsModal
         session={selectedSession}
         isOpen={isDetailModalOpen}
         onClose={closeDetailModal}
-        onSuccess={charger}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["inventaires"] })}
       />
     </Box>
   );
