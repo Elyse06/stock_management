@@ -1,9 +1,10 @@
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.catalogue.models import Article
-from apps.employee.models import Employer
+from apps.employee.models import Direction, Employer
 
 
 # Create your models here.
@@ -66,7 +67,16 @@ class AttributionDetailCommande(models.Model):
         'DetailCommande', on_delete=models.CASCADE, related_name="attributions"
     )
     employe_beneficiaire = models.ForeignKey(
-        Employer, on_delete=models.PROTECT, related_name="attributions_articles"
+        Employer,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name="attributions_articles",
+    )
+    direction_beneficiaire = models.ForeignKey(
+        Direction,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name="attributions_articles",
     )
     quantite = models.DecimalField(max_digits=12, decimal_places=2)
     
@@ -75,6 +85,16 @@ class AttributionDetailCommande(models.Model):
     
     class Meta:
         db_table = 't_attribution_detail_commande'
+
+    def clean(self):
+        if bool(self.employe_beneficiaire) == bool(self.direction_beneficiaire):
+            raise ValidationError(
+                "Choisir soit un employé, soit une direction (l'un des deux, pas les deux/aucun)."
+            )
+
+    @property
+    def beneficiaire(self):
+        return self.employe_beneficiaire or self.direction_beneficiaire
 
     def get_qr_payload(self):
         employe = self.employe_beneficiaire

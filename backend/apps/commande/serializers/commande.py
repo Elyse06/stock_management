@@ -10,6 +10,9 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
     beneficiaire_nom = serializers.CharField(
         source="employe_beneficiaire.emp_nom", read_only=True
     )
+    direction_libelle = serializers.CharField(
+        source="direction_beneficiaire.dir_libelle", read_only=True
+    )
     qr_code_data = serializers.SerializerMethodField()
     date_acquisition = serializers.DateTimeField(read_only=True)
 
@@ -20,6 +23,8 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
             "detail_commande",
             "employe_beneficiaire",
             "beneficiaire_nom",
+            "direction_beneficiaire",
+            "direction_libelle",
             "quantite",
             "code_unique",
             "date_acquisition",

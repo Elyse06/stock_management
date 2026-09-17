@@ -30,13 +30,14 @@ class ArticleSerializer(serializers.ModelSerializer):
         source="fournisseurs_liaison", many=True, read_only=True
     )
     stock_calcule = serializers.IntegerField(read_only=True)
-
+    is_immobilisation = serializers.BooleanField(required=False, default=True)
+    
     class Meta:
         model = Article
         fields = [
             "code_article", "code_barre", "designation", "description",
             "modele", "unite", "seuil", "mode_suivi",
-            "categorie", "categorie_nom", "marque", "marque_libelle", "fournisseurs", "stock_calcule",
+            "categorie", "categorie_nom", "marque", "marque_libelle", "fournisseurs", "stock_calcule","is_immobilisation",
         ]
 
     def validate_code_barre(self, value):

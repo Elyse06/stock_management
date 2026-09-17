@@ -87,12 +87,12 @@ class DetailMouvement(models.Model):
     )
     quantite = models.PositiveIntegerField()
 
-    # Traçabilité spécifique aux SORTIES pour lier avec vos Commandes & Attributions
     employe_beneficiaire = models.ForeignKey(
-        Employer,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        Employer, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="dotations_recues",
+    )
+    direction_beneficiaire = models.ForeignKey(
+        Direction, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="dotations_recues",
     )
     fournisseur = models.ForeignKey(
@@ -112,6 +112,12 @@ class DetailMouvement(models.Model):
         db_table = "t_detail_mouvement"
         verbose_name = "Détail mouvement"
         verbose_name_plural = "Détails mouvement"
+
+    def clean(self):
+        if self.employe_beneficiaire and self.direction_beneficiaire:
+            raise ValidationError(
+                "Un mouvement ne peut pas avoir un employé ET une direction bénéficiaire à la fois."
+            )
 
     def __str__(self):
         return f"{self.article.designation} x{self.quantite} (mvt #{self.mouvement_id})"
