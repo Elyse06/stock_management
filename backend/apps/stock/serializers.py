@@ -85,6 +85,9 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     employe_beneficiaire_fonction = serializers.CharField(
         source="employe_beneficiaire.emp_fonction", read_only=True, default=None
     )
+    direction_beneficiaire_libelle = serializers.CharField(
+        source="direction_beneficiaire.dir_libelle", read_only=True, default=None
+    )
     fournisseur_nom = serializers.CharField(
         source="fournisseur.nom", read_only=True, default=None
     )
@@ -112,6 +115,8 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             "employe_beneficiaire_nom",
             "employe_beneficiaire_matricule",
             "employe_beneficiaire_fonction",
+            "direction_beneficiaire",
+            "direction_beneficiaire_libelle",
             "fournisseur",
             "fournisseur_nom",
             "code_tracabilite",

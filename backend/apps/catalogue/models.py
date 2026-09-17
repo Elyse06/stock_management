@@ -51,6 +51,9 @@ class Article(models.Model):
     marque = models.ForeignKey(
         Marque, on_delete=models.PROTECT, related_name="articles"
     )
+    is_immobilisation = models.BooleanField(
+        default=True,
+    )
 
     class Meta:
         db_table = 't_article'
