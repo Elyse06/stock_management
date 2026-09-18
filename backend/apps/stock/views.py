@@ -1,7 +1,7 @@
 from django.db.models import IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -22,9 +22,15 @@ from .serializers import (
     LigneInventaireSerializer,
     MagasinSerializer,
     MouvementSerializer,
+    RetourUniteSerializer,
+    TransfertUniteSerializer,
     UniteArticleSerializer,
 )
-from .services import valider_session_inventaire
+from .services import (
+    retourner_unite_au_stock,
+    transferer_unite,
+    valider_session_inventaire,
+)
 
 
 class MagasinViewSet(viewsets.ModelViewSet):
@@ -113,9 +119,9 @@ class MouvementViewSet(viewsets.ModelViewSet):
 
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
-    queryset = DetailMouvement.objects.all().select_related(
-        "mouvement", "article", "employe_beneficiaire", "fournisseur"
-    ).prefetch_related("unites_creees", "unites_attribuees")
+    queryset = DetailMouvement.objects.select_related(
+        'employe_beneficiaire', 'direction_beneficiaire', 'mouvement', 'article', 'fournisseur'
+    ).all().prefetch_related("unites_creees", "unites_attribuees")
     serializer_class = DetailMouvementSerializer
     permission_classes = [HasActionByMethod.for_methods(
         GET=("MOV_LIRE",),
@@ -129,7 +135,7 @@ class DetailMouvementViewSet(viewsets.ModelViewSet):
 
 class UniteArticleViewSet(viewsets.ModelViewSet):
     queryset = UniteArticle.objects.all().select_related(
-        "article", "mouvement_entree", "mouvement_sortie", "employe_attribue"
+        "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire"
     )
     serializer_class = UniteArticleSerializer
     permission_classes = [HasActionByMethod.for_methods(
@@ -152,6 +158,56 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         unite.retourner_stock()
         serializer = self.get_serializer(unite)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='retourner-stock')
+    def retourner_stock(self, request, unite_id=None):
+        """Retourne une unité attribuée au stock."""
+        data = request.data.copy()
+        data['unite_id'] = unite_id
+        
+        serializer = RetourUniteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            mouvement = serializer.save()
+        except Exception as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Unité retournée au stock avec succès.',
+            'mouvement_id': mouvement.mouvement_id,
+            'unite': UniteArticleSerializer(
+                UniteArticle.objects.get(unite_id=unite_id)
+            ).data,
+        })
+    
+    @action(detail=True, methods=['post'], url_path='transferer')
+    def transferer(self, request, unite_id=None):
+        data = request.data.copy()
+        data['unite_id'] = unite_id
+        
+        serializer = TransfertUniteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            mouvements = serializer.save()
+        except Exception as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Unité transférée avec succès.',
+            'mouvement_retour_id': mouvements['retour'].mouvement_id,
+            'mouvement_sortie_id': mouvements['sortie'].mouvement_id,
+            'unite': UniteArticleSerializer(
+                UniteArticle.objects.get(unite_id=unite_id)
+            ).data,
+        })
 
 
 class InventaireSessionViewSet(viewsets.ModelViewSet):
@@ -181,12 +237,18 @@ class InventaireSessionViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=["post"],
         permission_classes=[HasAction.for_actions("INV_VAL")],
+        url_path="valider"
     )
     def valider(self, request, pk=None):
         session = self.get_object()
-        session_validee = valider_session_inventaire(session)
-        serializer = self.get_serializer(session_validee)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        try:
+            mouvement = valider_session_inventaire(session)
+        except serializers.ValidationError as e:
+            return Response({'detail': e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
 
 
 class LigneInventaireViewSet(viewsets.ModelViewSet):
