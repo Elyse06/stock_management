@@ -15,19 +15,11 @@ from .serializers import (
     CommandeSerializer,
     CommandeTraitementSerializer,
     DetailCommandeSerializer,
+    RecapitulatifCommandeSerializer,
 )
 
 
-@extend_schema_view(
-    list=extend_schema(summary="Lister toutes les commandes"),
-    create=extend_schema(summary="Créer une nouvelle commande avec ses détails"),
-    retrieve=extend_schema(summary="Obtenir les détails d'une commande"),
-    update=extend_schema(summary="Mettre à jour une commande"),
-    partial_update=extend_schema(summary="Mettre à jour partiellement une commande"),
-    destroy=extend_schema(summary="Supprimer une commande"),
-)
 class CommandeViewSet(viewsets.ModelViewSet):
-    """ViewSet gérant le cycle de vie des commandes de produits/matériels."""
     queryset = (
         Commande.objects.all()
         .select_related(
@@ -110,14 +102,13 @@ class CommandeViewSet(viewsets.ModelViewSet):
         )
         return Response(output_serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['get'], url_path='recapitulatif')
+    def recapitulatif(self, request, commande_id=None):
+        commande = self.get_object()
+        serializer = RecapitulatifCommandeSerializer(commande, context={'request': request})
+        return Response(serializer.data)
 
-@extend_schema_view(
-    list=extend_schema(summary="Lister les lignes de détails des commandes"),
-    create=extend_schema(summary="Ajouter une ligne de détail à une commande"),
-    retrieve=extend_schema(summary="Obtenir une ligne de détail"),
-    update=extend_schema(summary="Modifier une ligne de détail"),
-    destroy=extend_schema(summary="Supprimer une ligne de détail"),
-)
+
 class DetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = DetailCommande.objects.all().select_related("article", "commande")
     serializer_class = DetailCommandeSerializer
@@ -131,22 +122,10 @@ class DetailCommandeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["commande", "article"]
 
 
-@extend_schema_view(
-    list=extend_schema(summary="Lister les attributions par bénéficiaire"),
-    create=extend_schema(summary="Créer une attribution pour un employé"),
-    retrieve=extend_schema(summary="Obtenir les détails d'une attribution"),
-    update=extend_schema(summary="Modifier une attribution"),
-    destroy=extend_schema(summary="Supprimer une attribution"),
-)
 class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
-    queryset = AttributionDetailCommande.objects.all().select_related(
-        "detail_commande", 
-        "detail_commande__article",
-        "employe_beneficiaire",
-        "employe_beneficiaire__emp_serv_id",
-        "employe_beneficiaire__emp_serv_id__serv_dir_id",
-        "employe_beneficiaire__emp_serv_id__serv_dir_id__site",
-    )
+    queryset = AttributionDetailCommande.objects.select_related(
+        'employe_beneficiaire', 'direction_beneficiaire', 'detail_commande'
+    ).all()
     serializer_class = AttributionDetailCommandeSerializer
 
     def get_permissions(self):

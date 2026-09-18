@@ -5,7 +5,7 @@ from rest_framework import serializers
 from apps.catalogue.models import Article
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
-from apps.employee.models import Direction
+from apps.employee.models import Direction, Employer
 from apps.stock.models import (
     DetailMouvement,
     InventaireSession,
@@ -14,6 +14,7 @@ from apps.stock.models import (
     Mouvement,
     UniteArticle,
 )
+from apps.stock.services import retourner_unite_au_stock, transferer_unite
 from apps.stock.utils import calculer_stock_theorique
 
 
@@ -37,30 +38,47 @@ class UniteArticleSerializer(serializers.ModelSerializer):
     article_code = serializers.CharField(
         source="article.code_article", read_only=True
     )
-    employe_attribue_nom = serializers.CharField(
-        source="employe_attribue.emp_nom", read_only=True, default=None
+    employe_attribue_nom = serializers.CharField(read_only=True)
+    employe_attribue_matricule = serializers.CharField(read_only=True)
+    beneficiaire_type = serializers.CharField(read_only=True)
+    employe_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Employer.objects.all(), required=False, allow_null=True
     )
-    employe_attribue_matricule = serializers.CharField(
-        source="employe_attribue.emp_matricule", read_only=True, default=None
+    direction_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Direction.objects.all(), required=False, allow_null=True
     )
 
     class Meta:
         model = UniteArticle
         fields = [
-            "unite_id",
-            "article",
-            "article_code",
-            "article_designation",
-            "numero_de_serie",
-            "statut",
-            "date_creation",
-            "mouvement_entree",
-            "mouvement_sortie",
-            "employe_attribue",
-            "employe_attribue_nom",
-            "employe_attribue_matricule",
+            'unite_id', 'article', 'article_code', 'article_designation',
+            'numero_de_serie', 'statut', 'etat', 'date_creation',
+            'mouvement_entree', 'mouvement_sortie',
+            'employe_beneficiaire', 'direction_beneficiaire',
+            'employe_attribue_nom', 'employe_attribue_matricule', 'beneficiaire_type',
         ]
-        read_only_fields = ["unite_id", "date_creation", "mouvement_entree", "mouvement_sortie"]
+        read_only_fields = ['unite_id', 'date_creation', 'mouvement_entree', 'mouvement_sortie',
+                            'article_code', 'article_designation',
+                            'employe_attribue_nom', 'employe_attribue_matricule', 'beneficiaire_type']
+
+    def validate(self, attrs):
+        has_emp = attrs.get('employe_beneficiaire') is not None
+        has_dir = attrs.get('direction_beneficiaire') is not None
+        if has_emp and has_dir:
+            raise serializers.ValidationError("Un seul bénéficiaire autorisé.")
+        
+        article = attrs.get('article') or (self.instance.article if self.instance else None)
+        if article:
+            num_serie = attrs.get('numero_de_serie', self.instance.numero_de_serie if self.instance else None)
+            if article.mode_suivi == 'NUMERO_SERIE' and not num_serie:
+                raise serializers.ValidationError(
+                    {'numero_de_serie': "Obligatoire pour les articles suivis par numéro de série."}
+                )
+            if article.mode_suivi != 'NUMERO_SERIE' and num_serie:
+                raise serializers.ValidationError(
+                    {'numero_de_serie': "Non autorisé pour les articles non suivis par numéro de série."}
+                )
+        return attrs
 
     def validate_numero_de_serie(self, value):
         if value and value.strip():
@@ -76,18 +94,18 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     article_designation = serializers.CharField(
         source="article.designation", read_only=True
     )
-    employe_beneficiaire_nom = serializers.CharField(
-        source="employe_beneficiaire.emp_nom", read_only=True, default=None
+    employe_beneficiaire_nom = serializers.CharField(read_only=True)
+    employe_beneficiaire_matricule = serializers.CharField(read_only=True)
+    employe_beneficiaire_fonction = serializers.CharField(read_only=True)
+    beneficiaire_type = serializers.CharField(read_only=True)
+    
+    employe_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Employer.objects.all(), required=False, allow_null=True
     )
-    employe_beneficiaire_matricule = serializers.CharField(
-        source="employe_beneficiaire.emp_matricule", read_only=True, default=None
+    direction_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Direction.objects.all(), required=False, allow_null=True
     )
-    employe_beneficiaire_fonction = serializers.CharField(
-        source="employe_beneficiaire.emp_fonction", read_only=True, default=None
-    )
-    direction_beneficiaire_libelle = serializers.CharField(
-        source="direction_beneficiaire.dir_libelle", read_only=True, default=None
-    )
+
     fournisseur_nom = serializers.CharField(
         source="fournisseur.nom", read_only=True, default=None
     )
@@ -105,27 +123,22 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DetailMouvement
-        fields = [
-            "id",
-            "mouvement",
-            "article",
-            "article_designation",
-            "quantite",
-            "employe_beneficiaire",
-            "employe_beneficiaire_nom",
-            "employe_beneficiaire_matricule",
-            "employe_beneficiaire_fonction",
-            "direction_beneficiaire",
-            "direction_beneficiaire_libelle",
-            "fournisseur",
-            "fournisseur_nom",
-            "code_tracabilite",
-            "qr_code_data",
-            "unites_creees",
-            "unites_attribuees",
-            "numeros_de_serie",
-        ]
-        read_only_fields = ["mouvement"]
+        fields = '__all__'
+        read_only_fields = (
+            'id', 'mouvement', 'article_designation', 'fournisseur_nom', 'qr_code_data',
+            'unites_creees', 'unites_attribuees',
+            'employe_beneficiaire_nom', 'employe_beneficiaire_matricule',
+            'employe_beneficiaire_fonction', 'beneficiaire_type',
+        )
+
+    def validate(self, attrs):
+        has_emp = attrs.get('employe_beneficiaire') is not None
+        has_dir = attrs.get('direction_beneficiaire') is not None
+        if has_emp and has_dir:
+            raise serializers.ValidationError(
+                "Un seul bénéficiaire autorisé : soit 'employe_beneficiaire', soit 'direction_beneficiaire'."
+            )
+        return attrs
 
     def get_qr_code_data(self, obj):
         if not obj.code_tracabilite:
@@ -241,19 +254,76 @@ class LigneInventaireSerializer(serializers.ModelSerializer):
     article_designation = serializers.CharField(
         source="article.designation", read_only=True
     )
+    article_mode_suivi = serializers.CharField(
+        source='article.mode_suivi', read_only=True
+    )
+    article_is_immobilisation = serializers.BooleanField(
+        source='article.is_immobilisation', read_only=True
+    )
 
     class Meta:
         model = LigneInventaire
         fields = [
-            "id",
-            "article",
-            "article_designation",
-            "quantite_theorique",
-            "quantite_physique",
-            "ecart",
-            "commentaire",
+            "id", "article", "article_designation",
+            "article_mode_suivi", "article_is_immobilisation",
+            "quantite_theorique", "quantite_physique", "ecart",
+            "commentaire", "propositions_series",
         ]
         read_only_fields = ["quantite_theorique", "ecart"]
+
+    def validate(self, attrs):
+        article = attrs.get('article', getattr(self.instance, 'article', None))
+        propositions = attrs.get('propositions_series', 
+                                  getattr(self.instance, 'propositions_series', {}) or {})
+        
+        if article is None:
+            return attrs
+        
+        is_numero_serie = article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE
+        
+        if not is_numero_serie and propositions:
+            raise serializers.ValidationError({
+                'propositions_series': (
+                    "Les propositions de numéros de série ne sont autorisées "
+                    "que pour les articles suivis par numéro de série."
+                )
+            })
+        
+        if is_numero_serie and propositions:
+            unite_ids_retraits = {r['unite_id'] for r in propositions.get('retraits', [])}
+            unite_ids_changes = {c['unite_id'] for c in propositions.get('changements_etat', [])}
+            tous_ids = unite_ids_retraits | unite_ids_changes
+            
+            if tous_ids:
+                unites_existantes = UniteArticle.objects.filter(
+                    unite_id__in=tous_ids,
+                    article=article
+                )
+                ids_trouves = set(unites_existantes.values_list('unite_id', flat=True))
+                ids_manquants = tous_ids - ids_trouves
+                if ids_manquants:
+                    raise serializers.ValidationError({
+                        'propositions_series': (
+                            f"Unités inexistantes ou n'appartenant pas à l'article "
+                            f"'{article.designation}' : {sorted(ids_manquants)}"
+                        )
+                    })
+            
+            numeros_ajouts = {a['numero_serie'] for a in propositions.get('ajouts', [])}
+            if numeros_ajouts:
+                numeros_existants = UniteArticle.objects.filter(
+                    article=article,
+                    numero_de_serie__in=numeros_ajouts
+                ).values_list('numero_de_serie', flat=True)
+                if numeros_existants:
+                    raise serializers.ValidationError({
+                        'propositions_series': (
+                            f"Ces numéros de série existent déjà pour l'article "
+                            f"'{article.designation}' : {list(numeros_existants)}"
+                        )
+                    })
+        
+        return attrs
 
 
 def generer_code_reference():
@@ -350,3 +420,117 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             LigneInventaire.objects.create(session=session, **ligne_data)
         
         return session
+
+
+class RetourUniteSerializer(serializers.Serializer):
+    unite_id = serializers.IntegerField()
+    magasin_destination = serializers.PrimaryKeyRelatedField(
+        queryset=Magasin.objects.all()
+    )
+    motif = serializers.CharField(required=False, allow_blank=True, default="")
+    
+    def validate_unite_id(self, value):
+        try:
+            unite = UniteArticle.objects.get(unite_id=value)
+        except UniteArticle.DoesNotExist:
+            raise serializers.ValidationError(f"Unité #{value} introuvable.")
+        
+        if unite.statut != UniteArticle.Statut.ATTRIBUE:
+            raise serializers.ValidationError(
+                f"L'unité #{value} n'est pas attribuée."
+            )
+        
+        if unite.etat == UniteArticle.Etat.PERDU:
+            raise serializers.ValidationError(
+                "Une unité marquée 'Perdu' ne peut pas être retournée."
+            )
+        
+        return value
+    
+    def save(self, **kwargs):
+        return retourner_unite_au_stock(
+            unite_id=self.validated_data['unite_id'],
+            magasin_destination=self.validated_data['magasin_destination'],
+            motif=self.validated_data.get('motif', ''),
+        )
+
+
+class TransfertUniteSerializer(serializers.Serializer):
+    unite_id = serializers.IntegerField()
+    
+    nouvel_employe_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Employer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    nouvelle_direction_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Direction.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    
+    magasin_source = serializers.PrimaryKeyRelatedField(
+        queryset=Magasin.objects.all()
+    )
+    motif = serializers.CharField(required=False, allow_blank=True, default="")
+    
+    def validate(self, attrs):
+        emp = attrs.get('nouvel_employe_beneficiaire')
+        dir = attrs.get('nouvelle_direction_beneficiaire')
+        
+        if bool(emp) == bool(dir):
+            raise serializers.ValidationError(
+                "Choisir soit 'nouvel_employe_beneficiaire', "
+                "soit 'nouvelle_direction_beneficiaire' (l'un des deux)."
+            )
+        
+        # Validation de l'unité
+        try:
+            unite = UniteArticle.objects.select_related('article').get(
+                unite_id=attrs['unite_id']
+            )
+        except UniteArticle.DoesNotExist:
+            raise serializers.ValidationError({
+                'unite_id': "Unité introuvable."
+            })
+        
+        if unite.statut != UniteArticle.Statut.ATTRIBUE:
+            raise serializers.ValidationError({
+                'unite_id': "L'unité n'est pas attribuée."
+            })
+        
+        if unite.etat in [UniteArticle.Etat.HORS_USAGE, UniteArticle.Etat.PERDU]:
+            raise serializers.ValidationError({
+                'unite_id': (
+                    f"Impossible de transférer une unité dans l'état "
+                    f"'{unite.get_etat_display()}'."
+                )
+            })
+        
+        # Vérifier que le nouveau bénéficiaire est différent
+        ancien = unite.employe_beneficiaire or unite.direction_beneficiaire
+        nouveau = emp or dir
+        if ancien == nouveau:
+            raise serializers.ValidationError(
+                "Le nouveau bénéficiaire doit être différent de l'actuel."
+            )
+        
+        # Règle métier : fourniture → direction uniquement
+        if not unite.article.is_immobilisation and emp:
+            raise serializers.ValidationError(
+                "Une fourniture ne peut être transférée qu'à une direction."
+            )
+        
+        return attrs
+    
+    def save(self, **kwargs):
+        nouveau_beneficiaire = (
+            self.validated_data.get('nouvel_employe_beneficiaire')
+            or self.validated_data.get('nouvelle_direction_beneficiaire')
+        )
+        return transferer_unite(
+            unite_id=self.validated_data['unite_id'],
+            nouveau_beneficiaire=nouveau_beneficiaire,
+            magasin_source=self.validated_data['magasin_source'],
+            motif=self.validated_data.get('motif', ''),
+        )

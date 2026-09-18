@@ -33,6 +33,7 @@ class Mouvement(models.Model):
         SORTIE = "SORTIE", "Sortie"
         TRANSFERT = "TRANSFERT", "Transfert"
         AJUSTEMENT = "AJUSTEMENT", "Ajustement d'inventaire"
+        RETOUR = "RETOUR", "Retour au stock"
 
     mouvement_id = models.BigAutoField(primary_key=True)
     date = models.DateTimeField(default=timezone.now)
@@ -61,7 +62,6 @@ class Mouvement(models.Model):
         verbose_name_plural = "Mouvements"
 
     def clean(self):
-        """Validation stricte des règles de gestion des mouvements."""
         if self.type_mouvement == self.Type.ENTREE and not self.magasin_destination:
             raise ValidationError({"magasin_destination": "Requis pour une entrée."})
 
@@ -73,6 +73,11 @@ class Mouvement(models.Model):
                 raise ValidationError("Un transfert nécessite un magasin source ET destination.")
             if self.magasin_source == self.magasin_destination:
                 raise ValidationError("Le magasin source et destination doivent être différents.")
+
+        if self.type_mouvement == self.Type.RETOUR and not self.magasin_destination:
+            raise ValidationError({
+                "magasin_destination": "Requis pour un retour au stock."
+            })
 
     def __str__(self):
         return f"Mouvement #{self.mouvement_id} ({self.get_type_mouvement_display()})"
@@ -112,6 +117,16 @@ class DetailMouvement(models.Model):
         db_table = "t_detail_mouvement"
         verbose_name = "Détail mouvement"
         verbose_name_plural = "Détails mouvement"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=True) |
+                    models.Q(employe_beneficiaire__isnull=False, direction_beneficiaire__isnull=True) |
+                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=False)
+                ),
+                name='detail_mouv_at_most_one_beneficiary'
+            )
+        ]
 
     def clean(self):
         if self.employe_beneficiaire and self.direction_beneficiaire:
@@ -122,11 +137,48 @@ class DetailMouvement(models.Model):
     def __str__(self):
         return f"{self.article.designation} x{self.quantite} (mvt #{self.mouvement_id})"
 
+    @property
+    def employe_beneficiaire_nom(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_nom
+        return ""
+    
+    @property
+    def employe_beneficiaire_matricule(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_matricule
+        return ""
+    
+    @property
+    def employe_beneficiaire_fonction(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_fonction
+        return ""
+    
+    @property
+    def beneficiaire_type(self):
+        if self.employe_beneficiaire_id:
+            return "EMPLOYE"
+        if self.direction_beneficiaire_id:
+            return "DIRECTION"
+        return None
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class UniteArticle(models.Model):
     class Statut(models.TextChoices):
         EN_STOCK = "EN_STOCK", "En stock"
         ATTRIBUE = "ATTRIBUE", "Attribué"
+
+    class Etat(models.TextChoices):
+        BON = "BON", "Bon état"
+        MOYEN = "MOYEN", "État moyen"
+        MAUVAIS = "MAUVAIS", "Mauvais état"
+        HORS_USAGE = "HORS_USAGE", "Hors usage"
+        PERDU = "PERDU", "Perdu"
 
     unite_id = models.BigAutoField(primary_key=True)
     article = models.ForeignKey(
@@ -137,11 +189,18 @@ class UniteArticle(models.Model):
     numero_de_serie = models.CharField(
         max_length=100,
         unique=True,
+        null=True,
+        blank=True,
     )
     statut = models.CharField(
         max_length=20,
         choices=Statut.choices,
         default=Statut.EN_STOCK
+    )
+    etat = models.CharField(
+        max_length=20,
+        choices=Etat.choices,
+        default=Etat.BON,
     )
     date_creation = models.DateTimeField(auto_now_add=True)
     
@@ -161,8 +220,15 @@ class UniteArticle(models.Model):
         related_name="unites_attribuees",
     )
     
-    employe_attribue = models.ForeignKey(
+    employe_beneficiaire = models.ForeignKey(
         Employer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="unites_attribuees",
+    )
+    direction_beneficiaire = models.ForeignKey(
+        Direction,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -180,26 +246,89 @@ class UniteArticle(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.article.designation} - {self.numero_de_serie} ({self.get_statut_display()})"
+        identifiant = self.numero_de_serie or f"unité #{self.unite_id}"
+        return f"{self.article.designation} - {identifiant} ({self.get_statut_display()})"
 
     def clean(self):
-        if self.statut == self.Statut.ATTRIBUE and not self.employe_attribue:
+        if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
+            if not self.numero_de_serie:
+                raise ValidationError({
+                    "numero_de_serie": "Requis pour un article suivi par numéro de série."
+                })
+        elif self.numero_de_serie:
             raise ValidationError({
-                "employe_attribue": "Requis quand le statut est ATTRIBUE."
+                "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
             })
 
-    def attribuer(self, employe, mouvement_sortie):
+        if self.statut == self.Statut.ATTRIBUE:
+            if bool(self.employe_attribue) == bool(self.direction_attribue):
+                raise ValidationError(
+                    "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
+                    "un employé OU une direction (pas les deux/aucun)."
+                )
+        else:
+            if self.employe_attribue or self.direction_attribue:
+                raise ValidationError(
+                    "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
+                )
+
+    @property
+    def employe_attribue(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_id
+        return None
+    
+    @property
+    def employe_attribue_nom(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_nom
+        if self.direction_beneficiaire_id:
+            return self.direction_beneficiaire.dir_libelle
+        return ""
+    
+    @property
+    def employe_attribue_matricule(self):
+        if self.employe_beneficiaire_id:
+            return self.employe_beneficiaire.emp_matricule
+        return ""
+
+    @property
+    def beneficiaire_type(self):
+        if self.employe_beneficiaire_id:
+            return "EMPLOYE"
+        if self.direction_beneficiaire_id:
+            return "DIRECTION"
+        return None
+
+    def attribuer(self, beneficiaire, mouvement_sortie):
+        if isinstance(beneficiaire, Employer):
+            self.employe_attribue = beneficiaire
+            self.direction_attribue = None
+        elif isinstance(beneficiaire, Direction):
+            self.direction_attribue = beneficiaire
+            self.employe_attribue = None
+        else:
+            raise ValidationError("beneficiaire doit être un Employer ou une Direction.")
+ 
         self.statut = self.Statut.ATTRIBUE
-        self.employe_attribue = employe
-        self.mouvement_sortie = mouvement_sortie
+        if isinstance(mouvement_sortie, dict):
+            pass
+        else:
+            self.mouvement_sortie = mouvement_sortie
         self.full_clean()
         self.save()
 
     def retourner_stock(self):
-        self.statut = self.Statut.EN_STOCK
-        self.employe_attribue = None
+        self.statut = 'EN_STOCK'
+        self.employe_beneficiaire = None
+        self.direction_beneficiaire = None
         self.mouvement_sortie = None
+        self.full_clean()
         self.save()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class InventaireSession(models.Model):
@@ -248,12 +377,77 @@ class LigneInventaire(models.Model):
     quantite_physique = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     ecart = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
     commentaire = models.TextField(blank=True, null=True)
+    propositions_series = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Propositions de numéros de série",
+        help_text=(
+            "Stockage temporaire des propositions pour les articles suivis par numéro de série. "
+            "Matérialisé uniquement à la validation de la session d'inventaire."
+        )
+    )
 
     class Meta:
         db_table = 't_ligne_inventaire'
         verbose_name = "Ligne d'inventaire"
         verbose_name_plural = "Lignes d'inventaire"
         unique_together = ("session", "article")
+
+    def clean(self):
+        super().clean()
+        if self.propositions_series:
+            if not isinstance(self.propositions_series, dict):
+                raise ValidationError({
+                    'propositions_series': "Doit être un objet JSON."
+                })
+            
+            allowed_keys = {'ajouts', 'retraits', 'changements_etat'}
+            invalid_keys = set(self.propositions_series.keys()) - allowed_keys
+            if invalid_keys:
+                raise ValidationError({
+                    'propositions_series': f"Clés invalides : {invalid_keys}. Clés autorisées : {allowed_keys}"
+                })
+            
+            for ajout in self.propositions_series.get('ajouts', []):
+                if not isinstance(ajout, dict):
+                    raise ValidationError({'propositions_series': "Chaque ajout doit être un objet."})
+                if 'numero_serie' not in ajout or 'etat' not in ajout:
+                    raise ValidationError({
+                        'propositions_series': "Chaque ajout doit contenir 'numero_serie' et 'etat'."
+                    })
+                if ajout['etat'] not in UniteArticle.Etat.values:
+                    raise ValidationError({
+                        'propositions_series': f"État invalide : {ajout['etat']}"
+                    })
+            
+            for retrait in self.propositions_series.get('retraits', []):
+                if not isinstance(retrait, dict):
+                    raise ValidationError({'propositions_series': "Chaque retrait doit être un objet."})
+                if 'unite_id' not in retrait or 'numero_serie' not in retrait or 'etat' not in retrait:
+                    raise ValidationError({
+                        'propositions_series': "Chaque retrait doit contenir 'unite_id', 'numero_serie' et 'etat'."
+                    })
+                if retrait['etat'] not in [UniteArticle.Etat.HORS_USAGE, UniteArticle.Etat.PERDU]:
+                    raise ValidationError({
+                        'propositions_series': (
+                            f"Un retrait doit avoir l'état 'HORS_USAGE' ou 'PERDU' (reçu : {retrait['etat']})."
+                        )
+                    })
+            
+            for changement in self.propositions_series.get('changements_etat', []):
+                if not isinstance(changement, dict):
+                    raise ValidationError({'propositions_series': "Chaque changement doit être un objet."})
+                if 'unite_id' not in changement or 'numero_serie' not in changement or 'etat' not in changement:
+                    raise ValidationError({
+                        'propositions_series': "Chaque changement doit contenir 'unite_id', 'numero_serie' et 'etat'."
+                    })
+                if changement['etat'] in [UniteArticle.Etat.PERDU]:
+                    raise ValidationError({
+                        'propositions_series': (
+                            "Un changement d'état ne peut pas être 'PERDU'. "
+                            "Utilisez 'retraits' pour les unités perdues."
+                        )
+                    })
 
     def save(self, *args, **kwargs):
         self.ecart = self.quantite_physique - self.quantite_theorique
