@@ -145,7 +145,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["article", "statut", "employe_attribue"]
+    filterset_fields = ["article", "statut", "employe_beneficiaire"]
 
     @action(detail=True, methods=["post"])
     def retourner_stock(self, request, pk=None):
