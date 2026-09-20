@@ -28,7 +28,7 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
             "statut", "motif_refus",
             "code_unique", "date_acquisition", "qr_code_data",
         ]
-        read_only_fields = ["id", "code_unique", "qr_code_data", "date_acquisition"]
+        read_only_fields = ["id", "detail_commande", "code_unique", "qr_code_data", "date_acquisition"]
 
     def validate(self, attrs):
         employe = attrs.get(

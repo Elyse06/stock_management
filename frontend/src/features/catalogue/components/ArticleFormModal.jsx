@@ -1,17 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import {
-  TextField,
-  Autocomplete,
-  Box,
-  Divider,
-  Tooltip,
-  IconButton,
+  TextField, Autocomplete, Box,
+  Divider, Tooltip, IconButton,
+  FormControlLabel, Checkbox, Typography,
 } from "@mui/material";
 import {
-  Save as SaveIcon,
-  Update as UpdateIcon,
-  People as PeopleIcon,
-  AutoFixHigh as AutoFixIcon,
+  Save as SaveIcon, Update as UpdateIcon,
+  People as PeopleIcon, AutoFixHigh as AutoFixIcon,
   QrCodeScanner as QrCodeScannerIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
@@ -39,6 +34,7 @@ const EMPTY_FORM = {
   seuil: "0",
   mode_suivi: "QUANTITE",
   categorie: "",
+  is_immobilisation: true,
 };
 
 export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = null }) {
@@ -86,6 +82,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         seuil: articleToEdit.seuil ?? "0",
         mode_suivi: articleToEdit.mode_suivi ?? "QUANTITE",
         categorie: articleToEdit.categorie ?? "",
+        is_immobilisation: articleToEdit.is_immobilisation ?? true,
       });
       const fours = articleToEdit.fournisseurs ?? [];
       setLignesFournisseurs(fours);
@@ -98,7 +95,9 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
   }, [isOpen, articleToEdit]);
 
   const handleChange = (field) => (e) => {
-    const value = e.target.value;
+    const value = e?.target
+      ? e.target.value
+      : e;
     setForm((prev) => ({ ...prev, [field]: value }));
 
     if (field === "categorie" && !isEditMode && value) {
@@ -343,6 +342,24 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           rows={3}
           sx={{ gridColumn: { sm: "1 / -1" } }}
           fullWidth
+        />
+      </Box>
+      <Box sx={{ gridColumn: { sm: "1 / -1" }, mt: 2, p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={form.is_immobilisation}
+              onChange={(e) => setForm((prev) => ({ ...prev, is_immobilisation: e.target.checked }))}
+              color="primary"
+            />
+          }
+          label={
+            <Box>
+              <Typography variant="body2" fontWeight={600}>
+                Article immobilisation
+              </Typography>
+            </Box>
+          }
         />
       </Box>
 

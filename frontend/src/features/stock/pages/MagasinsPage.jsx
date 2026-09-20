@@ -81,7 +81,10 @@ export function MagasinsPage() {
   });
 
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    const value = e?.target
+      ? e.target.value
+      : e;
+    setForm((prev) => ({ ...prev, [field]: value}));
   };
 
   const ouvrirCreation = () => {

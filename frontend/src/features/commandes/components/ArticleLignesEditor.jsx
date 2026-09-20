@@ -9,6 +9,11 @@ import {
   MenuItem,
   Autocomplete,
   Tooltip,
+  IconButton,
+  Typography,
+  Chip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -21,30 +26,39 @@ import { StyledTable } from "../../../components/wizard/StyledTable";
 import { FormSection } from "../../../components/wizard/FormSection";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { StockStatusChip } from "../../../components/common/StockStatusChip";
-import { EmployeLocation, getEmployeLocation } from "../../../components/common/EmployeLocation";
+import {
+  EmployeLocation,
+  getEmployeLocation,
+} from "../../../components/common/EmployeLocation";
 import { EmptyValue } from "../../../components/common/EmptyValue";
 
 const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
+const DIRECTIONS_ENDPOINT = "/api/employee/direction/";
 
 export function ArticleLignesEditor({ lignes, setLignes, articles }) {
   const [articleCode, setArticleCode] = useState("");
   const [quantite, setQuantite] = useState("");
+  const [typeBeneficiaire, setTypeBeneficiaire] = useState("EMPLOYE");
   const [beneficiaireId, setBeneficiaireId] = useState("");
   const [employees, setEmployees] = useState([]);
-  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [directions, setDirections] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setEmployeesLoading(true);
-    apiClient
-      .get(EMPLOYEES_ENDPOINT, { params: { page_size: 500 } })
-      .then((res) => {
+    setLoading(true);
+    Promise.all([
+      apiClient.get(EMPLOYEES_ENDPOINT, { params: { page_size: 500 } }),
+      apiClient.get(DIRECTIONS_ENDPOINT, { params: { page_size: 100 } }),
+    ])
+      .then(([empRes, dirRes]) => {
         if (cancelled) return;
-        setEmployees(res.data.results ?? res.data);
+        setEmployees(empRes.data.results ?? empRes.data);
+        setDirections(dirRes.data.results ?? dirRes.data);
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setEmployeesLoading(false);
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -53,8 +67,45 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
 
   const ajouterLigne = () => {
     if (!articleCode || !quantite || Number(quantite) <= 0) return;
-    const article = articles.find((a) => String(a.code_article) === String(articleCode));
-    const beneficiaire = employees.find((e) => String(e.emp_id) === String(beneficiaireId));
+    const article = articles.find(
+      (a) => String(a.code_article) === String(articleCode)
+    );
+
+    let beneficiaireData = null;
+    let beneficiaireNom = null;
+    let beneficiaireDirection = null;
+    let beneficiaireSite = null;
+
+    if (typeBeneficiaire === "EMPLOYE" && beneficiaireId) {
+      const employe = employees.find(
+        (e) => String(e.emp_id) === String(beneficiaireId)
+      );
+      if (employe) {
+        beneficiaireData = {
+          type: "EMPLOYE",
+          id: employe.emp_id,
+        };
+        beneficiaireNom = employe.emp_nom;
+        const service = employe.emp_serv_id;
+        const direction = service?.serv_dir_id;
+        const site = direction?.site;
+        beneficiaireDirection = direction?.dir_libelle || null;
+        beneficiaireSite = site?.site_nom || null;
+      }
+    } else if (typeBeneficiaire === "DIRECTION" && beneficiaireId) {
+      const direction = directions.find(
+        (d) => String(d.dir_id) === String(beneficiaireId)
+      );
+      if (direction) {
+        beneficiaireData = {
+          type: "DIRECTION",
+          id: direction.dir_id,
+        };
+        beneficiaireNom = direction.dir_libelle;
+        beneficiaireDirection = direction.dir_libelle;
+        beneficiaireSite = direction.site_nom || null;
+      }
+    }
 
     setLignes([
       ...lignes,
@@ -63,12 +114,14 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         article_designation: article?.designation || articleCode,
         stock_calcule: article?.stock_calcule ?? 0,
         quantite: Number(quantite),
-        employe_beneficiaire: beneficiaireId || null,
-        beneficiaire_nom: beneficiaire?.emp_nom || null,
-        beneficiaire_direction: beneficiaire?.emp_serv_id?.serv_dir_id?.dir_libelle || null,
-        beneficiaire_site: beneficiaire?.emp_serv_id?.serv_dir_id?.site?.site_nom || null,
+        beneficiaire_type: beneficiaireData?.type || null,
+        beneficiaire_id: beneficiaireData?.id || null,
+        beneficiaire_nom: beneficiaireNom || null,
+        beneficiaire_direction: beneficiaireDirection || null,
+        beneficiaire_site: beneficiaireSite || null,
       },
     ]);
+
     setArticleCode("");
     setQuantite("");
     setBeneficiaireId("");
@@ -76,6 +129,13 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
 
   const retirerLigne = (index) => {
     setLignes(lignes.filter((_, i) => i !== index));
+  };
+
+  const handleTypeChange = (event, newType) => {
+    if (newType !== null) {
+      setTypeBeneficiaire(newType);
+      setBeneficiaireId("");
+    }
   };
 
   return (
@@ -103,7 +163,11 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           <tr key={index}>
             <td>
               <CodeChip value={ligne.article} />
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.3 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 0.3 }}
+              >
                 {ligne.article_designation}
               </Typography>
             </td>
@@ -123,15 +187,34 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   <Chip
                     label={ligne.beneficiaire_nom}
                     size="small"
-                    color="primary"
+                    color={
+                      ligne.beneficiaire_type === "EMPLOYE"
+                        ? "primary"
+                        : "secondary"
+                    }
                     variant="outlined"
-                    icon={<PersonIcon />}
+                    icon={
+                      ligne.beneficiaire_type === "EMPLOYE" ? (
+                        <PersonIcon />
+                      ) : (
+                        <BusinessIcon />
+                      )
+                    }
                   />
                   {ligne.beneficiaire_direction && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mt: 0.3,
+                      }}
+                    >
                       <BusinessIcon sx={{ fontSize: 12 }} color="action" />
                       <Typography variant="caption" color="text.secondary">
-                        {ligne.beneficiaire_site ? `${ligne.beneficiaire_site} → ` : ""}
+                        {ligne.beneficiaire_site
+                          ? `${ligne.beneficiaire_site} → `
+                          : " "}
                         {ligne.beneficiaire_direction}
                       </Typography>
                     </Box>
@@ -148,11 +231,18 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
               )}
             </td>
             <td align="center">
-              <StockStatusChip stockActuel={ligne.stock_calcule} quantiteDemandee={ligne.quantite} />
+              <StockStatusChip
+                stockActuel={ligne.stock_calcule}
+                quantiteDemandee={ligne.quantite}
+              />
             </td>
             <td align="center">
               <Tooltip title="Retirer la ligne">
-                <IconButton size="small" color="error" onClick={() => retirerLigne(index)}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => retirerLigne(index)}
+                >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -164,17 +254,23 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
       <FormSection>
         <FormControl size="small" fullWidth>
           <InputLabel>Article</InputLabel>
-          <Select value={articleCode} label="Article" onChange={(e) => setArticleCode(e.target.value)}>
+          <Select
+            value={articleCode}
+            label="Article"
+            onChange={(e) => setArticleCode(e.target.value)}
+          >
             <MenuItem value="" disabled>
               Choisir un article...
             </MenuItem>
             {articles.map((a) => (
               <MenuItem key={a.code_article} value={a.code_article}>
-                {a.code_article} - {a.designation} (stock: {a.stock_calcule ?? 0})
+                {a.code_article} - {a.designation} (stock:{" "}
+                {a.stock_calcule ?? 0})
               </MenuItem>
             ))}
           </Select>
         </FormControl>
+
         <TextField
           label="Quantité"
           type="number"
@@ -184,55 +280,166 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           inputProps={{ min: 1, step: 1 }}
           placeholder="0"
         />
-        <Autocomplete
+
+        {/* 🆕 Toggle Type de bénéficiaire */}
+        <ToggleButtonGroup
+          value={typeBeneficiaire}
+          exclusive
+          onChange={handleTypeChange}
           size="small"
-          options={employees}
-          loading={employeesLoading}
-          getOptionLabel={(option) =>
-            option?.emp_nom ? `${option.emp_nom}${option.emp_matricule ? ` (${option.emp_matricule})` : ""}` : ""
-          }
-          isOptionEqualToValue={(option, value) => String(option?.emp_id) === String(value?.emp_id)}
-          value={employees.find((e) => String(e.emp_id) === String(beneficiaireId)) || null}
-          onChange={(_, newValue) => {
-            setBeneficiaireId(newValue?.emp_id || "");
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 2,
+              py: 0.75,
+              border: "1px solid #E0E0E0",
+              "&.Mui-selected": {
+                bgcolor: "primary.light",
+                borderColor: "primary.main",
+                color: "text.primary",
+                "&:hover": {
+                  bgcolor: "primary.main",
+                  color: "white",
+                },
+              },
+            },
           }}
-          renderInput={(params) => (
-            <TextField {...params} label="Bénéficiaire (optionnel)" placeholder="Laisser vide = demandeur" />
-          )}
-          renderOption={(props, option) => {
-            const loc = getEmployeLocation(option);
-            return (
-              <li {...props} key={option.emp_id}>
+        >
+          <ToggleButton value="EMPLOYE">
+            <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Employé
+          </ToggleButton>
+          <ToggleButton value="DIRECTION">
+            <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Direction
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* 🆕 Sélecteur conditionnel */}
+        {typeBeneficiaire === "EMPLOYE" ? (
+          <Autocomplete
+            size="small"
+            options={employees}
+            loading={loading}
+            getOptionLabel={(option) =>
+              option?.emp_nom
+                ? `${option.emp_nom}${
+                    option.emp_matricule ? ` (${option.emp_matricule})` : ""
+                  }`
+                : ""
+            }
+            isOptionEqualToValue={(option, value) =>
+              String(option?.emp_id) === String(value?.emp_id)
+            }
+            value={
+              employees.find((e) => String(e.emp_id) === String(beneficiaireId)) ||
+              null
+            }
+            onChange={(_, newValue) => {
+              setBeneficiaireId(newValue?.emp_id || "");
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Bénéficiaire (optionnel)"
+                placeholder="Laisser vide = demandeur"
+              />
+            )}
+            renderOption={(props, option) => {
+              const loc = getEmployeLocation(option);
+              return (
+                <li {...props} key={option.emp_id}>
+                  <Box sx={{ width: "100%" }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {option.emp_nom}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.emp_matricule}
+                      {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
+                      {option.emp_contact ? ` • ${option.emp_contact}` : ""}
+                    </Typography>
+                    {loc && (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          mt: 0.5,
+                        }}
+                      >
+                        <BusinessIcon sx={{ fontSize: 12 }} />
+                        <Typography variant="caption" color="text.secondary">
+                          {loc.site ? `${loc.site} → ` : ""}
+                          {loc.direction || "—"}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </li>
+              );
+            }}
+            noOptionsText="Aucun employé trouvé"
+          />
+        ) : (
+          <Autocomplete
+            size="small"
+            options={directions}
+            loading={loading}
+            getOptionLabel={(option) =>
+              option?.dir_libelle
+                ? `${option.dir_libelle}${
+                    option.site_nom ? ` (${option.site_nom})` : ""
+                  }`
+                : ""
+            }
+            isOptionEqualToValue={(option, value) =>
+              String(option?.dir_id) === String(value?.dir_id)
+            }
+            value={
+              directions.find((d) => String(d.dir_id) === String(beneficiaireId)) ||
+              null
+            }
+            onChange={(_, newValue) => {
+              setBeneficiaireId(newValue?.dir_id || "");
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Direction (optionnel)"
+                placeholder="Laisser vide = direction du demandeur"
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={option.dir_id}>
                 <Box sx={{ width: "100%" }}>
                   <Typography variant="body2" fontWeight={500}>
-                    {option.emp_nom}
+                    {option.dir_libelle}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {option.emp_matricule}
-                    {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
-                    {option.emp_contact ? ` • ${option.emp_contact}` : ""}
+                    {option.site_nom || "—"} • {option.site_type || "—"}
                   </Typography>
-                  {loc && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                      <BusinessIcon sx={{ fontSize: 12 }} />
-                      <Typography variant="caption" color="text.secondary">
-                        {loc.site ? `${loc.site} → ` : ""}
-                        {loc.direction || "—"}
-                      </Typography>
-                    </Box>
-                  )}
                 </Box>
               </li>
-            );
-          }}
-          noOptionsText="Aucun employé trouvé"
-        />
+            )}
+            noOptionsText="Aucune direction trouvée"
+          />
+        )}
+
         <Button
           variant="contained"
           size="small"
           startIcon={<AddIcon />}
           onClick={ajouterLigne}
-          disabled={!articleCode || !quantite || Number(quantite) <= 0}
+          disabled={
+            !articleCode ||
+            !quantite ||
+            Number(quantite) <= 0 ||
+            (typeBeneficiaire === "EMPLOYE" &&
+              beneficiaireId &&
+              !employees.find((e) => String(e.emp_id) === String(beneficiaireId))) ||
+            (typeBeneficiaire === "DIRECTION" &&
+              beneficiaireId &&
+              !directions.find((d) => String(d.dir_id) === String(beneficiaireId)))
+          }
           sx={{ minWidth: 120, height: 40 }}
         >
           Ajouter

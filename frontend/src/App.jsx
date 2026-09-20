@@ -12,6 +12,7 @@ import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 
 import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
 import { MouvementsPage } from "./features/mouvement/pages/MouvementsPage";
+import { UnitesArticlePage } from "./features/mouvement/pages/UnitesArticlePage";
 import { InventairePage } from "./features/stock/pages/InventairePage";
 
 import { CommandesPage } from "./features/commandes/pages/CommandesPage";
@@ -82,6 +83,14 @@ function App() {
           element={
             <ProtectedRoute actions={["MOV_LIRE"]}>
               <MouvementsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventaire/unites"
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <UnitesArticlePage />
             </ProtectedRoute>
           }
         />
