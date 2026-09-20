@@ -10,12 +10,14 @@ import {
   Button,
   IconButton,
   Autocomplete,
+  Tooltip,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Person as PersonIcon,
   Inventory as InventoryIcon,
   Numbers as NumbersIcon,
@@ -50,16 +52,18 @@ const OBJETS_DEMANDE = [
 
 export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit = null }) {
   const notify = useNotification();
-  const { user, canCreateCommande } = usePermission();
+  const { user } = usePermission();
 
   const [activeStep, setActiveStep] = useState(0);
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [directions, setDirections] = useState([]);
   const [objet, setObjet] = useState("");
   const [lignes, setLignes] = useState([]);
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
   const [currentAttributions, setCurrentAttributions] = useState([]);
+  const [editingLineIndex, setEditingLineIndex] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const isEditMode = Boolean(commandeToEdit);
@@ -68,15 +72,27 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     (e) => String(e.emp_utilisateur_id) === String(user?.utilisateur_id)
   );
 
+  const directionDemandeur = directions.find((d) => {
+    if (employeeDemandeur?.direction_libelle && d.dir_libelle) {
+      return d.dir_libelle.trim().toLowerCase() === employeeDemandeur.direction_libelle.trim().toLowerCase();
+    }
+    if (employeeDemandeur?.emp_serv_id?.serv_dir_id) {
+      return String(d.dir_id) === String(employeeDemandeur.emp_serv_id.serv_dir_id);
+    }
+    return false;
+  }) || (directions.length > 0 ? directions[0] : null);
+
   useEffect(() => {
     if (!isOpen) return;
     Promise.all([
       apiClient.get(API_ENDPOINTS.ARTICLES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
+      apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
     ])
-      .then(([articlesRes, employeesRes]) => {
+      .then(([articlesRes, employeesRes, directionsRes]) => {
         setArticles(articlesRes.data.results ?? articlesRes.data);
         setEmployees(employeesRes.data.results ?? employeesRes.data);
+        setDirections(directionsRes.data.results ?? directionsRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen]);
@@ -88,17 +104,32 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       const lignesTransformees = (commandeToEdit.details || []).map((detail) => {
         const article = articles.find((a) => a.code_article === detail.article);
         const attributions = (detail.attributions || []).map((attr) => {
-          const employe = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
-          return {
-            employe_beneficiaire: attr.employe_beneficiaire,
-            beneficiaire_nom: employe?.emp_nom || attr.beneficiaire_nom || "—",
-            quantite: Number(attr.quantite),
-          };
-        });
+          if (attr.employe_beneficiaire) {
+            const employe = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
+            return {
+              type: "EMPLOYE",
+              beneficiaire_id: attr.employe_beneficiaire,
+              beneficiaire_nom: employe?.emp_nom || attr.beneficiaire_nom || "Employé",
+              beneficiaire: employe || { emp_id: attr.employe_beneficiaire, emp_nom: attr.beneficiaire_nom },
+              quantite: Number(attr.quantite),
+            };
+          } else if (attr.direction_beneficiaire) {
+            const direction = directions.find((d) => d.dir_id === attr.direction_beneficiaire);
+            return {
+              type: "DIRECTION",
+              beneficiaire_id: attr.direction_beneficiaire,
+              beneficiaire_nom: direction?.dir_libelle || attr.beneficiaire_nom || "Direction",
+              beneficiaire: direction || { dir_id: attr.direction_beneficiaire, dir_libelle: attr.beneficiaire_nom },
+              quantite: Number(attr.quantite),
+            };
+          }
+          return null;
+        }).filter(Boolean);
         return {
           article: detail.article,
           article_designation: detail.article_designation,
           stock_calcule: article?.stock_calcule ?? 0,
+          is_immobilisation: article?.is_immobilisation ?? true,
           quantite: Number(detail.quantite),
           attributions,
         };
@@ -110,19 +141,13 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
     resetCurrentStep();
     setActiveStep(0);
-  }, [isOpen, commandeToEdit, articles, employees]);
-
-  useEffect(() => {
-    if (!isOpen || activeStep !== 2 || employees.length === 0 || currentAttributions) return;
-    if (employeeDemandeur) {
-      setCurrentAttributions(employeeDemandeur);
-    }
-  }, [isOpen, activeStep, employees, currentAttributions, employeeDemandeur]);
+  }, [isOpen, commandeToEdit, articles, employees, directions]);
 
   const resetCurrentStep = () => {
     setCurrentArticle(null);
     setCurrentQuantite("");
     setCurrentAttributions([]);
+    setEditingLineIndex(null);
   };
 
   const handleClose = () => {
@@ -155,36 +180,88 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
   };
 
-  const creerNouvelleLigne = () => ({
-    article: currentArticle.code_article,
-    article_designation: currentArticle.designation,
-    stock_calcule: currentArticle.stock_calcule ?? 0,
-    quantite: Number(currentQuantite),
-    attributions: currentAttributions.map((a) => ({
-      employe_beneficiaire: a.employe.emp_id,
-      beneficiaire_nom: a.employe.emp_nom,
-      quantite: a.quantite,
-    })),
-  });
+  const creerLigneFormattee = () => {
+    const qteTotale = Number(currentQuantite);
+    const isImmob = currentArticle?.is_immobilisation !== false;
+
+    let finalAttributions = currentAttributions.map((a) => {
+      const isEmp = a.type === "EMPLOYE";
+      return {
+        type: a.type,
+        beneficiaire_id: isEmp ? a.beneficiaire?.emp_id : a.beneficiaire?.dir_id,
+        beneficiaire_nom: isEmp
+          ? (a.beneficiaire?.emp_nom || "Employé")
+          : (a.beneficiaire?.dir_libelle || "Direction"),
+        beneficiaire: a.beneficiaire,
+        quantite: Number(a.quantite),
+      };
+    });
+
+    const sommeAttribuee = finalAttributions.reduce((sum, a) => sum + (Number(a.quantite) || 0), 0);
+    const reste = qteTotale - sommeAttribuee;
+
+    // Répartition automatique du solde non attribué
+    if (reste > 0) {
+      if (isImmob && employeeDemandeur) {
+        finalAttributions.push({
+          type: "EMPLOYE",
+          beneficiaire_id: employeeDemandeur.emp_id,
+          beneficiaire_nom: employeeDemandeur.emp_nom,
+          beneficiaire: employeeDemandeur,
+          quantite: reste,
+        });
+      } else if (directionDemandeur) {
+        finalAttributions.push({
+          type: "DIRECTION",
+          beneficiaire_id: directionDemandeur.dir_id,
+          beneficiaire_nom: directionDemandeur.dir_libelle,
+          beneficiaire: directionDemandeur,
+          quantite: reste,
+        });
+      }
+    }
+
+    return {
+      article: currentArticle.code_article,
+      article_designation: currentArticle.designation,
+      stock_calcule: currentArticle.stock_calcule ?? 0,
+      is_immobilisation: isImmob,
+      quantite: qteTotale,
+      attributions: finalAttributions,
+    };
+  };
+
+  const sauvegarderLigneCourante = () => {
+    if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
+      notify.error("Données invalides. Veuillez sélectionner un article et une quantité valide.");
+      return false;
+    }
+
+    const nouvelleLigne = creerLigneFormattee();
+
+    if (editingLineIndex !== null) {
+      const updated = [...lignes];
+      updated[editingLineIndex] = nouvelleLigne;
+      setLignes(updated);
+      setEditingLineIndex(null);
+    } else {
+      setLignes([...lignes, nouvelleLigne]);
+    }
+
+    resetCurrentStep();
+    return true;
+  };
 
   const handleAjouterEtContinuer = () => {
-    if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
-      notify.error("Données invalides.");
-      return;
+    if (sauvegarderLigneCourante()) {
+      setActiveStep(0);
     }
-    setLignes([...lignes, creerNouvelleLigne()]);
-    resetCurrentStep();
-    setActiveStep(0);
   };
 
   const handleVoirRecap = () => {
-    if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
-      notify.error("Données invalides. Veuillez compléter les étapes précédentes.");
-      return;
+    if (sauvegarderLigneCourante()) {
+      setActiveStep(3);
     }
-    setLignes([...lignes, creerNouvelleLigne()]);
-    resetCurrentStep();
-    setActiveStep(3);
   };
 
   const handleAjouterAutreDepuisRecap = () => {
@@ -192,7 +269,35 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     setActiveStep(0);
   };
 
+  const handleModifierLigne = (index) => {
+    const ligne = lignes[index];
+    const article = articles.find((a) => a.code_article === ligne.article) || {
+      code_article: ligne.article,
+      designation: ligne.article_designation,
+      stock_calcule: ligne.stock_calcule,
+      is_immobilisation: ligne.is_immobilisation,
+    };
+
+    setCurrentArticle(article);
+    setCurrentQuantite(String(ligne.quantite));
+
+    const attributionsReconstituees = (ligne.attributions || []).map((a) => ({
+      type: a.type,
+      beneficiaire: a.beneficiaire || (a.type === "EMPLOYE"
+        ? employees.find((e) => e.emp_id === a.beneficiaire_id) || { emp_id: a.beneficiaire_id, emp_nom: a.beneficiaire_nom }
+        : directions.find((d) => d.dir_id === a.beneficiaire_id) || { dir_id: a.beneficiaire_id, dir_libelle: a.beneficiaire_nom }),
+      quantite: a.quantite,
+    }));
+
+    setCurrentAttributions(attributionsReconstituees);
+    setEditingLineIndex(index);
+    setActiveStep(1);
+  };
+
   const handleRetirerLigne = (index) => {
+    if (editingLineIndex === index) {
+      resetCurrentStep();
+    }
     setLignes(lignes.filter((_, i) => i !== index));
   };
 
@@ -213,12 +318,23 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     setSaving(true);
     try {
       const detailsPayload = lignes.map((ligne) => {
-        const detail = { article: ligne.article, quantite: ligne.quantite };
+        const detail = {
+          article: ligne.article,
+          quantite: ligne.quantite,
+        };
         if (ligne.attributions && ligne.attributions.length > 0) {
-          detail.attributions = ligne.attributions.map((a) => ({
-            employe_beneficiaire: a.employe_beneficiaire,
-            quantite: a.quantite,
-          }));
+          detail.attributions = ligne.attributions.map((a) => {
+            const item = {
+              quantite: a.quantite,
+              quantite_demandee: a.quantite,
+            };
+            if (a.type === "EMPLOYE") {
+              item.employe_beneficiaire = a.beneficiaire_id;
+            } else {
+              item.direction_beneficiaire = a.beneficiaire_id;
+            }
+            return item;
+          });
         }
         return detail;
       });
@@ -338,7 +454,9 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               attributions={currentAttributions}
               setAttributions={setCurrentAttributions}
               employees={employees}
+              directions={directions}
               demandeurParDefaut={employeeDemandeur}
+              articleCourant={currentArticle}
             />
           </Box>
         );
@@ -375,8 +493,8 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                 columns={[
                   { label: "Article" },
                   { label: "Quantité", align: "center", width: 100 },
-                  { label: "Bénéficiaire", width: 200 },
-                  { label: "", align: "center", width: 60 },
+                  { label: "Bénéficiaire", width: 220 },
+                  { label: "Actions", align: "center", width: 90 },
                 ]}
               >
                 {lignes.map((ligne, index) => (
@@ -392,25 +510,30 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                       {ligne.attributions && ligne.attributions.length > 0 ? (
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                           {ligne.attributions.map((attr, idx) => {
-                            const employeComplet = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
-                            const service = employeComplet?.emp_serv_id;
-                            const direction = service?.serv_dir_id;
-                            const site = direction?.site;
+                            const isEmploye = attr.type === "EMPLOYE";
+                            const employeComplet = isEmploye
+                              ? employees.find((e) => e.emp_id === attr.beneficiaire_id) || attr.beneficiaire
+                              : null;
+                            const directionLibelle = isEmploye
+                              ? employeComplet?.direction_libelle
+                              : (attr.beneficiaire_nom || attr.beneficiaire?.dir_libelle);
+                            const siteNom = isEmploye ? employeComplet?.site_nom : attr.beneficiaire?.site_nom;
+
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>
                                 <Chip
-                                  label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                                  label={`${attr.beneficiaire_nom || (isEmploye ? "Employé" : "Direction")} (${attr.quantite})`}
                                   size="small"
-                                  color="primary"
+                                  color={isEmploye ? "primary" : "secondary"}
                                   variant="outlined"
-                                  icon={<PersonIcon />}
+                                  icon={isEmploye ? <PersonIcon /> : <BusinessIcon />}
                                 />
-                                {(direction || site) && (
+                                {(directionLibelle || siteNom) && (
                                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3, ml: 1 }}>
                                     <BusinessIcon sx={{ fontSize: 12 }} color="action" />
                                     <Typography variant="caption" color="text.secondary">
-                                      {site ? `${site.site_nom} → ` : ""}
-                                      {direction?.dir_libelle || "—"}
+                                      {siteNom ? `${siteNom} → ` : ""}
+                                      {directionLibelle || "—"}
                                     </Typography>
                                   </Box>
                                 )}
@@ -420,7 +543,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                         </Box>
                       ) : (
                         <Chip
-                          label={employeeDemandeur ? `${employeeDemandeur.emp_nom} (${ligne.quantite})` : "Aucun bénéficiaire"}
+                          label={employeeDemandeur ? `${employeeDemandeur.emp_nom} (${ligne.quantite})` : "Demandeur"}
                           size="small"
                           variant="outlined"
                           color="default"
@@ -429,9 +552,18 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                       )}
                     </td>
                     <td align="center">
-                      <IconButton size="small" color="error" onClick={() => handleRetirerLigne(index)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
+                        <Tooltip title="Modifier">
+                          <IconButton size="small" color="primary" onClick={() => handleModifierLigne(index)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Retirer">
+                          <IconButton size="small" color="error" onClick={() => handleRetirerLigne(index)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </td>
                   </tr>
                 ))}
@@ -507,9 +639,8 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       {!employeeDemandeur && employees.length > 0 && (
         <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
           <Typography variant="body2" color="primary.main">
-            ⚠️ Votre compte utilisateur n'est pas lié à un employé.
+            Votre compte utilisateur n'est pas lié à un employé.
             Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
-            Veuillez contacter l'administrateur.
           </Typography>
         </Box>
       )}

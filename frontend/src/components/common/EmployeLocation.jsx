@@ -4,11 +4,27 @@ import { Business as BusinessIcon } from "@mui/icons-material";
 export function EmployeLocation({ employe, showService = true }) {
   if (!employe) return null;
 
-  const service = employe.emp_serv_id;
-  const direction = service?.serv_dir_id;
-  const site = direction?.site;
+  const serviceLibelle =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_libelle
+      : employe.service_libelle;
 
-  if (!direction && !site) {
+  const directionLibelle =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.dir_libelle
+      : employe.direction_libelle;
+
+  const siteNom =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.site?.site_nom
+      : employe.site_nom;
+
+  const siteType =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.site?.site_type
+      : employe.site_type;
+
+  if (!directionLibelle && !siteNom) {
     return (
       <Typography variant="caption" color="text.secondary">
         Non localisé
@@ -18,23 +34,23 @@ export function EmployeLocation({ employe, showService = true }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
-      {site && (
+      {siteNom && (
         <Chip
-          label={`${site.site_type === "SIEGE" ? "Siège" : "Agence"}: ${site.site_nom}`}
+          label={`${siteType === "SIEGE" ? "Siège" : "Agence"}: ${siteNom}`}
           size="small"
-          color={site.site_type === "SIEGE" ? "primary" : "default"}
+          color={siteType === "SIEGE" ? "primary" : "default"}
           variant="outlined"
           sx={{ height: 20, fontSize: 10 }}
         />
       )}
-      {direction && (
+      {directionLibelle && (
         <Typography variant="caption" color="text.secondary">
-          {direction.dir_libelle}
+          {directionLibelle}
         </Typography>
       )}
-      {showService && service && (
+      {showService && serviceLibelle && (
         <Typography variant="caption" color="text.secondary">
-          {service.serv_libelle}
+          {serviceLibelle}
         </Typography>
       )}
     </Box>
@@ -43,13 +59,30 @@ export function EmployeLocation({ employe, showService = true }) {
 
 export function getEmployeLocation(employe) {
   if (!employe) return null;
-  const service = employe.emp_serv_id;
-  const direction = service?.serv_dir_id;
-  const site = direction?.site;
+  const serviceLibelle =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_libelle
+      : employe.service_libelle;
+
+  const directionLibelle =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.dir_libelle
+      : employe.direction_libelle;
+
+  const siteNom =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.site?.site_nom
+      : employe.site_nom;
+
+  const siteType =
+    typeof employe.emp_serv_id === "object"
+      ? employe.emp_serv_id?.serv_dir_id?.site?.site_type
+      : employe.site_type;
+
   return {
-    service: service?.serv_libelle,
-    direction: direction?.dir_libelle,
-    site: site?.site_nom,
-    siteType: site?.site_type,
+    service: serviceLibelle,
+    direction: directionLibelle,
+    site: siteNom,
+    siteType: siteType,
   };
 }

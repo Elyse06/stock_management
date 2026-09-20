@@ -31,7 +31,8 @@ class AttributionValidationSerializer(serializers.Serializer):
     motif_refus = serializers.CharField(
         max_length=255,
         required=False,
-        allow_blank=True
+        allow_blank=True,
+        allow_null=True
     )
 
     def validate(self, attrs):
@@ -39,11 +40,6 @@ class AttributionValidationSerializer(serializers.Serializer):
             if attrs.get('quantite_validee') is None or attrs['quantite_validee'] <= 0:
                 raise serializers.ValidationError({
                     'quantite_validee': "Obligatoire et > 0 pour une validation."
-                })
-        elif attrs['statut'] == 'REFUSEE':
-            if not attrs.get('motif_refus'):
-                raise serializers.ValidationError({
-                    'motif_refus': "Obligatoire pour un refus."
                 })
         return attrs
 

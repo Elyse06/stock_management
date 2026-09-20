@@ -15,6 +15,7 @@ export const API_ENDPOINTS = {
   MAGASINS: "/api/stock/magasins/",
   MOUVEMENTS: "/api/stock/mouvements/",
   INVENTAIRES: "/api/stock/inventaires/",
+  UNITES_ARTICLE: "/api/stock/unites-article/",
 
   // Commandes
   COMMANDES: "/api/commandes/commandes/",

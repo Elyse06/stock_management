@@ -98,6 +98,12 @@ const MENU_STRUCTURE = [
         actions: ["MOV_LIRE"],
       },
       {
+        path: "/inventaire/unites",
+        label: "Unités d'article",
+        icon: <ListAltIcon fontSize="small" />,
+        actions: ["CAT_LIRE"],
+      },
+      {
         path: "/inventaire/sessions",
         label: "Inventaires",
         icon: <AssignmentIcon fontSize="small" />,

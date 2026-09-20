@@ -249,28 +249,31 @@ class UniteArticle(models.Model):
         identifiant = self.numero_de_serie or f"unité #{self.unite_id}"
         return f"{self.article.designation} - {identifiant} ({self.get_statut_display()})"
 
-    def clean(self):
-        if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
-            if not self.numero_de_serie:
+        def clean(self):
+            if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
+                if not self.numero_de_serie:
+                    raise ValidationError({
+                        "numero_de_serie": "Requis pour un article suivi par numéro de série."
+                    })
+            elif self.numero_de_serie:
                 raise ValidationError({
-                    "numero_de_serie": "Requis pour un article suivi par numéro de série."
+                    "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
                 })
-        elif self.numero_de_serie:
-            raise ValidationError({
-                "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
-            })
+            
+            has_emp = self.employe_beneficiaire_id is not None
+            has_dir = self.direction_beneficiaire_id is not None
 
-        if self.statut == self.Statut.ATTRIBUE:
-            if bool(self.employe_attribue) == bool(self.direction_attribue):
-                raise ValidationError(
-                    "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
-                    "un employé OU une direction (pas les deux/aucun)."
-                )
-        else:
-            if self.employe_attribue or self.direction_attribue:
-                raise ValidationError(
-                    "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
-                )
+            if self.statut == self.Statut.ATTRIBUE:
+                if has_emp == has_dir:
+                    raise ValidationError(
+                        "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
+                        "un employé OU une direction (pas les deux, ni aucun)."
+                    )
+            else:
+                if has_emp or has_dir:
+                    raise ValidationError(
+                        "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
+                    )
 
     @property
     def employe_attribue(self):

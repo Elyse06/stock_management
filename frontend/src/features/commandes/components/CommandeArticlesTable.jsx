@@ -1,7 +1,7 @@
-// src/features/commandes/components/CommandeArticlesTable.jsx
 import { Box, Typography, Chip, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
-import { Person as PersonIcon } from "@mui/icons-material";
+import { Person as PersonIcon, Business as BusinessIcon } from "@mui/icons-material";
 import { CodeChip } from "../../../components/common/CodeChip";
+import { StatutAttributionBadge } from "../../../components/common/StatutAttributionBadge";
 
 export function CommandeArticlesTable({ commande, articles }) {
   const getArticle = (codeArticle) =>
@@ -75,22 +75,18 @@ export function CommandeArticlesTable({ commande, articles }) {
                   </TableCell>
                   <TableCell>
                     {detail.attributions?.length > 0 ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 0.5,
-                        }}
-                      >
-                        {detail.attributions.map((attr) => (
-                          <Chip
-                            key={attr.id}
-                            label={`${attr.beneficiaire_nom} (${attr.quantite})`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            icon={<PersonIcon />}
-                          />
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                      {detail.attributions.map((attr) => (
+                          <Box key={attr.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <Chip
+                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                              size="small"
+                              color={attr.beneficiaire_type === "EMPLOYE" ? "primary" : "secondary"}
+                              variant="outlined"
+                              icon={attr.beneficiaire_type === "EMPLOYE" ? <PersonIcon /> : <BusinessIcon />}
+                            />
+                            <StatutAttributionBadge statut={attr.statut} />
+                          </Box>
                         ))}
                       </Box>
                     ) : (

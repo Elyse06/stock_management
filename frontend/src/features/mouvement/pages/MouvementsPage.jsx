@@ -24,6 +24,7 @@ const TYPES = [
   { value: "SORTIE", label: "Sorties" },
   { value: "TRANSFERT", label: "Transferts" },
   { value: "AJUSTEMENT", label: "Ajustements" },
+  { value: "RETOUR", label: "Retours" },
 ];
 
 export function MouvementsPage() {

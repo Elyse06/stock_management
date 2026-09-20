@@ -32,6 +32,7 @@ export function ArticleListPage() {
 
   const [search, setSearch] = useState("");
   const [categorieFiltre, setCategorieFiltre] = useState("");
+  const [typeFiltre, setTypeFiltre] = useState("");
   const [articleToEdit, setArticleToEdit] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
@@ -43,6 +44,7 @@ export function ArticleListPage() {
         pageSize: paginationModel.pageSize,
         search,
         categorie: categorieFiltre,
+        is_immobilisation: typeFiltre ? typeFiltre === "true" : undefined,
       },
     ],
     queryFn: async () => {
@@ -52,6 +54,7 @@ export function ArticleListPage() {
       };
       if (search) params.search = search;
       if (categorieFiltre) params.categorie = categorieFiltre;
+      if (typeFiltre) params.is_immobilisation = typeFiltre === "true";
 
       const { data } = await apiClient.get(API_ENDPOINTS.ARTICLES, { params });
       return {
@@ -80,6 +83,11 @@ export function ArticleListPage() {
 
   const handleCategorieChange = (value) => {
     setCategorieFiltre(value);
+    resetPage();
+  };
+
+  const handleTypeChange = (value) => {
+    setTypeFiltre(value);
     resetPage();
   };
 
@@ -187,8 +195,9 @@ export function ArticleListPage() {
         onReset={() => {
           setSearch("");
           setCategorieFiltre("");
+          setTypeFiltre("");
         }}
-        hasFilters={Boolean(search || categorieFiltre)}
+        hasFilters={Boolean(search || categorieFiltre || typeFiltre)}
       >
         <TextField
           placeholder="Rechercher"
@@ -213,6 +222,17 @@ export function ArticleListPage() {
           onChange={handleCategorieChange}
           options={categoryOptions}
           minWidth={200}
+        />
+        <SelectFilter
+          label="Type"
+          value={typeFiltre}
+          onChange={handleTypeChange}
+          options={[
+            { value: "", label: "Tous les types" },
+            { value: "true", label: "Immobilisations" },
+            { value: "false", label: "Fournitures" },
+          ]}
+          minWidth={150}
         />
       </FilterBar>
 
