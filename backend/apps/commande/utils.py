@@ -2,7 +2,6 @@ import json
 
 
 def format_employee_data(employee):
-    """Formate les données d'un employé avec sa localisation complète."""
     if not employee:
         return None
 
@@ -29,7 +28,6 @@ def generate_attribution_qr_payload(attribution) -> str:
     if hasattr(attribution, "get_qr_payload"):
         return json.dumps(attribution.get_qr_payload(), default=str)
     
-    # Fallback minimal si get_qr_payload n'existe pas
     return json.dumps({
         "code_unique": str(attribution.code_unique),
         "quantite": float(attribution.quantite),
