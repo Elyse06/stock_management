@@ -239,13 +239,30 @@ class MouvementSerializer(serializers.ModelSerializer):
                                 statut=UniteArticle.Statut.EN_STOCK
                             )
                             unite.attribuer(
-                                employe=employe,
+                                beneficiaire=employe,
                                 mouvement_sortie=detail_mouvement
                             )
                         except UniteArticle.DoesNotExist:
                             raise serializers.ValidationError(
                                 f"L'unité avec le N° série '{numero}' n'existe pas ou n'est plus en stock."
                             )
+                        
+            elif (
+                hasattr(article, 'is_immobilisation') and article.is_immobilisation
+                and article.mode_suivi != Article.ModeSuivi.NUMERO_SERIE
+                and mouvement.type_mouvement == Mouvement.Type.ENTREE
+            ):
+                quantite_a_creer = int(detail_mouvement.quantite)
+                unites_a_creer = [
+                    UniteArticle(
+                        article=article,
+                        statut=UniteArticle.Statut.EN_STOCK,
+                        etat=UniteArticle.Etat.BON,
+                        mouvement_entree=detail_mouvement,
+                    )
+                    for _ in range(quantite_a_creer)
+                ]
+                UniteArticle.objects.bulk_create(unites_a_creer)
         
         return mouvement
 

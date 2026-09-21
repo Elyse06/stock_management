@@ -19,9 +19,9 @@ def valider_session_inventaire(session: InventaireSession):
     if session.statut == InventaireSession.Statut.VALIDE:
         raise serializers.ValidationError("Cet inventaire a déjà été validé.")
     
-    if session.statut != InventaireSession.Statut.EN_COURS:
+    if session.statut != InventaireSession.Statut.EN_ATTENTE:
         raise serializers.ValidationError(
-            "Seules les sessions EN_COURS peuvent être validées."
+            "Seules les sessions EN_ATTENTE peuvent être validées."
         )
     
     mouvement_gain = None
@@ -92,20 +92,21 @@ def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=Non
     propositions = ligne.propositions_series or {}
     
     for ajout in propositions.get('ajouts', []):
+        detail_mouvement = None
+        if mouvement_gain:
+            detail_mouvement = DetailMouvement.objects.create(
+                mouvement=mouvement_gain,
+                article=article,
+                quantite=1,
+            )
+
         unite = UniteArticle.objects.create(
             article=article,
             numero_de_serie=ajout['numero_serie'],
             statut=UniteArticle.Statut.EN_STOCK,
             etat=ajout['etat'],
-            mouvement_entree=mouvement_gain, 
+            mouvement_entree=detail_mouvement,
         )
-        
-        if mouvement_gain:
-            DetailMouvement.objects.create(
-                mouvement=mouvement_gain,
-                article=article,
-                quantite=1,
-            )
     
     for retrait in propositions.get('retraits', []):
         try:
@@ -119,17 +120,18 @@ def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=Non
                 unite.statut = UniteArticle.Statut.EN_STOCK
                 unite.employe_beneficiaire = None
                 unite.direction_beneficiaire = None
-                unite.mouvement_sortie = mouvement_perte
+
+                detail_mouvement = None
+                if mouvement_perte:
+                    detail_mouvement = DetailMouvement.objects.create(
+                        mouvement=mouvement_perte,
+                        article=article,
+                        quantite=1,
+                    )
+                unite.mouvement_sortie = detail_mouvement
             
             unite.full_clean()
             unite.save()
-            
-            if mouvement_perte:
-                DetailMouvement.objects.create(
-                    mouvement=mouvement_perte,
-                    article=article,
-                    quantite=1,
-                )
         
         except UniteArticle.DoesNotExist:
             raise serializers.ValidationError(

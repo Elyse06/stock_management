@@ -71,89 +71,25 @@ class CommandeTraitementSerializer(serializers.Serializer):
         details_data = attrs.get("details", [])
         validations = attrs.get("validations", [])
 
-        # Validation du magasin source
         if nouveau_statut == Commande.Statut.VALIDEE and not magasin_source:
             raise serializers.ValidationError({
                 "magasin_source": "Le magasin source est requis pour valider la commande."
             })
 
-        # validation des décisions d'attributions
-        if nouveau_statut == Commande.Statut.VALIDEE:
-            attributions_commande = AttributionDetailCommande.objects.filter(
-                detail_commande__commande=commande
-            )
-
-            # 1. Vérifier que toutes les attributions sont traitées
-            attributions_traitees_ids = {v['attribution_id'] for v in validations}
-            attributions_commande_ids = set(
-                attributions_commande.values_list('id', flat=True)
-            )
-            attributions_manquantes = attributions_commande_ids - attributions_traitees_ids
-
-            if attributions_manquantes:
-                raise serializers.ValidationError({
-                    "validations": (
-                        f"Attributions non traitées : {sorted(attributions_manquantes)}. "
-                        f"Chaque attribution doit être validée ou refusée."
-                    )
-                })
-
-            # 2. Vérifier qu'aucune attribution étrangère n'est incluse
-            attributions_etrangeres = attributions_traitees_ids - attributions_commande_ids
-            if attributions_etrangeres:
-                raise serializers.ValidationError({
-                    "validations": (
-                        f"Attributions étrangères à la commande : {sorted(attributions_etrangeres)}."
-                    )
-                })
-
-            # 3. Vérifier qu'au moins une attribution est validée
-            validations_validees = [v for v in validations if v['statut'] == 'VALIDEE']
-            if not validations_validees:
-                raise serializers.ValidationError({
-                    "validations": (
-                        "Au moins une attribution doit être validée pour valider la commande."
-                    )
-                })
-
-            # 4. Validation des unités pour les immobilisations validées
-            for validation in validations_validees:
-                try:
-                    attribution = attributions_commande.get(id=validation['attribution_id'])
-                except AttributionDetailCommande.DoesNotExist:
-                    continue
-
-                article = attribution.detail_commande.article
-                quantite_validee = int(validation['quantite_validee'])
-
-                # Vérifier que quantite_validee <= quantite_demandee
-                if quantite_validee > attribution.quantite_demandee:
-                    raise serializers.ValidationError({
-                        "validations": (
-                            f"Attribution #{validation['attribution_id']}: "
-                            f"la quantité validée ({quantite_validee}) ne peut pas dépasser "
-                            f"la quantité demandée ({attribution.quantite_demandee})."
-                        )
-                    })
-
-                if article.is_immobilisation:
-                    # Vérifier qu'il y a assez d'unités en stock
-                    unites_disponibles = UniteArticle.objects.filter(
-                        article=article,
-                        statut=UniteArticle.Statut.EN_STOCK
-                    ).count()
-
-                    if unites_disponibles < quantite_validee:
-                        raise serializers.ValidationError({
-                            "validations": (
-                                f"Stock insuffisant pour '{article.designation}' "
-                                f"(attribution #{validation['attribution_id']}): "
-                                f"{quantite_validee} demandé(s), "
-                                f"{unites_disponibles} disponible(s)."
+        # 1. Calculer la quantité validée totale par detail_id
+        quantites_validees_par_detail = {}
+        if validations:
+            for v in validations:
+                if v.get('statut') == 'VALIDEE':
+                    for detail in commande.details.all():
+                        if detail.attributions.filter(id=v['attribution_id']).exists():
+                            qte = v.get('quantite_validee') or 0
+                            quantites_validees_par_detail[detail.id] = (
+                                quantites_validees_par_detail.get(detail.id, 0) + int(qte)
                             )
-                        })
+                            break
 
-        # Validation existante des détails (unités à attribuer)
+        # 2. Validation des détails et des unités
         if details_data and nouveau_statut == Commande.Statut.VALIDEE:
             for detail_data in details_data:
                 try:
@@ -165,34 +101,46 @@ class CommandeTraitementSerializer(serializers.Serializer):
                     raise serializers.ValidationError({
                         "details": f"Détail #{detail_data['detail_id']} introuvable."
                     })
-
+                
                 article = detail.article
                 unites_ids = detail_data.get("unites_a_attribuer", [])
+                qte_validee_totale = quantites_validees_par_detail.get(detail.id, 0)
 
-                if article.is_immobilisation:
+                # 🆕 Seules les immobilisations suivies par NUMERO_SERIE nécessitent une sélection manuelle d'unités
+                if article.is_immobilisation and article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE:
+                    if qte_validee_totale == 0:
+                        if unites_ids:
+                            raise serializers.ValidationError({
+                                "details": (
+                                    f"Aucune unité n'a été validée pour '{article.designation}', "
+                                    f"mais des unités ont été fournies."
+                                )
+                            })
+                        continue
+                    
                     if not unites_ids:
                         raise serializers.ValidationError({
                             "details": (
-                                f"L'article '{article.designation}' nécessite "
-                                f"{int(detail.quantite)} unité(s) à attribuer."
+                                f"L'article '{article.designation}' (suivi par n° de série) nécessite "
+                                f"{qte_validee_totale} unité(s) à attribuer."
                             )
                         })
-
-                    if len(unites_ids) != int(detail.quantite):
+                    
+                    if len(unites_ids) != qte_validee_totale:
                         raise serializers.ValidationError({
                             "details": (
                                 f"L'article '{article.designation}' nécessite "
-                                f"exactement {int(detail.quantite)} unité(s), "
+                                f"exactement {qte_validee_totale} unité(s) (quantité validée), "
                                 f"{len(unites_ids)} fournie(s)."
                             )
                         })
-
+                    
                     unites_existantes = UniteArticle.objects.filter(
                         unite_id__in=unites_ids,
                         article=article,
                         statut=UniteArticle.Statut.EN_STOCK,
                     )
-
+                    
                     if len(unites_existantes) != len(unites_ids):
                         raise serializers.ValidationError({
                             "details": (
@@ -200,25 +148,22 @@ class CommandeTraitementSerializer(serializers.Serializer):
                                 f"n'existent pas ou ne sont pas en stock."
                             )
                         })
-
-                    if article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE:
-                        unites_sans_serie = unites_existantes.filter(
-                            numero_de_serie__isnull=True
-                        )
-                        if unites_sans_serie.exists():
-                            ids_manquants = list(
-                                unites_sans_serie.values_list('unite_id', flat=True)
+                    
+                    unites_sans_serie = unites_existantes.filter(numero_de_serie__isnull=True)
+                    if unites_sans_serie.exists():
+                        ids_manquants = list(unites_sans_serie.values_list('unite_id', flat=True))
+                        raise serializers.ValidationError({
+                            "details": (
+                                f"Les unités {ids_manquants} pour l'article '{article.designation}' "
+                                f"n'ont pas de numéro de série."
                             )
-                            raise serializers.ValidationError({
-                                "details": (
-                                    f"Les unités {ids_manquants} pour l'article "
-                                    f"'{article.designation}' n'ont pas de numéro de série "
-                                    f"(obligatoire pour ce mode de suivi)."
-                                )
-                            })
-
+                        })
+                
+                # Pour les immobilisations en mode QUANTITE ou les fournitures, 
+                # on n'exige PAS de sélection manuelle d'unités (le backend les gère automatiquement).
+                
         return attrs
-
+    
     @transaction.atomic
     def save(self, **kwargs):
         commande = self.context["commande"]

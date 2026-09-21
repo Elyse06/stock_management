@@ -305,11 +305,11 @@ class UniteArticle(models.Model):
 
     def attribuer(self, beneficiaire, mouvement_sortie):
         if isinstance(beneficiaire, Employer):
-            self.employe_attribue = beneficiaire
-            self.direction_attribue = None
+            self.employe_beneficiaire = beneficiaire
+            self.direction_beneficiaire = None
         elif isinstance(beneficiaire, Direction):
-            self.direction_attribue = beneficiaire
-            self.employe_attribue = None
+            self.direction_beneficiaire = beneficiaire
+            self.employe_beneficiaire = None
         else:
             raise ValidationError("beneficiaire doit être un Employer ou une Direction.")
  
