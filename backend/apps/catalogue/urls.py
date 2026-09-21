@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import (
+from apps.catalogue.views import (
     ArticleFournisseurViewSet,
     ArticleViewSet,
     CategorieViewSet,

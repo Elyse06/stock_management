@@ -1,0 +1,255 @@
+from apps.catalogue.models import Article
+from apps.common.permissions import HasAction, HasActionByMethod
+from apps.stock.models import (
+    DetailMouvement,
+    InventaireSession,
+    LigneInventaire,
+    Magasin,
+    Mouvement,
+    UniteArticle,
+)
+from apps.stock.serializers import (
+    DetailMouvementSerializer,
+    InventaireSessionSerializer,
+    LigneInventaireSerializer,
+    MagasinSerializer,
+    MouvementSerializer,
+    RetourUniteSerializer,
+    TransfertUniteSerializer,
+    UniteArticleSerializer,
+    retourner_unite_au_stock,
+    transferer_unite,
+    valider_session_inventaire,
+)
+from django.db.models import IntegerField, Q, Sum, Value
+from django.db.models.functions import Coalesce
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+
+class MagasinViewSet(viewsets.ModelViewSet):
+    queryset = Magasin.objects.all().select_related("localite")
+    serializer_class = MagasinSerializer
+    permission_classes = [
+        HasActionByMethod.for_methods(
+                    GET=("CAT_LIRE",),
+                    HEAD=("CAT_LIRE",),
+                    OPTIONS=("CAT_LIRE",),
+                    **{"*": ("INV_GERE",)},
+                )
+    ]
+
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[HasAction.for_actions("INV_LIRE")],
+    )
+    def stocks(self, request, pk=None):
+        magasin = self.get_object()
+        entrees = DetailMouvement.objects.filter(
+            mouvement__type_mouvement__in=[Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT],
+            mouvement__magasin_destination=magasin,
+        ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
+        sorties = DetailMouvement.objects.filter(
+            mouvement__type_mouvement__in=[Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT],
+            mouvement__magasin_source=magasin,
+        ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
+        ajustements_plus = DetailMouvement.objects.filter(
+            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
+            mouvement__magasin_destination=magasin,
+            mouvement__magasin_source__isnull=True,
+        ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
+        ajustements_moins = DetailMouvement.objects.filter(
+            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
+            mouvement__magasin_source=magasin,
+            mouvement__magasin_destination__isnull=True,
+        ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
+
+        entrees_dict = {e["article"]: e["total"] for e in entrees}
+        sorties_dict = {s["article"]: s["total"] for s in sorties}
+        ajust_plus_dict = {a["article"]: a["total"] for a in ajustements_plus}
+        ajust_moins_dict = {a["article"]: a["total"] for a in ajustements_moins}
+
+        all_article_ids = set(
+            list(entrees_dict.keys()) +
+            list(sorties_dict.keys()) +
+            list(ajust_plus_dict.keys()) +
+            list(ajust_moins_dict.keys())
+        )
+
+        stocks = {}
+        for article in Article.objects.filter(code_article__in=all_article_ids):
+            stock = (
+                entrees_dict.get(article.code_article, 0) -
+                sorties_dict.get(article.code_article, 0) +
+                ajust_plus_dict.get(article.code_article, 0) -
+                ajust_moins_dict.get(article.code_article, 0)
+            )
+            stocks[article.code_article] = {
+                "article_code": article.code_article,
+                "article_designation": article.designation,
+                "stock_theorique": stock,
+            }
+        return Response(stocks)
+
+
+class MouvementViewSet(viewsets.ModelViewSet):
+    queryset = (
+        Mouvement.objects.all()
+        .select_related("magasin_source", "magasin_destination")
+        .prefetch_related("details__article", "details__employe_beneficiaire")
+    )
+    serializer_class = MouvementSerializer
+    permission_classes = [
+        HasActionByMethod.for_methods(
+            GET=("MOV_LIRE",),
+            HEAD=("MOV_LIRE",),
+            OPTIONS=("MOV_LIRE",),
+            **{"*": ("INV_GERE",)},
+        )
+    ]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["type_mouvement", "magasin_source", "magasin_destination"]
+
+
+class DetailMouvementViewSet(viewsets.ModelViewSet):
+    queryset = DetailMouvement.objects.select_related(
+        'employe_beneficiaire', 'direction_beneficiaire', 'mouvement', 'article', 'fournisseur'
+    ).all().prefetch_related("unites_creees", "unites_attribuees")
+    serializer_class = DetailMouvementSerializer
+    permission_classes = [HasActionByMethod.for_methods(
+        GET=("MOV_LIRE",),
+        HEAD=("MOV_LIRE",),
+        OPTIONS=("MOV_LIRE",),
+        **{"*": ("INV_GERE",)},
+    )]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["mouvement", "article", "employe_beneficiaire", "fournisseur"]
+
+
+class UniteArticleViewSet(viewsets.ModelViewSet):
+    queryset = UniteArticle.objects.all().select_related(
+        "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire"
+    )
+    serializer_class = UniteArticleSerializer
+    permission_classes = [HasActionByMethod.for_methods(
+        GET=("CAT_LIRE", "INV_LIRE"),
+        HEAD=("CAT_LIRE", "INV_LIRE"),
+        OPTIONS=("CAT_LIRE", "INV_LIRE"),
+        **{"*": ("INV_GERE",)},
+    )]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["article", "statut", "employe_beneficiaire"]
+
+    @action(detail=True, methods=["post"])
+    def retourner_stock(self, request, pk=None):
+        unite = self.get_object()
+        if unite.statut != UniteArticle.Statut.ATTRIBUE:
+            return Response(
+                {"error": "Cette unité n'est pas attribuée."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        unite.retourner_stock()
+        serializer = self.get_serializer(unite)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='retourner-stock')
+    def retourner_stock(self, request, unite_id=None):
+        """Retourne une unité attribuée au stock."""
+        data = request.data.copy()
+        data['unite_id'] = unite_id
+        
+        serializer = RetourUniteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            mouvement = serializer.save()
+        except Exception as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Unité retournée au stock avec succès.',
+            'mouvement_id': mouvement.mouvement_id,
+            'unite': UniteArticleSerializer(
+                UniteArticle.objects.get(unite_id=unite_id)
+            ).data,
+        })
+    
+    @action(detail=True, methods=['post'], url_path='transferer')
+    def transferer(self, request, unite_id=None):
+        data = request.data.copy()
+        data['unite_id'] = unite_id
+        
+        serializer = TransfertUniteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            mouvements = serializer.save()
+        except Exception as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Unité transférée avec succès.',
+            'mouvement_retour_id': mouvements['retour'].mouvement_id,
+            'mouvement_sortie_id': mouvements['sortie'].mouvement_id,
+            'unite': UniteArticleSerializer(
+                UniteArticle.objects.get(unite_id=unite_id)
+            ).data,
+        })
+
+
+class InventaireSessionViewSet(viewsets.ModelViewSet):
+    queryset = (
+        InventaireSession.objects.all()
+        .select_related("magasin", "direction")
+        .prefetch_related("lignes__article")
+    )
+    serializer_class = InventaireSessionSerializer
+    permission_classes = [HasActionByMethod.for_methods(
+        GET=("INV_LIRE",),
+        HEAD=("INV_LIRE",),
+        OPTIONS=("INV_LIRE",),
+        **{"*": ("INV_GERE",)},
+    )]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["statut", "magasin", "direction"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        service_id = self.request.query_params.get('service')
+        if service_id:
+            qs = qs.filter(direction_id=service_id)
+        return qs
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[HasAction.for_actions("INV_VAL")],
+        url_path="valider"
+    )
+    def valider(self, request, pk=None):
+        session = self.get_object()
+        
+        try:
+            mouvement = valider_session_inventaire(session)
+        except serializers.ValidationError as e:
+            return Response({'detail': e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
+
+
+class LigneInventaireViewSet(viewsets.ModelViewSet):
+    queryset = LigneInventaire.objects.all().select_related("session", "article")
+    serializer_class = LigneInventaireSerializer
+    permission_classes = InventaireSessionViewSet.permission_classes
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["session", "article"]

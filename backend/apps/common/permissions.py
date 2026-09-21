@@ -56,7 +56,7 @@ class HasAction(BasePermission):
 
 
 class HasActionByMethod(HasAction):
-    actions_par_methode = {}
+    actions_par_methode = {}  # noqa: RUF012
 
     def has_permission(self, request, view):
         self.actions_autorisees = self.actions_par_methode.get(
@@ -74,10 +74,6 @@ class HasActionByMethod(HasAction):
 
 
 class IsOwnerOrProfil(BasePermission):
-    """
-    Autorise si l'utilisateur est le proprietaire de l'objet (via `owner_field`)
-    ou s'il a l'un des profils autorises. A utiliser au niveau objet.
-    """
     owner_field = "employe_demandeur"
     profils_autorises = ("Administrateur", "Gestionnaire", "Magasinier", "Demandeur")
 
