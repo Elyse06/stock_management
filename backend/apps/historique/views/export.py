@@ -51,7 +51,7 @@ class HistoriqueArticleExportView(APIView):
             quantite = detail.quantite
             impact = 0
             
-            if mouvement.type_mouvement == Mouvement.Type.ENTREE:
+            if mouvement.type_mouvement in (Mouvement.Type.ENTREE, Mouvement.Type.RETOUR):
                 if not magasin_id or mouvement.magasin_destination_id == magasin_id:
                     stock_cumule += quantite
                     impact = quantite

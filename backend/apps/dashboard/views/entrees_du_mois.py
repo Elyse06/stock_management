@@ -1,13 +1,15 @@
 from datetime import datetime
 
-from apps.dashboard.utlis import custom_paginate
-from apps.stock.models import DetailMouvement
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.catalogue.services.stock_filters import build_stock_filters
+from apps.dashboard.utlis import custom_paginate
+from apps.stock.models import DetailMouvement
 
 
 class DashboardEntreesMoisView(APIView):
@@ -38,7 +40,7 @@ class DashboardEntreesMoisView(APIView):
                 fin_mois = maintenant.replace(month=maintenant.month + 1, day=1)
 
         queryset = DetailMouvement.objects.filter(
-            mouvement__type_mouvement="ENTREE",
+            build_stock_filters()["entree"],
             mouvement__date__gte=debut_mois,
             mouvement__date__lt=fin_mois,
         ).select_related("article", "mouvement", "mouvement__magasin_destination")
