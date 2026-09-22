@@ -1,3 +1,7 @@
+from django.db import transaction
+from django.utils import timezone
+from rest_framework import serializers
+
 from apps.catalogue.models import Article
 from apps.stock.models import (
     DetailMouvement,
@@ -5,9 +9,6 @@ from apps.stock.models import (
     LigneInventaire,
     Mouvement,
 )
-from django.db import transaction
-from django.utils import timezone
-from rest_framework import serializers
 
 from .proposition_serie import _materieliser_propositions_serie
 

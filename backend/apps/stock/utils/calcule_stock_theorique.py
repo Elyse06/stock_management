@@ -1,39 +1,29 @@
 from django.db.models import Sum
 
+from apps.catalogue.services.stock_filters import build_stock_filters
 from apps.stock.models import DetailMouvement, Mouvement
 
 
 def calculer_stock_theorique(article, magasin=None, direction=None):
     if magasin:
+        stock_filters = build_stock_filters(magasin_id=magasin.pk)
         entrees = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[
-                Mouvement.Type.ENTREE,
-                Mouvement.Type.TRANSFERT,
-            ],
-            mouvement__magasin_destination=magasin,
+            stock_filters["entree"],
             article=article,
         ).aggregate(total=Sum("quantite"))["total"] or 0
 
         sorties = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[
-                Mouvement.Type.SORTIE,
-                Mouvement.Type.TRANSFERT,
-            ],
-            mouvement__magasin_source=magasin,
+            stock_filters["sortie"],
             article=article,
         ).aggregate(total=Sum("quantite"))["total"] or 0
 
         ajustements_plus = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_destination=magasin,
-            mouvement__magasin_source__isnull=True,
+            stock_filters["ajustement_plus"],
             article=article,
         ).aggregate(total=Sum("quantite"))["total"] or 0
 
         ajustements_moins = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_source=magasin,
-            mouvement__magasin_destination__isnull=True,
+            stock_filters["ajustement_moins"],
             article=article,
         ).aggregate(total=Sum("quantite"))["total"] or 0
 

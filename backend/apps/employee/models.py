@@ -2,8 +2,9 @@ from django.db import models
 
 from apps.utilisateur.models import Utilisateur
 
+
 class Site(models.Model):
-    SITE_TYPE_CHOICES = [
+    SITE_TYPE_CHOICES = [  # noqa: RUF012
         ('SIEGE', 'Siège'),
         ('AGENCE', 'Agence'),
     ]
@@ -17,7 +18,7 @@ class Site(models.Model):
         db_table = 't_site'
         verbose_name = 'Site'
         verbose_name_plural = 'Sites'
-        unique_together = ['site_type', 'site_nom'] 
+        unique_together = ['site_type', 'site_nom']  # noqa: RUF012
 
     def __str__(self):
         return f"{self.get_site_type_display()} - {self.site_nom}"

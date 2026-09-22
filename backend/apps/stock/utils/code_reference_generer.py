@@ -1,7 +1,6 @@
-from apps.stock.models import (
-    InventaireSession,
-)
 from django.utils import timezone
+
+from apps.stock.models import InventaireSession
 
 
 def generer_code_reference():

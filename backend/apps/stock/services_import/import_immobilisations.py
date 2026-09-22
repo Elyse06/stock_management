@@ -2,7 +2,7 @@ import re
 import unicodedata
 from datetime import datetime
 
-import pandas as pd
+import pandas as pd  # type: ignore
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -73,7 +73,7 @@ def parse_date(valeur):
         return timezone.make_aware(valeur) if timezone.is_naive(valeur) else valeur
     for fmt in ("%d/%m/%y", "%d/%m/%Y", "%Y-%m-%d"):
         try:
-            dt = datetime.strptime(str(valeur).strip(), fmt)
+            dt = datetime.strptime(str(valeur).strip(), fmt)  # noqa: DTZ007
             return timezone.make_aware(dt)
         except ValueError:
             continue
@@ -153,8 +153,7 @@ def resoudre_ou_creer_employe(matricule, detenteur):
         return None, False
 
     matricule_str = str(matricule).strip()
-    if matricule_str.endswith(".0"):
-        matricule_str = matricule_str[:-2]
+    matricule_str = matricule_str.removesuffix(".0")
 
     employe = Employer.objects.filter(emp_matricule=matricule_str).first()
     if employe:
@@ -238,7 +237,6 @@ def creer_attribution_historique(employe, article, date_acquisition, origine_imp
         employe_beneficiaire=employe,
         quantite=1,
     )
-    # date_acquisition est également auto_now_add sur ce modèle
     AttributionDetailCommande.objects.filter(pk=attribution.pk).update(
         date_acquisition=date_acquisition
     )
