@@ -38,8 +38,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='retourner-stock')
-    def retourner_stock(self, request, unite_id=None):  # noqa: F811
-        """Retourne une unité attribuée au stock."""
+    def retourner_stock(self, request, unite_id=None):  # noqa: F811 
         data = request.data.copy()
         data['unite_id'] = unite_id
         
@@ -48,7 +47,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         
         try:
             mouvement = serializer.save()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return Response(
                 {'detail': str(e)},
                 status=status.HTTP_400_BAD_REQUEST

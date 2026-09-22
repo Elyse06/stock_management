@@ -1,10 +1,11 @@
+from rest_framework import serializers
+
 from apps.employee.models import Direction, Employer
 from apps.stock.models import (
     DetailMouvement,
     Mouvement,
     UniteArticle,
 )
-from rest_framework import serializers
 
 
 def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
@@ -84,7 +85,6 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
         detail_sortie_payload["direction_beneficiaire"] = nouveau_beneficiaire
     
     DetailMouvement.objects.create(**detail_sortie_payload)
-    
     unite.attribuer(beneficiaire=nouveau_beneficiaire, mouvement_sortie=detail_sortie_payload)
     
     return {

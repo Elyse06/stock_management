@@ -1,6 +1,6 @@
 import logging
 
-import pandas as pd
+import pandas as pd  # type: ignore
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -13,13 +13,13 @@ from apps.stock.services_import.import_immobilisations import (
 
 logger = logging.getLogger("stock.import")
 
-TAILLE_MAX_FICHIER = 10 * 1024 * 1024  # 10 Mo
+TAILLE_MAX_FICHIER = 10 * 1024 * 1024 
 
 
 class ImportImmobilisationsView(APIView):
-    parser_classes = [MultiPartParser]
+    parser_classes = [MultiPartParser]  # noqa: RUF012
     from apps.stock.permissions import HasImportImmobilisationsPermission
-    permission_classes = [HasImportImmobilisationsPermission]
+    permission_classes = [HasImportImmobilisationsPermission]  # noqa: RUF012
 
     def post(self, request, *args, **kwargs):
         fichier = request.FILES.get("fichier")

@@ -2,12 +2,11 @@ import jwt
 from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+
 from apps.utilisateur.models import Utilisateur
 
 
 class JWTAuthentication(BaseAuthentication):
-    """Authentification JWT personnalisée utilisant utilisateur_mail"""
-    
     def authenticate(self, request):
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):

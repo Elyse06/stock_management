@@ -1,9 +1,7 @@
 from apps.common.permissions import HasAction, HasActionByMethod
 from apps.stock.models import InventaireSession
-from apps.stock.serializers import (
-    InventaireSessionSerializer,
-    valider_session_inventaire,
-)
+from apps.stock.serializers import InventaireSessionSerializer
+from apps.stock.services import valider_session_inventaire
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action

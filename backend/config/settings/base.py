@@ -1,7 +1,3 @@
-"""
-Settings communs à tous les environnements.
-Les valeurs sensibles ou variables par environnement viennent de .env
-"""
 import os
 from pathlib import Path
 
@@ -93,8 +89,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "fr-fr"
-TIME_ZONE = "Indian/Antananarivo"
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
@@ -114,9 +110,9 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "API Gestion de stock / parc matériel",
+    "TITLE": "API Gestion de stock",
     "DESCRIPTION": "API du système interne de gestion de stock",
-    "VERSION": "0.1.0",
+    "VERSION": "1.0.0",
 }
 
 CORS_ALLOWED_ORIGINS = [
@@ -125,11 +121,9 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
-# Celery
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-# API IA
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 LOGGING = {

@@ -1,5 +1,6 @@
-from apps.stock.models import DetailMouvement, UniteArticle
 from rest_framework import serializers
+
+from apps.stock.models import DetailMouvement, UniteArticle
 
 
 def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=None, mouvement_perte=None):

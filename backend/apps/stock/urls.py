@@ -3,13 +3,13 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
 	DetailMouvementViewSet,
+	ImportImmobilisationsView,
 	InventaireSessionViewSet,
 	LigneInventaireViewSet,
 	MagasinViewSet,
 	MouvementViewSet,
 	UniteArticleViewSet,
 )
-from .views_import import ImportImmobilisationsView
 
 router = DefaultRouter()
 router.register("magasins", MagasinViewSet, basename="magasin")

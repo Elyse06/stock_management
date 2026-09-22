@@ -1,9 +1,10 @@
+from rest_framework import serializers
+
 from apps.stock.models import (
     DetailMouvement,
     Mouvement,
     UniteArticle,
 )
-from rest_framework import serializers
 
 
 def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):

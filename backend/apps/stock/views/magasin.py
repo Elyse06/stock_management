@@ -1,13 +1,12 @@
 from apps.catalogue.models import Article
+from apps.catalogue.services.stock_filters import build_stock_filters
 from apps.common.permissions import HasAction, HasActionByMethod
 from apps.stock.models import (
     DetailMouvement,
     Magasin,
     Mouvement,
 )
-from apps.stock.serializers import (
-    MagasinSerializer,
-)
+from apps.stock.serializers import MagasinSerializer
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from rest_framework import viewsets
@@ -34,23 +33,18 @@ class MagasinViewSet(viewsets.ModelViewSet):
     )
     def stocks(self, request, pk=None):
         magasin = self.get_object()
+        stock_filters = build_stock_filters(magasin_id=magasin.pk)
         entrees = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT],
-            mouvement__magasin_destination=magasin,
+            stock_filters["entree"],
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
         sorties = DetailMouvement.objects.filter(
-            mouvement__type_mouvement__in=[Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT],
-            mouvement__magasin_source=magasin,
+            stock_filters["sortie"],
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
         ajustements_plus = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_destination=magasin,
-            mouvement__magasin_source__isnull=True,
+            stock_filters["ajustement_plus"],
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
         ajustements_moins = DetailMouvement.objects.filter(
-            mouvement__type_mouvement=Mouvement.Type.AJUSTEMENT,
-            mouvement__magasin_source=magasin,
-            mouvement__magasin_destination__isnull=True,
+            stock_filters["ajustement_moins"],
         ).values("article").annotate(total=Coalesce(Sum("quantite"), 0))
 
         entrees_dict = {e["article"]: e["total"] for e in entrees}
