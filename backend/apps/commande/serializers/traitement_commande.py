@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -45,16 +47,50 @@ class CommandeTraitementSerializer(serializers.Serializer):
             })
 
         quantites_validees_par_detail = {}
+        attribution_ids = set()
         if validations:
             for v in validations:
+                attribution_id = v['attribution_id']
+                if attribution_id in attribution_ids:
+                    raise serializers.ValidationError({
+                        "validations": f"L'attribution #{attribution_id} est répétée."
+                    })
+                attribution_ids.add(attribution_id)
+
+                attribution = AttributionDetailCommande.objects.filter(
+                    id=attribution_id,
+                    detail_commande__commande=commande,
+                ).select_related("detail_commande").first()
+                if attribution is None:
+                    raise serializers.ValidationError({
+                        "validations": (
+                            f"L'attribution #{attribution_id} n'appartient pas à cette commande."
+                        )
+                    })
+
                 if v.get('statut') == 'VALIDEE':
-                    for detail in commande.details.all():
-                        if detail.attributions.filter(id=v['attribution_id']).exists():
-                            qte = v.get('quantite_validee') or 0
-                            quantites_validees_par_detail[detail.id] = (
-                                quantites_validees_par_detail.get(detail.id, 0) + int(qte)
+                    qte = v.get('quantite_validee') or Decimal(0)
+                    if qte != qte.to_integral_value():
+                        raise serializers.ValidationError({
+                            "validations": (
+                                f"La quantité validée de l'attribution #{attribution_id} "
+                                "doit être un nombre entier."
                             )
-                            break
+                        })
+
+                    qte = int(qte)
+                    detail_id = attribution.detail_commande_id
+                    quantites_validees_par_detail[detail_id] = (
+                        quantites_validees_par_detail.get(detail_id, 0) + qte
+                    )
+
+                    if quantites_validees_par_detail[detail_id] > attribution.detail_commande.quantite:
+                        raise serializers.ValidationError({
+                            "validations": (
+                                f"La quantité validée pour le détail #{detail_id} "
+                                "dépasse la quantité demandée."
+                            )
+                        })
 
         if details_data and nouveau_statut == Commande.Statut.VALIDEE:
             for detail_data in details_data:
@@ -104,6 +140,11 @@ class CommandeTraitementSerializer(serializers.Serializer):
                         unite_id__in=unites_ids,
                         article=article,
                         statut=UniteArticle.Statut.EN_STOCK,
+                    ).exclude(
+                        etat__in=[
+                            UniteArticle.Etat.PERDU,
+                            UniteArticle.Etat.HORS_USAGE,
+                        ]
                     )
                     
                     if len(unites_existantes) != len(unites_ids):

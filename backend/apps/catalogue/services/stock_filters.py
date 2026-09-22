@@ -11,6 +11,7 @@ def build_stock_filters(relation_prefix="", magasin_id=None):
                 f"{mouvement_path}type_mouvement__in": [
                     Mouvement.Type.ENTREE,
                     Mouvement.Type.TRANSFERT,
+                    Mouvement.Type.RETOUR,
                 ],
             }
         ),

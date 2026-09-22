@@ -1,11 +1,12 @@
+from django.db import transaction
+from rest_framework import serializers
+
 from apps.catalogue.models import Article
 from apps.stock.models import (
     DetailMouvement,
     Mouvement,
     UniteArticle,
 )
-from django.db import transaction
-from rest_framework import serializers
 
 from .detail_mouvement import DetailMouvementSerializer
 
@@ -35,6 +36,10 @@ class MouvementSerializer(serializers.ModelSerializer):
         if type_mouvement == Mouvement.Type.SORTIE and not source:
             raise serializers.ValidationError(
                 {"magasin_source": "Une sortie doit avoir un magasin source."}
+            )
+        if type_mouvement == Mouvement.Type.RETOUR and not destination:
+            raise serializers.ValidationError(
+                {"magasin_destination": "Un retour doit avoir un magasin de destination."}
             )
         if type_mouvement == Mouvement.Type.TRANSFERT:
             if not source or not destination:
@@ -71,17 +76,25 @@ class MouvementSerializer(serializers.ModelSerializer):
                         )
                         
                 elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
-                    employe = detail_mouvement.employe_beneficiaire
+                    beneficiaire = (
+                        detail_mouvement.employe_beneficiaire
+                        or detail_mouvement.direction_beneficiaire
+                    )
                     for numero in numeros_de_serie:
                         try:
                             unite = UniteArticle.objects.get(
                                 article=article,
                                 numero_de_serie=numero.strip(),
-                                statut=UniteArticle.Statut.EN_STOCK
+                                statut=UniteArticle.Statut.EN_STOCK,
                             )
+                            if unite.etat in [
+                                UniteArticle.Etat.PERDU,
+                                UniteArticle.Etat.HORS_USAGE,
+                            ]:
+                                raise UniteArticle.DoesNotExist
                             unite.attribuer(
-                                beneficiaire=employe,
-                                mouvement_sortie=detail_mouvement
+                                beneficiaire=beneficiaire,
+                                mouvement_sortie=detail_mouvement,
                             )
                         except UniteArticle.DoesNotExist:
                             raise serializers.ValidationError(

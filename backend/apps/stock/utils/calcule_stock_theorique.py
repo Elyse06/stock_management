@@ -1,4 +1,4 @@
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from apps.catalogue.services.stock_filters import build_stock_filters
 from apps.stock.models import DetailMouvement, Mouvement
@@ -30,11 +30,20 @@ def calculer_stock_theorique(article, magasin=None, direction=None):
         return entrees - sorties + ajustements_plus - ajustements_moins
 
     if direction:
-        stock_direction = DetailMouvement.objects.filter(
+        beneficiaire_direction = (
+            Q(direction_beneficiaire_id=direction.pk)
+            | Q(employe_beneficiaire__emp_serv_id__serv_dir_id=direction.pk)
+        )
+        sorties = DetailMouvement.objects.filter(
+            beneficiaire_direction,
             mouvement__type_mouvement=Mouvement.Type.SORTIE,
-            employe_beneficiaire__emp_serv_id__serv_dir_id=direction,
             article=article,
         ).aggregate(total=Sum("quantite"))["total"] or 0
-        return stock_direction
+        retours = DetailMouvement.objects.filter(
+            beneficiaire_direction,
+            mouvement__type_mouvement=Mouvement.Type.RETOUR,
+            article=article,
+        ).aggregate(total=Sum("quantite"))["total"] or 0
+        return sorties - retours
 
     return 0

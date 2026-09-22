@@ -1,12 +1,13 @@
-from apps.catalogue.models import Article
-from apps.catalogue.services.stock_filters import build_stock_filters
-from apps.stock.models import DetailMouvement
-from django.db.models import F, Q, Sum
+from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.catalogue.models import Article
+from apps.catalogue.services.stock_filters import build_stock_filters
+from apps.stock.models import DetailMouvement
 
 
 class DashboardKPIsView(APIView):
@@ -32,7 +33,7 @@ class DashboardKPIsView(APIView):
         produits_en_rupture = articles_with_stock.filter(stock_calcule=0).count()
         produits_sous_seuil = articles_with_stock.filter(stock_calcule__lt=F("seuil")).count()
         entrees_du_mois = DetailMouvement.objects.filter(
-            mouvement__type_mouvement="ENTREE",
+            build_stock_filters()["entree"],
             mouvement__date__gte=debut_mois,
         ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
         sorties_du_mois = DetailMouvement.objects.filter(

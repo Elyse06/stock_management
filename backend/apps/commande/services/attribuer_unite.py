@@ -1,6 +1,7 @@
+from rest_framework import serializers
+
 from apps.catalogue.models import Article
 from apps.stock.models import UniteArticle
-from rest_framework import serializers
 
 
 def _attribuer_unite(unite_id, article, detail_mvt, beneficiaire):
@@ -9,7 +10,12 @@ def _attribuer_unite(unite_id, article, detail_mvt, beneficiaire):
             unite_id=unite_id,
             article=article,
             statut=UniteArticle.Statut.EN_STOCK,
-        )
+            ).exclude(
+                etat__in=[
+                    UniteArticle.Etat.PERDU,
+                    UniteArticle.Etat.HORS_USAGE,
+                ]
+            )
     except UniteArticle.DoesNotExist:
         raise serializers.ValidationError(
             f"L'unité #{unite_id} pour l'article '{article.designation}' "
