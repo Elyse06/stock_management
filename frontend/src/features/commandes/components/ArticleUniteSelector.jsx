@@ -10,6 +10,9 @@ export function ArticleUniteSelector({
   quantiteRequise,
   onToggleUnite,
 }) {
+  const unitesEligibles = unitesDisponibles.filter(
+    (unite) => !["PERDU", "HORS_USAGE"].includes(unite.etat)
+  );
   const estComplet = unitesSelectionnees.length === quantiteRequise;
   return (
     <Box sx={{ mb: 2, p: 2, bgcolor: "#FAFAFA", borderRadius: 1, border: `1px solid ${estComplet ? "#4CAF50" : "#E0E0E0"}` }}>
@@ -17,11 +20,11 @@ export function ArticleUniteSelector({
         <Typography variant="body2" fontWeight={600}>{article.designation} ({article.code_article})</Typography>
         <Chip label={`${unitesSelectionnees.length} / ${quantiteRequise}`} size="small" color={estComplet ? "success" : "warning"} variant={estComplet ? "filled" : "outlined"} />
       </Box>
-      {unitesDisponibles.length === 0 ? (
+      {unitesEligibles.length === 0 ? (
         <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>Aucune unité EN_STOCK disponible.</Typography>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, maxHeight: 200, overflow: "auto" }}>
-          {unitesDisponibles.map((unite) => {
+          {unitesEligibles.map((unite) => {
             const isSelected = unitesSelectionnees.includes(unite.unite_id);
             return (
               <FormControlLabel

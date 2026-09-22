@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Box, Typography, TextField, Divider, CircularProgress, Radio, RadioGroup, FormControlLabel, Paper } from "@mui/material";
 import { Store as StoreIcon } from "@mui/icons-material";
 import { SelectFilter } from "../../../components/common/SelectFilter";
@@ -147,7 +146,11 @@ export function CommandeTraitementSection({
                 }, 0);
 
                 // Ne montrer le sélecteur que si c'est du NUMERO_SERIE ET qu'il y a au moins 1 unité validée
-                if (article?.mode_suivi !== "NUMERO_SERIE" || quantiteValideeTotale === 0) {
+                if (
+                  !article?.is_immobilisation ||
+                  article?.mode_suivi !== "NUMERO_SERIE" ||
+                  quantiteValideeTotale === 0
+                ) {
                   return null;
                 }
 

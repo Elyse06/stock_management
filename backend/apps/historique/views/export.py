@@ -14,7 +14,7 @@ class HistoriqueArticleExportView(APIView):
     permission_classes = [IsAuthenticated]  # noqa: RUF012
     
     def get(self, request, code_article):
-        magasin_id = request.query_params.get("magasin_id")
+        site_id = request.query_params.get("site_id")
         date_debut = request.query_params.get("date_debut")
         date_fin = request.query_params.get("date_fin")
         
@@ -32,10 +32,10 @@ class HistoriqueArticleExportView(APIView):
             "mouvement"
         ).order_by("mouvement__date")
         
-        if magasin_id:
+        if site_id:
             mouvements = mouvements.filter(
-                Q(mouvement__magasin_source_id=magasin_id) |
-                Q(mouvement__magasin_destination_id=magasin_id)
+                Q(mouvement__magasin_source__localite_id=site_id) |
+                Q(mouvement__magasin_destination__localite_id=site_id)
             )
         
         if date_debut:
@@ -52,27 +52,43 @@ class HistoriqueArticleExportView(APIView):
             impact = 0
             
             if mouvement.type_mouvement in (Mouvement.Type.ENTREE, Mouvement.Type.RETOUR):
-                if not magasin_id or mouvement.magasin_destination_id == magasin_id:
+                if not site_id or mouvement.magasin_destination and str(mouvement.magasin_destination.localite_id) == str(site_id):
                     stock_cumule += quantite
                     impact = quantite
             elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
-                if not magasin_id or mouvement.magasin_source_id == magasin_id:
+                if not site_id or mouvement.magasin_source and str(mouvement.magasin_source.localite_id) == str(site_id):
                     stock_cumule -= quantite
                     impact = -quantite
             elif mouvement.type_mouvement == Mouvement.Type.TRANSFERT:
-                if mouvement.magasin_destination_id == magasin_id:
+                destination_match = (
+                    mouvement.magasin_destination
+                    and (not site_id or str(mouvement.magasin_destination.localite_id) == str(site_id))
+                )
+                source_match = (
+                    mouvement.magasin_source
+                    and (not site_id or str(mouvement.magasin_source.localite_id) == str(site_id))
+                )
+                if destination_match and not source_match:
                     stock_cumule += quantite
                     impact = quantite
-                elif mouvement.magasin_source_id == magasin_id:
+                elif source_match and not destination_match:
                     stock_cumule -= quantite
                     impact = -quantite
-                else:
+                elif not destination_match and not source_match:
                     continue
             elif mouvement.type_mouvement == Mouvement.Type.AJUSTEMENT:
-                if mouvement.magasin_destination_id == magasin_id and not mouvement.magasin_source_id:
+                if (
+                    mouvement.magasin_destination_id
+                    and (not site_id or str(mouvement.magasin_destination.localite_id) == str(site_id))
+                    and not mouvement.magasin_source_id
+                ):
                     stock_cumule += quantite
                     impact = quantite
-                elif mouvement.magasin_source_id == magasin_id and not mouvement.magasin_destination_id:
+                elif (
+                    mouvement.magasin_source_id
+                    and (not site_id or str(mouvement.magasin_source.localite_id) == str(site_id))
+                    and not mouvement.magasin_destination_id
+                ):
                     stock_cumule -= quantite
                     impact = -quantite
                 else:

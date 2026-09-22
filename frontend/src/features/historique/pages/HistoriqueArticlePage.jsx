@@ -15,10 +15,9 @@ import {
 } from "@mui/material";
 import {
   Download as DownloadIcon,
-  Search as SearchIcon,
   Inventory as InventoryIcon,
-  Store as StoreIcon,
   CalendarToday as CalendarIcon,
+  LocationOn as LocationOnIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
@@ -64,6 +63,8 @@ function getTypeColor(type) {
   switch (type) {
     case "ENTREE":
       return "success";
+    case "RETOUR":
+      return "success";
     case "SORTIE":
       return "error";
     case "TRANSFERT":
@@ -79,6 +80,8 @@ function getTypeLabel(type) {
   switch (type) {
     case "ENTREE":
       return "Entrée";
+    case "RETOUR":
+      return "Retour au stock";
     case "SORTIE":
       return "Sortie";
     case "TRANSFERT":
@@ -94,9 +97,9 @@ function getTypeLabel(type) {
 export function HistoriqueArticlePage() {
   // ====== STATE ======
   const [articles, setArticles] = useState([]);
-  const [magasins, setMagasins] = useState([]);
   const [articleSelectionne, setArticleSelectionne] = useState(null);
-  const [magasinId, setMagasinId] = useState("");
+  const [sites, setSites] = useState([]);
+  const [siteId, setSiteId] = useState("");
   const [periode, setPeriode] = useState("tous");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
@@ -112,11 +115,11 @@ export function HistoriqueArticlePage() {
   useEffect(() => {
     Promise.all([
       apiClient.get("/api/catalogue/articles/", { params: { page_size: 500 } }),
-      apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
+      apiClient.get("/api/employee/sites/", { params: { page_size: 100 } }),
     ])
-      .then(([articlesRes, magasinsRes]) => {
+      .then(([articlesRes, sitesRes]) => {
         setArticles(articlesRes.data.results ?? articlesRes.data);
-        setMagasins(magasinsRes.data.results ?? magasinsRes.data);
+        setSites(sitesRes.data.results ?? sitesRes.data);
       })
       .catch(() => setError("Impossible de charger les données."));
   }, []);
@@ -134,7 +137,7 @@ export function HistoriqueArticlePage() {
     setError("");
     try {
       const params = {};
-      if (magasinId) params.magasin_id = magasinId;
+      if (siteId) params.site_id = siteId;
 
       // Calcul des dates selon la période
       let debut = dateDebut;
@@ -165,7 +168,7 @@ export function HistoriqueArticlePage() {
     } finally {
       setLoading(false);
     }
-  }, [articleSelectionne, magasinId, periode, dateDebut, dateFin]);
+  }, [articleSelectionne, siteId, periode, dateDebut, dateFin]);
 
   useEffect(() => {
     chargerHistorique();
@@ -174,10 +177,6 @@ export function HistoriqueArticlePage() {
   // ====== HANDLERS ======
   const handleArticleChange = (newValue) => {
     setArticleSelectionne(newValue);
-  };
-
-  const handleMagasinChange = (value) => {
-    setMagasinId(value);
   };
 
   const handlePeriodeChange = (value) => {
@@ -193,7 +192,7 @@ export function HistoriqueArticlePage() {
   };
 
   const reinitialiserFiltres = () => {
-    setMagasinId("");
+    setSiteId("");
     setPeriode("tous");
     setDateDebut("");
     setDateFin("");
@@ -207,7 +206,7 @@ export function HistoriqueArticlePage() {
     setError("");
     try {
       const params = {};
-      if (magasinId) params.magasin_id = magasinId;
+      if (siteId) params.site_id = siteId;
 
       let debut = dateDebut;
       let fin = dateFin;
@@ -429,28 +428,28 @@ export function HistoriqueArticlePage() {
           noOptionsText="Aucun article trouvé"
         />
 
-        {/* Magasin 
+        {/* Magasin */}
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <StoreIcon fontSize="small" />
-              <span>Magasin</span>
+                <LocationOnIcon fontSize="small" />
+                <span>Site</span>
             </Box>
           </InputLabel>
           <Select
-            value={magasinId}
-            label="Magasin"
-            onChange={(e) => handleMagasinChange(e.target.value)}
+              value={siteId}
+              label="Site"
+              onChange={(e) => setSiteId(e.target.value)}
           >
-            <MenuItem value="">Tous les magasins</MenuItem>
-            {magasins.map((m) => (
-              <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
+              <MenuItem value="">Tous les sites</MenuItem>
+              {sites.map((site) => (
+                <MenuItem key={site.site_id} value={site.site_id}>
+                  {site.site_nom} {site.localite ? `(${site.localite})` : ""}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
-        */}
+
 
         {/* Période */}
         <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -498,7 +497,7 @@ export function HistoriqueArticlePage() {
         )}
 
         {/* Réinitialiser */}
-        {(magasinId || periode !== "tous" || dateDebut || dateFin) && (
+        {(siteId || periode !== "tous" || dateDebut || dateFin) && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
           </Button>

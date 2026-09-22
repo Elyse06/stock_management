@@ -1,20 +1,5 @@
 import { Chip } from "@mui/material";
 
-const STATUS_COLORS = {
-  // Commandes
-  EN_ATTENTE: "warning",
-  EN_COURS: "info",
-  VALIDEE: "success",
-  REJETEE: "error",
-  VALIDE: "success",
-  REJETE: "error",
-  // Mouvements
-  ENTREE: "success",
-  SORTIE: "error",
-  TRANSFERT: "info",
-  AJUSTEMENT: "warning",
-};
-
 const STATUS_LABELS = {
   EN_ATTENTE: "En attente",
   EN_COURS: "En cours",
@@ -23,6 +8,7 @@ const STATUS_LABELS = {
   VALIDE: "Validé",
   REJETE: "Rejeté",
   ENTREE: "Entrée",
+  RETOUR: "Retour au stock",
   SORTIE: "Sortie",
   TRANSFERT: "Transfert",
   AJUSTEMENT: "Ajustement",
@@ -36,6 +22,7 @@ export function StatusChip({ status, variant = "filled", size = "small" }) {
       case "VALIDEE":
       case "VALIDE":
       case "ENTREE":
+      case "RETOUR":
         return { borderColor: "#F9A825", color: "#F9A825", bgcolor: "#FFF8E1" };
       case "REJETEE":
       case "REJETE":

@@ -6,16 +6,16 @@ from apps.stock.models import UniteArticle
 
 def _attribuer_unite(unite_id, article, detail_mvt, beneficiaire):
     try:
-        unite = UniteArticle.objects.get(
+        unite = UniteArticle.objects.filter(
             unite_id=unite_id,
             article=article,
             statut=UniteArticle.Statut.EN_STOCK,
-            ).exclude(
+        ).exclude(
                 etat__in=[
                     UniteArticle.Etat.PERDU,
                     UniteArticle.Etat.HORS_USAGE,
                 ]
-            )
+        ).get()
     except UniteArticle.DoesNotExist:
         raise serializers.ValidationError(
             f"L'unité #{unite_id} pour l'article '{article.designation}' "

@@ -50,7 +50,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
 
   const articlesNS = commande?.details?.map((d) => {
     const article = articles.find((a) => a.code_article === d.article);
-    return article?.mode_suivi === "NUMERO_SERIE" ? d.article : null;
+    return article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE" ? d.article : null;
   }).filter(Boolean) ?? [];
 
   const { data: unitesDisponibles = {}, isLoading: loadingUnites } = useQuery({
@@ -149,7 +149,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
             }
           }
 
-          if (article?.mode_suivi === "NUMERO_SERIE") {
+          if (article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE") {
             const quantiteValideeTotale = (detail.attributions || []).reduce((sum, attr) => {
               const decision = validations[attr.id];
               if (decision?.statut === "VALIDEE") {
@@ -157,6 +157,10 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
               }
               return sum;
             }, 0);
+
+            if (!Number.isInteger(quantiteValideeTotale)) {
+              return `La quantité validée pour "${article.designation}" doit être entière.`;
+            }
 
             const unitesSel = unitesSelectionnees[detail.id] || [];
             
@@ -189,7 +193,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
 
       payload.details = (commande.details || []).map((detail) => {
         const article = getArticle(detail.article);
-        if (article?.mode_suivi === "NUMERO_SERIE") {
+        if (article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE") {
           return { detail_id: detail.id, unites_a_attribuer: unitesSelectionnees[detail.id] || [] };
         }
         return { detail_id: detail.id, unites_a_attribuer: [] };

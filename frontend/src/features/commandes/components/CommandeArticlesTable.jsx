@@ -32,8 +32,9 @@ export function CommandeArticlesTable({ commande, articles }) {
           <TableRow>
             <TableCell>Article</TableCell>
             <TableCell align="center" sx={{ width: 100 }}>
-              Quantité
+              Demandée
             </TableCell>
+            <TableCell align="center" sx={{ width: 110 }}>Validée</TableCell>
             <TableCell sx={{ minWidth: 200 }}>Attributions</TableCell>
           </TableRow>
         </TableHead>
@@ -41,7 +42,7 @@ export function CommandeArticlesTable({ commande, articles }) {
           {commande.details?.length > 0 ? (
             commande.details.map((detail) => {
               const article = getArticle(detail.article);
-              const isNS = article?.mode_suivi === "NUMERO_SERIE";
+              const isNS = article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE";
               return (
                 <TableRow
                   key={detail.id}
@@ -73,21 +74,50 @@ export function CommandeArticlesTable({ commande, articles }) {
                       {detail.quantite}
                     </Typography>
                   </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2" fontWeight={600} fontFamily="monospace">
+                      {detail.attributions?.reduce(
+                        (total, attribution) => total + (
+                          attribution.statut === "VALIDEE"
+                            ? Number(attribution.quantite_validee ?? 0)
+                            : 0
+                        ),
+                        0
+                      ) || 0}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     {detail.attributions?.length > 0 ? (
                       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                      {detail.attributions.map((attr) => (
-                          <Box key={attr.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      {detail.attributions.map((attr) => {
+                        const quantiteDemandee = Number(attr.quantite_demandee ?? attr.quantite ?? 0);
+                        const quantiteValidee = attr.statut === "VALIDEE"
+                          ? Number(attr.quantite_validee ?? 0)
+                          : 0;
+                        const quantiteRefusee = Math.max(
+                          quantiteDemandee - quantiteValidee,
+                          0
+                        );
+
+                        return (
+                          <Box key={attr.id} sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
                             <Chip
-                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
+                              label={attr.beneficiaire_nom}
                               size="small"
                               color={attr.beneficiaire_type === "EMPLOYE" ? "primary" : "secondary"}
                               variant="outlined"
                               icon={attr.beneficiaire_type === "EMPLOYE" ? <PersonIcon /> : <BusinessIcon />}
                             />
+                            {attr.statut === "VALIDEE" && (
+                              <>
+                                <Chip label={`Validée : ${quantiteValidee}`} size="small" color="success" variant="outlined" />
+                                <Chip label={`Refusée : ${quantiteRefusee}`} size="small" color="error" variant="outlined" />
+                              </>
+                            )}
                             <StatutAttributionBadge statut={attr.statut} />
                           </Box>
-                        ))}
+                        );
+                      })}
                       </Box>
                     ) : (
                       <Chip
@@ -104,7 +134,7 @@ export function CommandeArticlesTable({ commande, articles }) {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   Aucun article dans cette commande
                 </Typography>

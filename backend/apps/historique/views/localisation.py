@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, time
 
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
@@ -9,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.catalogue.models import Article
 from apps.catalogue.services.stock_filters import build_stock_filters
+from apps.employee.models import Direction
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
 
 
@@ -17,6 +19,7 @@ class HistoriqueLocalisationView(APIView):
     
     def get(self, request):
         magasin_id = request.query_params.get("magasin_id")
+        direction_id = request.query_params.get("direction_id")
         date_reference = request.query_params.get("date")
         
         if not date_reference:
@@ -25,19 +28,24 @@ class HistoriqueLocalisationView(APIView):
                 status=HTTP_400_BAD_REQUEST
             )
         
-        if not magasin_id:
+        if bool(magasin_id) == bool(direction_id):
             return Response(
-                {"error": "Le paramètre 'magasin_id' est obligatoire."},
+                {"error": "Sélectionnez un magasin ou une direction."},
                 status=HTTP_400_BAD_REQUEST
             )
-        
-        try:
-            magasin = Magasin.objects.get(magasin_id=magasin_id)
-        except Magasin.DoesNotExist:
-            return Response(
-                {"error": "Magasin non trouvé."},
-                status=HTTP_404_NOT_FOUND
-            )
+
+        magasin = None
+        direction = None
+        if magasin_id:
+            try:
+                magasin = Magasin.objects.get(magasin_id=magasin_id)
+            except Magasin.DoesNotExist:
+                return Response({"error": "Magasin non trouvé."}, status=HTTP_404_NOT_FOUND)
+        else:
+            try:
+                direction = Direction.objects.get(pk=direction_id)
+            except Direction.DoesNotExist:
+                return Response({"error": "Direction non trouvée."}, status=HTTP_404_NOT_FOUND)
         
         articles = Article.objects.all()
         stocks = []
@@ -46,6 +54,7 @@ class HistoriqueLocalisationView(APIView):
             stock = self._calculer_stock_a_date(
                 article,
                 magasin=magasin,
+                direction=direction,
                 date_reference=date_reference
             )
             
@@ -58,8 +67,31 @@ class HistoriqueLocalisationView(APIView):
         
         return Response(stocks)
     
-    def _calculer_stock_a_date(self, article, magasin, date_reference):
-        date_ref = datetime.strptime(date_reference, "%Y-%m-%d")  # noqa: DTZ007
+    def _calculer_stock_a_date(self, article, magasin=None, direction=None, date_reference=None):
+        date_ref = timezone.make_aware(
+            datetime.combine(
+                datetime.strptime(date_reference, "%Y-%m-%d").date(),
+                time.max,
+            )
+        )
+        if direction:
+            beneficiaires_direction = (
+                Q(direction_beneficiaire_id=direction.pk)
+                | Q(employe_beneficiaire__emp_serv_id__serv_dir_id=direction.pk)
+            )
+            date_filter = {"mouvement__date__lte": date_ref, "article": article}
+            sorties = DetailMouvement.objects.filter(
+                beneficiaires_direction,
+                mouvement__type_mouvement=Mouvement.Type.SORTIE,
+                **date_filter,
+            ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
+            retours = DetailMouvement.objects.filter(
+                beneficiaires_direction,
+                mouvement__type_mouvement=Mouvement.Type.RETOUR,
+                **date_filter,
+            ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
+            return sorties - retours
+
         stock_filters = build_stock_filters(magasin_id=magasin.pk)
         date_filter = {"mouvement__date__lte": date_ref}
         

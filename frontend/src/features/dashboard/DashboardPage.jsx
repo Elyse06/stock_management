@@ -92,7 +92,7 @@ export function DashboardPage() {
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             icon={<ArrowDownwardIcon />}
-            label="Entrées du mois"
+            label="Entrées et retours du mois"
             value={kpis?.entrees_du_mois ?? 0}
             onClick={() => setModalKPI("entrees_du_mois")}
           />
