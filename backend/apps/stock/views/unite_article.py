@@ -23,24 +23,12 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["article", "statut", "employe_beneficiaire"]  # noqa: RUF012
-
-    @action(detail=True, methods=["post"])
-    def retourner_stock(self, request, pk=None):
-        unite = self.get_object()
-        if unite.statut != UniteArticle.Statut.ATTRIBUE:
-            return Response(
-                {"error": "Cette unité n'est pas attribuée."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        unite.retourner_stock()
-        serializer = self.get_serializer(unite)
-        return Response(serializer.data)
+    filterset_fields = ["article", "statut", "etat", "employe_beneficiaire"]  # noqa: RUF012
 
     @action(detail=True, methods=['post'], url_path='retourner-stock')
-    def retourner_stock(self, request, unite_id=None):  # noqa: F811 
+    def retourner_stock(self, request, pk=None):
         data = request.data.copy()
-        data['unite_id'] = unite_id
+        data['unite_id'] = pk
         
         serializer = RetourUniteSerializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -57,14 +45,14 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
             'message': 'Unité retournée au stock avec succès.',
             'mouvement_id': mouvement.mouvement_id,
             'unite': UniteArticleSerializer(
-                UniteArticle.objects.get(unite_id=unite_id)
+                UniteArticle.objects.get(unite_id=pk)
             ).data,
         })
     
     @action(detail=True, methods=['post'], url_path='transferer')
-    def transferer(self, request, unite_id=None):
+    def transferer(self, request, pk=None):
         data = request.data.copy()
-        data['unite_id'] = unite_id
+        data['unite_id'] = pk
         
         serializer = TransfertUniteSerializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -82,6 +70,6 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
             'mouvement_retour_id': mouvements['retour'].mouvement_id,
             'mouvement_sortie_id': mouvements['sortie'].mouvement_id,
             'unite': UniteArticleSerializer(
-                UniteArticle.objects.get(unite_id=unite_id)
+                UniteArticle.objects.get(unite_id=pk)
             ).data,
         })

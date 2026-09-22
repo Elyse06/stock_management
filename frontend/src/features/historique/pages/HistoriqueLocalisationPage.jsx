@@ -13,11 +13,19 @@ import {
 } from "@mui/material";
 import {
   Store as StoreIcon,
+  Business as BusinessIcon,
   CalendarToday as CalendarIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
+
+function getTodayDate() {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
+}
 
 export function HistoriqueLocalisationPage() {
   // ====== STATE ======
@@ -28,32 +36,39 @@ export function HistoriqueLocalisationPage() {
   const [rowCount, setRowCount] = useState(0);
 
   // Filtres
+  const [typeLocalisation, setTypeLocalisation] = useState("magasin");
   const [magasinId, setMagasinId] = useState("");
-  const [dateReference, setDateReference] = useState("");
+  const [directionId, setDirectionId] = useState("");
+  const [dateReference, setDateReference] = useState(getTodayDate);
 
   // Données de référence
   const [magasins, setMagasins] = useState([]);
+  const [directions, setDirections] = useState([]);
   const [dateRecherchee, setDateRecherchee] = useState(null);
 
   // ====== CHARGEMENT DES MAGASINS ======
   useEffect(() => {
-    apiClient
-      .get("/api/stock/magasins/", { params: { page_size: 100 } })
-      .then((res) => setMagasins(res.data.results ?? res.data))
-      .catch(() => setError("Impossible de charger les magasins."));
+    Promise.all([
+      apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
+      apiClient.get("/api/employee/direction/", { params: { page_size: 200 } }),
+    ])
+      .then(([magasinsRes, directionsRes]) => {
+        setMagasins(magasinsRes.data.results ?? magasinsRes.data);
+        setDirections(directionsRes.data.results ?? directionsRes.data);
+      })
+      .catch(() => setError("Impossible de charger les magasins et les directions."));
   }, []);
 
   // ====== CHARGEMENT DES STOCKS ======
   const charger = useCallback(async () => {
-    if (!magasinId || !dateReference) return;
+    const localisationId = typeLocalisation === "magasin" ? magasinId : directionId;
+    if (!localisationId || !dateReference) return;
 
     setLoading(true);
     setError("");
     try {
-      const params = {
-        magasin_id: magasinId,
-        date: dateReference,
-      };
+      const params = { date: dateReference };
+      params[typeLocalisation === "magasin" ? "magasin_id" : "direction_id"] = localisationId;
 
       const { data } = await apiClient.get("/api/historique/localisation/", { params });
       setStocks(data);
@@ -71,7 +86,7 @@ export function HistoriqueLocalisationPage() {
     } finally {
       setLoading(false);
     }
-  }, [magasinId, dateReference]);
+  }, [typeLocalisation, magasinId, directionId, dateReference]);
 
   useEffect(() => {
     charger();
@@ -83,6 +98,20 @@ export function HistoriqueLocalisationPage() {
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
+  const handleTypeLocalisationChange = (value) => {
+    setTypeLocalisation(value);
+    setMagasinId("");
+    setDirectionId("");
+    setStocks([]);
+    setRowCount(0);
+    setDateRecherchee(null);
+  };
+
+  const handleDirectionChange = (value) => {
+    setDirectionId(value);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
   const handleDateChange = (value) => {
     setDateReference(value);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -90,7 +119,9 @@ export function HistoriqueLocalisationPage() {
 
   const reinitialiserFiltres = () => {
     setMagasinId("");
-    setDateReference("");
+    setDirectionId("");
+    setTypeLocalisation("magasin");
+    setDateReference(getTodayDate());
     setStocks([]);
     setRowCount(0);
     setDateRecherchee(null);
@@ -178,15 +209,27 @@ export function HistoriqueLocalisationPage() {
           flexWrap: "wrap",
         }}
       >
-        {/* Magasin */}
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Type de localisation</InputLabel>
+          <Select
+            value={typeLocalisation}
+            label="Type de localisation"
+            onChange={(e) => handleTypeLocalisationChange(e.target.value)}
+          >
+            <MenuItem value="magasin"><StoreIcon fontSize="small" sx={{ mr: 1, verticalAlign: "middle" }} />Magasin</MenuItem>
+            <MenuItem value="direction"><BusinessIcon fontSize="small" sx={{ mr: 1, verticalAlign: "middle" }} />Direction</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Localisation */}
         <FormControl size="small" sx={{ minWidth: 250 }}>
           <InputLabel>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <StoreIcon fontSize="small" />
-              <span>Magasin</span>
+              {typeLocalisation === "magasin" ? <StoreIcon fontSize="small" /> : <BusinessIcon fontSize="small" />}
+              <span>{typeLocalisation === "magasin" ? "Magasin" : "Direction"}</span>
             </Box>
           </InputLabel>
-          <Select
+          {typeLocalisation === "magasin" ? <Select
             value={magasinId}
             label="Magasin"
             onChange={(e) => handleMagasinChange(e.target.value)}
@@ -197,7 +240,18 @@ export function HistoriqueLocalisationPage() {
                 {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
               </MenuItem>
             ))}
-          </Select>
+          </Select> : <Select
+            value={directionId}
+            label="Direction"
+            onChange={(e) => handleDirectionChange(e.target.value)}
+          >
+            <MenuItem value="">Sélectionner une direction...</MenuItem>
+            {directions.map((direction) => (
+              <MenuItem key={direction.dir_id} value={direction.dir_id}>
+                {direction.dir_libelle}
+              </MenuItem>
+            ))}
+          </Select>}
         </FormControl>
 
         {/* Date */}
@@ -222,7 +276,7 @@ export function HistoriqueLocalisationPage() {
         />
 
         {/* Réinitialiser */}
-        {(magasinId || dateReference) && (
+        {(magasinId || directionId || dateReference) && (
           <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
             Réinitialiser
           </Button>
@@ -230,7 +284,7 @@ export function HistoriqueLocalisationPage() {
       </Box>
 
       {/* ====== INFO CONTEXTE ====== */}
-      {dateRecherchee && magasinId && (
+      {dateRecherchee && (magasinId || directionId) && (
         <Box
           sx={{
             mb: 2,
@@ -245,9 +299,11 @@ export function HistoriqueLocalisationPage() {
         >
           <SearchIcon color="primary" />
           <Typography variant="body2" fontWeight={500}>
-            Articles stockés au{" "}
+            Articles {typeLocalisation === "magasin" ? "stockés au" : "attribués à la"}{" "}
             <strong>
-              {magasins.find((m) => m.magasin_id === Number(magasinId))?.magasin_nom || "magasin"}
+              {typeLocalisation === "magasin"
+                ? magasins.find((m) => m.magasin_id === Number(magasinId))?.magasin_nom
+                : directions.find((d) => d.dir_id === directionId)?.dir_libelle || "direction"}
             </strong>{" "}
             à la date du{" "}
             <strong>{new Date(dateRecherchee).toLocaleDateString("fr-FR")}</strong>

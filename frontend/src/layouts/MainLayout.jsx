@@ -121,7 +121,7 @@ const MENU_STRUCTURE = [
     path: "/import/immobilisations",
     label: "Import immobilisations",
     icon: <UploadFileIcon fontSize="small" />,
-    actions: [],
+    actions: ["CAT_GERE"],
   },
   {
     key: "historique",
@@ -155,9 +155,12 @@ export function MainLayout() {
   };
 
   const activeParent = MENU_STRUCTURE.find(
-    (item) =>
-      item.children &&
-      item.children.some((c) => location.pathname.startsWith(c.path)),
+    (item) => {
+      const visibleChildren = item.children?.filter(canSeeItem) || [];
+      return visibleChildren.some((child) =>
+        location.pathname.startsWith(child.path),
+      );
+    },
   );
 
   const handleLogout = () => {
@@ -312,9 +315,9 @@ export function MainLayout() {
             }}
           >
             <Tabs
-              value={activeParent.children.findIndex((c) =>
-                location.pathname.startsWith(c.path),
-              )}
+              value={activeParent.children
+                .filter(canSeeItem)
+                .findIndex((child) => location.pathname.startsWith(child.path))}
               variant="scrollable"
               scrollButtons="auto"
               sx={{

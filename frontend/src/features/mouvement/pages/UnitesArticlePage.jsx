@@ -3,10 +3,9 @@ import { Box, TextField, Chip, Typography } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { API_ENDPOINTS } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
 import { usePermission } from "../../../hooks/usePermission";
-import { useNotification } from "../../../components/common/NotificationProvider";
 import { PageHeader } from "../../../components/common/PageHeader";
 import { FilterBar } from "../../../components/common/FilterBar";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
@@ -37,10 +36,9 @@ const ETATS = [
 ];
 
 export function UnitesArticlePage() {
-  const notify = useNotification();
   const queryClient = useQueryClient();
   const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
-  const { canManageCatalogue } = usePermission();
+  const { canManageInventaire } = usePermission();
 
   const [search, setSearch] = useState("");
   const [statutFiltre, setStatutFiltre] = useState("");
@@ -179,8 +177,8 @@ export function UnitesArticlePage() {
       align: "center",
       renderCell: (params) => {
         const unite = params.row;
-        const peutRetourner = unite.statut === "ATTRIBUE" && unite.etat !== "PERDU";
-        const peutTransferer = unite.statut === "ATTRIBUE" && 
+        const peutRetourner = canManageInventaire && unite.statut === "ATTRIBUE" && unite.etat !== "PERDU";
+        const peutTransferer = canManageInventaire && unite.statut === "ATTRIBUE" &&
           unite.etat !== "HORS_USAGE" && unite.etat !== "PERDU";
         
         return (

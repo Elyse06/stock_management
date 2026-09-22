@@ -89,7 +89,7 @@ function App() {
         <Route
           path="/inventaire/unites"
           element={
-            <ProtectedRoute actions={["CAT_GERE"]}>
+            <ProtectedRoute actions={["CAT_LIRE"]}>
               <UnitesArticlePage />
             </ProtectedRoute>
           }
@@ -119,7 +119,14 @@ function App() {
         />
         <Route path="/historique/article" element={<HistoriqueArticlePage />} />
 
-        <Route path="/import/immobilisations" element={<ImportImmobilisationsPage />} />
+        <Route
+          path="/import/immobilisations"
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <ImportImmobilisationsPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );

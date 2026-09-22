@@ -16,7 +16,6 @@ import {
 import {
   Visibility as VisibilityIcon,
   Search as SearchIcon,
-  FilterList as FilterListIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
@@ -25,6 +24,7 @@ import { apiClient } from "../../../api/client";
 const TYPES_MOUVEMENT = [
   { value: "", label: "Tous les types" },
   { value: "ENTREE", label: "Entrée" },
+  { value: "RETOUR", label: "Retour au stock" },
   { value: "SORTIE", label: "Sortie" },
   { value: "TRANSFERT", label: "Transfert" },
   { value: "AJUSTEMENT", label: "Ajustement" },
@@ -220,6 +220,8 @@ export function HistoriqueGlobalePage() {
     switch (type) {
       case "ENTREE":
         return "success";
+      case "RETOUR":
+        return "success";
       case "SORTIE":
         return "error";
       case "TRANSFERT":
@@ -235,6 +237,8 @@ export function HistoriqueGlobalePage() {
     switch (type) {
       case "ENTREE":
         return "Entrée";
+      case "RETOUR":
+        return "Retour au stock";
       case "SORTIE":
         return "Sortie";
       case "TRANSFERT":
@@ -275,18 +279,18 @@ export function HistoriqueGlobalePage() {
       ),
     },
     {
-      field: "magasin_source_nom",
+      field: "magasin_source",
       headerName: "Source",
       flex: 1,
       minWidth: 150,
-      renderCell: (params) => params.value || "—",
+      renderCell: (params) => params.value?.magasin_nom || "—",
     },
     {
-      field: "magasin_destination_nom",
+      field: "magasin_destination",
       headerName: "Destination",
       flex: 1,
       minWidth: 150,
-      renderCell: (params) => params.value || "—",
+      renderCell: (params) => params.value?.magasin_nom || "—",
     },
     {
       field: "nb_articles",
@@ -391,8 +395,8 @@ export function HistoriqueGlobalePage() {
               Source → Destination
             </Typography>
             <Typography variant="body1">
-              {selectedMouvement.magasin_source_nom || "—"} →{" "}
-              {selectedMouvement.magasin_destination_nom || "—"}
+              {selectedMouvement.magasin_source?.magasin_nom || "—"} →{" "}
+              {selectedMouvement.magasin_destination?.magasin_nom || "—"}
             </Typography>
           </Box>
 

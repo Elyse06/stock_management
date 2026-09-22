@@ -80,7 +80,7 @@ const KPI_CONFIG = {
     action: "create_entree",
   },
   entrees_du_mois: {
-    title: "Entrées du mois",
+    title: "Entrées et retours du mois",
     icon: <ArrowDownwardIcon />,
     endpoint: "/api/dashboard/kpis/entrees-mois/",
     columns: [

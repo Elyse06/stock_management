@@ -31,7 +31,7 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
                   borderBottom: "2px solid #F9A825",
                 }}
               >
-                Service
+                Site
               </TableCell>
               <TableCell
                 align="center"
@@ -41,7 +41,7 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
                   borderBottom: "2px solid #F9A825",
                 }}
               >
-                Quantité
+                Quantité sortie
               </TableCell>
               <TableCell
                 align="center"
@@ -60,15 +60,17 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
               <TableRow key={idx} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
                 <TableCell>
                   <Typography variant="body2" fontWeight={600}>
-                    {a.employe_nom}
+                    {a.beneficiaire_nom || "—"}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {a.matricule} {a.fonction && `• ${a.fonction}`}
+                    {a.beneficiaire_type === "DIRECTION"
+                      ? "Direction"
+                      : [a.matricule, a.fonction].filter(Boolean).join(" • ") || "Employé"}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={a.service || "—"}
+                    label={a.site || "—"}
                     size="small"
                     variant="outlined"
                   />
@@ -79,7 +81,7 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
                     fontWeight={700}
                     fontFamily="monospace"
                   >
-                    {a.quantite_attribuee}
+                    {a.quantite_sortie}
                   </Typography>
                 </TableCell>
                 <TableCell align="center">
