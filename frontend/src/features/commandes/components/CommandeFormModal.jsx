@@ -13,14 +13,12 @@ import {
   Tooltip,
 } from "@mui/material";
 import {
-  ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   Person as PersonIcon,
   Inventory as InventoryIcon,
-  Numbers as NumbersIcon,
   ListAlt as ListAltIcon,
   Business as BusinessIcon,
 } from "@mui/icons-material";
@@ -32,14 +30,11 @@ import { WizardDialog } from "../../../components/wizard/WizardDialog";
 import { WizardActions } from "../../../components/wizard/WizardActions";
 import { StyledTable } from "../../../components/wizard/StyledTable";
 import { InfoBox } from "../../../components/wizard/InfoBox";
-import { FormSection } from "../../../components/wizard/FormSection";
 import { AttributionEditor } from "./AttributionEditor";
 import { Chip } from "@mui/material";
 
 const STEPS = [
-  { label: "Article", icon: <InventoryIcon /> },
-  { label: "Quantité", icon: <NumbersIcon /> },
-  { label: "Bénéficiaire", icon: <PersonIcon /> },
+  { label: "Articles", icon: <InventoryIcon /> },
   { label: "Récapitulatif", icon: <ListAltIcon /> },
 ];
 
@@ -58,12 +53,8 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
-  const [objet, setObjet] = useState("");
+  const [objet, setObjet] = useState("Utilisation simple");
   const [lignes, setLignes] = useState([]);
-  const [currentArticle, setCurrentArticle] = useState(null);
-  const [currentQuantite, setCurrentQuantite] = useState("");
-  const [currentAttributions, setCurrentAttributions] = useState([]);
-  const [editingLineIndex, setEditingLineIndex] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const isEditMode = Boolean(commandeToEdit);
@@ -81,6 +72,15 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
     return false;
   }) || (directions.length > 0 ? directions[0] : null);
+
+  const ligneVide = () => ({
+    article: "",
+    article_designation: "",
+    stock_calcule: 0,
+    is_immobilisation: true,
+    quantite: 1,
+    attributions: [],
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -134,44 +134,19 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
           attributions,
         };
       });
-      setLignes(lignesTransformees);
+      setLignes(lignesTransformees.length > 0 ? lignesTransformees : [ligneVide()]);
     } else {
-      setObjet("");
-      setLignes([]);
+      setObjet("Utilisation simple");
+      setLignes([ligneVide()]);
     }
-    resetCurrentStep();
     setActiveStep(0);
   }, [isOpen, commandeToEdit, articles, employees, directions]);
 
-  const resetCurrentStep = () => {
-    setCurrentArticle(null);
-    setCurrentQuantite("");
-    setCurrentAttributions([]);
-    setEditingLineIndex(null);
-  };
-
   const handleClose = () => {
-    resetCurrentStep();
-    setObjet("");
+    setObjet("Utilisation simple");
     setLignes([]);
     setActiveStep(0);
     onClose();
-  };
-
-  const handleNext = () => {
-    if (activeStep === 0 && !currentArticle) {
-      notify.error("Veuillez sélectionner un article.");
-      return;
-    }
-    if (activeStep === 1) {
-      if (!currentQuantite || Number(currentQuantite) <= 0) {
-        notify.error("Veuillez saisir une quantité valide.");
-        return;
-      }
-    }
-    if (activeStep < STEPS.length - 1) {
-      setActiveStep((prev) => prev + 1);
-    }
   };
 
   const handleBack = () => {
@@ -180,129 +155,38 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
   };
 
-  const creerLigneFormattee = () => {
-    const qteTotale = Number(currentQuantite);
-    const isImmob = currentArticle?.is_immobilisation !== false;
+  const lignesValides = lignes.filter((ligne) => ligne.article && Number(ligne.quantite) > 0);
 
-    let finalAttributions = currentAttributions.map((a) => {
-      const isEmp = a.type === "EMPLOYE";
-      return {
-        type: a.type,
-        beneficiaire_id: isEmp ? a.beneficiaire?.emp_id : a.beneficiaire?.dir_id,
-        beneficiaire_nom: isEmp
-          ? (a.beneficiaire?.emp_nom || "Employé")
-          : (a.beneficiaire?.dir_libelle || "Direction"),
-        beneficiaire: a.beneficiaire,
-        quantite: Number(a.quantite),
-      };
+  const modifierLigne = (index, changements) => {
+    setLignes((precedentes) => precedentes.map((ligne, ligneIndex) => (
+      ligneIndex === index ? { ...ligne, ...changements } : ligne
+    )));
+  };
+
+  const ajouterLigne = () => setLignes((precedentes) => [...precedentes, ligneVide()]);
+
+  const retirerLigne = (index) => {
+    setLignes((precedentes) => {
+      const restantes = precedentes.filter((_, ligneIndex) => ligneIndex !== index);
+      return restantes.length > 0 ? restantes : [ligneVide()];
     });
-
-    const sommeAttribuee = finalAttributions.reduce((sum, a) => sum + (Number(a.quantite) || 0), 0);
-    const reste = qteTotale - sommeAttribuee;
-
-    // Répartition automatique du solde non attribué
-    if (reste > 0) {
-      if (isImmob && employeeDemandeur) {
-        finalAttributions.push({
-          type: "EMPLOYE",
-          beneficiaire_id: employeeDemandeur.emp_id,
-          beneficiaire_nom: employeeDemandeur.emp_nom,
-          beneficiaire: employeeDemandeur,
-          quantite: reste,
-        });
-      } else if (directionDemandeur) {
-        finalAttributions.push({
-          type: "DIRECTION",
-          beneficiaire_id: directionDemandeur.dir_id,
-          beneficiaire_nom: directionDemandeur.dir_libelle,
-          beneficiaire: directionDemandeur,
-          quantite: reste,
-        });
-      }
-    }
-
-    return {
-      article: currentArticle.code_article,
-      article_designation: currentArticle.designation,
-      stock_calcule: currentArticle.stock_calcule ?? 0,
-      is_immobilisation: isImmob,
-      quantite: qteTotale,
-      attributions: finalAttributions,
-    };
-  };
-
-  const sauvegarderLigneCourante = () => {
-    if (!currentArticle || !currentQuantite || Number(currentQuantite) <= 0) {
-      notify.error("Données invalides. Veuillez sélectionner un article et une quantité valide.");
-      return false;
-    }
-
-    const nouvelleLigne = creerLigneFormattee();
-
-    if (editingLineIndex !== null) {
-      const updated = [...lignes];
-      updated[editingLineIndex] = nouvelleLigne;
-      setLignes(updated);
-      setEditingLineIndex(null);
-    } else {
-      setLignes([...lignes, nouvelleLigne]);
-    }
-
-    resetCurrentStep();
-    return true;
-  };
-
-  const handleAjouterEtContinuer = () => {
-    if (sauvegarderLigneCourante()) {
-      setActiveStep(0);
-    }
   };
 
   const handleVoirRecap = () => {
-    if (sauvegarderLigneCourante()) {
-      setActiveStep(3);
+    if (lignesValides.length > 0) {
+      setActiveStep(1);
+    } else {
+      notify.error("Ajoutez au moins un article à la commande.");
     }
   };
 
   const handleAjouterAutreDepuisRecap = () => {
-    resetCurrentStep();
+    ajouterLigne();
     setActiveStep(0);
   };
 
-  const handleModifierLigne = (index) => {
-    const ligne = lignes[index];
-    const article = articles.find((a) => a.code_article === ligne.article) || {
-      code_article: ligne.article,
-      designation: ligne.article_designation,
-      stock_calcule: ligne.stock_calcule,
-      is_immobilisation: ligne.is_immobilisation,
-    };
-
-    setCurrentArticle(article);
-    setCurrentQuantite(String(ligne.quantite));
-
-    const attributionsReconstituees = (ligne.attributions || []).map((a) => ({
-      type: a.type,
-      beneficiaire: a.beneficiaire || (a.type === "EMPLOYE"
-        ? employees.find((e) => e.emp_id === a.beneficiaire_id) || { emp_id: a.beneficiaire_id, emp_nom: a.beneficiaire_nom }
-        : directions.find((d) => d.dir_id === a.beneficiaire_id) || { dir_id: a.beneficiaire_id, dir_libelle: a.beneficiaire_nom }),
-      quantite: a.quantite,
-    }));
-
-    setCurrentAttributions(attributionsReconstituees);
-    setEditingLineIndex(index);
-    setActiveStep(1);
-  };
-
-  const handleRetirerLigne = (index) => {
-    if (editingLineIndex === index) {
-      resetCurrentStep();
-    }
-    setLignes(lignes.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async () => {
-    if (lignes.length === 0) {
+    if (lignesValides.length === 0) {
       notify.error("Ajoutez au moins un article à la commande.");
       return;
     }
@@ -317,7 +201,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
 
     setSaving(true);
     try {
-      const detailsPayload = lignes.map((ligne) => {
+      const detailsPayload = lignesValides.map((ligne) => {
         const detail = {
           article: ligne.article,
           quantite: ligne.quantite,
@@ -329,9 +213,9 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               quantite_demandee: a.quantite,
             };
             if (a.type === "EMPLOYE") {
-              item.employe_beneficiaire = a.beneficiaire_id;
+              item.employe_beneficiaire = a.beneficiaire_id || a.beneficiaire?.emp_id;
             } else {
-              item.direction_beneficiaire = a.beneficiaire_id;
+              item.direction_beneficiaire = a.beneficiaire_id || a.beneficiaire?.dir_id;
             }
             return item;
           });
@@ -376,92 +260,83 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       case 0:
         return (
           <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>Choisissez un article</Typography>
-            <Autocomplete
-              options={articles}
-              getOptionLabel={(option) => `${option.code_article} - ${option.designation}`}
-              isOptionEqualToValue={(option, value) => option?.code_article === value?.code_article}
-              value={currentArticle}
-              onChange={(_, newValue) => setCurrentArticle(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Article" placeholder="Rechercher un article..." autoFocus />
-              )}
-              renderOption={(props, option) => (
-                <li {...props} key={option.code_article}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" fontWeight={600}>
-                      {option.code_article} - {option.designation}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Stock disponible : {option.stock_calcule ?? 0}
-                      {option.categorie_nom ? ` • ${option.categorie_nom}` : ""}
-                    </Typography>
-                  </Box>
-                </li>
-              )}
-              noOptionsText="Aucun article trouvé"
-            />
-            {currentArticle && (
-              <InfoBox
-                title={currentArticle.designation}
-                subtitle={`Code : ${currentArticle.code_article} • Stock : ${currentArticle.stock_calcule ?? 0}`}
-              />
-            )}
+            <StyledTable columns={[{ label: "Article", minWidth: 250 }, { label: "Quantité", width: 130 }, { label: "Attribution", minWidth: 420 }, { label: "", width: 60 }]}>
+              {lignes.map((ligne, index) => {
+                const article = articles.find((item) => item.code_article === ligne.article);
+                return (
+                  <tr key={index}>
+                    <td>
+                      <Autocomplete
+                        size="small"
+                        options={articles}
+                        value={article || null}
+                        getOptionLabel={(option) => option
+                          ? `${option.designation} - ${option.categorie_nom || "Sans catégorie"} - Stock : ${option.stock_calcule ?? 0}`
+                          : ""}
+                        isOptionEqualToValue={(option, value) => option?.code_article === value?.code_article}
+                        onChange={(_, value) => modifierLigne(index, {
+                          article: value?.code_article || "",
+                          article_designation: value?.designation || "",
+                          stock_calcule: value?.stock_calcule ?? 0,
+                          is_immobilisation: value?.is_immobilisation !== false,
+                          attributions: [],
+                        })}
+                        renderOption={(props, option) => (
+                          <li {...props} key={option.code_article}>
+                            <Box>
+                              <Typography variant="body2" fontWeight={600}>
+                                {option.designation}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {option.categorie_nom || "Sans catégorie"} - Stock : {option.stock_calcule ?? 0}
+                              </Typography>
+                            </Box>
+                          </li>
+                        )}
+                        renderInput={(params) => <TextField {...params} label="Article" placeholder="Rechercher..." />}
+                        noOptionsText="Aucun article trouvé"
+                      />
+                    </td>
+                    <td>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        type="number"
+                        value={ligne.quantite}
+                        onChange={(event) => modifierLigne(index, { quantite: event.target.value })}
+                        inputProps={{ min: 1, step: 1 }}
+                        error={Boolean(ligne.article && (!ligne.quantite || Number(ligne.quantite) <= 0))}
+                      />
+                    </td>
+                    <td>
+                      <AttributionEditor
+                        quantiteTotale={Number(ligne.quantite)}
+                        attributions={ligne.attributions}
+                        setAttributions={(attributions) => modifierLigne(index, { attributions })}
+                        employees={employees}
+                        directions={directions}
+                        demandeurParDefaut={employeeDemandeur}
+                        articleCourant={article || ligne}
+                      />
+                    </td>
+                    <td align="center">
+                      <Tooltip title="Retirer la ligne">
+                        <IconButton size="small" color="error" onClick={() => retirerLigne(index)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </td>
+                  </tr>
+                );
+              })}
+            </StyledTable>
+            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={ajouterLigne}>
+              Ajouter une ligne
+            </Button>
           </Box>
         );
 
       case 1:
-        return (
-          <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>Quantité demandée</Typography>
-            {currentArticle && (
-              <FormSection>
-                <Typography variant="body2" fontWeight={600}>{currentArticle.designation}</Typography>
-                <Typography variant="caption" color="text.secondary">{currentArticle.code_article}</Typography>
-              </FormSection>
-            )}
-            <TextField
-              label="Quantité"
-              type="number"
-              value={currentQuantite}
-              onChange={(e) => setCurrentQuantite(e.target.value)}
-              fullWidth
-              autoFocus
-              inputProps={{ min: 1, step: 1 }}
-              placeholder="Ex: 5"
-              helperText={currentArticle?.stock_calcule !== undefined ? `Stock disponible : ${currentArticle.stock_calcule}` : ""}
-            />
-            {currentArticle && currentQuantite && Number(currentQuantite) > currentArticle.stock_calcule && (
-              <Box sx={{ mt: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
-                <Typography variant="body2" color="primary.main">
-                  La quantité demandée dépasse le stock disponible. Une commande sera nécessaire pour{" "}
-                  {Number(currentQuantite) - currentArticle.stock_calcule} unité(s).
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        );
-
-      case 2:
-        return (
-          <Box>
-            <Typography variant="h3" sx={{ mb: 2 }}>Attributions</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Répartition de la quantité entre plusieurs bénéficiaires
-            </Typography>
-            <AttributionEditor
-              quantiteTotale={Number(currentQuantite)}
-              attributions={currentAttributions}
-              setAttributions={setCurrentAttributions}
-              employees={employees}
-              directions={directions}
-              demandeurParDefaut={employeeDemandeur}
-              articleCourant={currentArticle}
-            />
-          </Box>
-        );
-
-      case 3:
         return (
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>Récapitulatif de la commande</Typography>
@@ -480,9 +355,9 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               </Select>
             </FormControl>
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-              Articles commandés ({lignes.length})
+              Articles commandés ({lignesValides.length})
             </Typography>
-            {lignes.length === 0 ? (
+            {lignesValides.length === 0 ? (
               <Box sx={{ p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
                 <Typography variant="body2" color="primary.main">
                   Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
@@ -492,15 +367,16 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               <StyledTable
                 columns={[
                   { label: "Article" },
-                  { label: "Quantité", align: "center", width: 100 },
+                  { label: "Quantité", align: "center", width: 50 },
                   { label: "Bénéficiaire", width: 220 },
                   { label: "Actions", align: "center", width: 90 },
                 ]}
               >
-                {lignes.map((ligne, index) => (
-                  <tr key={index}>
+                {lignesValides.map((ligne) => {
+                  const ligneIndex = lignes.indexOf(ligne);
+                  return (
+                  <tr key={ligneIndex}>
                     <td>
-                      <Typography variant="body2" fontWeight={600}>{ligne.article}</Typography>
                       <Typography variant="caption" color="text.secondary">{ligne.article_designation}</Typography>
                     </td>
                     <td align="center">
@@ -511,32 +387,24 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                           {ligne.attributions.map((attr, idx) => {
                             const isEmploye = attr.type === "EMPLOYE";
-                            const employeComplet = isEmploye
-                              ? employees.find((e) => e.emp_id === attr.beneficiaire_id) || attr.beneficiaire
-                              : null;
-                            const directionLibelle = isEmploye
-                              ? employeComplet?.direction_libelle
-                              : (attr.beneficiaire_nom || attr.beneficiaire?.dir_libelle);
-                            const siteNom = isEmploye ? employeComplet?.site_nom : attr.beneficiaire?.site_nom;
+                            const beneficiaireNom = isEmploye
+                              ? employees.find((e) => e.emp_id === attr.beneficiaire_id)?.emp_nom
+                                || attr.beneficiaire?.emp_nom
+                                || attr.beneficiaire_nom
+                                || "Employé"
+                              : attr.beneficiaire?.dir_libelle
+                                || attr.beneficiaire_nom
+                                || "Direction";
 
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>
                                 <Chip
-                                  label={`${attr.beneficiaire_nom || (isEmploye ? "Employé" : "Direction")} (${attr.quantite})`}
+                                  label={`${beneficiaireNom} (${attr.quantite})`}
                                   size="small"
                                   color={isEmploye ? "primary" : "secondary"}
                                   variant="outlined"
                                   icon={isEmploye ? <PersonIcon /> : <BusinessIcon />}
                                 />
-                                {(directionLibelle || siteNom) && (
-                                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.3, ml: 1 }}>
-                                    <BusinessIcon sx={{ fontSize: 12 }} color="action" />
-                                    <Typography variant="caption" color="text.secondary">
-                                      {siteNom ? `${siteNom} → ` : ""}
-                                      {directionLibelle || "—"}
-                                    </Typography>
-                                  </Box>
-                                )}
                               </Box>
                             );
                           })}
@@ -553,20 +421,21 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                     </td>
                     <td align="center">
                       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
-                        <Tooltip title="Modifier">
-                          <IconButton size="small" color="primary" onClick={() => handleModifierLigne(index)}>
+                        <Tooltip title="Modifier dans la table">
+                          <IconButton size="small" color="primary" onClick={() => setActiveStep(0)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Retirer">
-                          <IconButton size="small" color="error" onClick={() => handleRetirerLigne(index)}>
+                          <IconButton size="small" color="error" onClick={() => retirerLigne(ligneIndex)}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Box>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </StyledTable>
             )}
           </Box>
@@ -578,25 +447,10 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   };
 
   const renderActions = () => {
-    if (activeStep === 0 || activeStep === 1) {
-      return (
-        <WizardActions
-          activeStep={activeStep}
-          totalSteps={STEPS.length}
-          onBack={handleBack}
-          onNext={handleNext}
-          isLastStep={false}
-        />
-      );
-    }
-    if (activeStep === 2) {
+    if (activeStep === 0) {
       return (
         <>
-          <Button onClick={handleBack} startIcon={<ArrowBackIcon />}>Précédent</Button>
           <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" onClick={handleAjouterEtContinuer} startIcon={<AddIcon />}>
-            Ajouter un autre article
-          </Button>
           <Button variant="contained" onClick={handleVoirRecap} endIcon={<ArrowForwardIcon />}>
             Voir le récapitulatif
           </Button>
@@ -618,7 +472,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
             isLastStep={true}
             loading={saving}
             submitLabel="Enregistrer la commande"
-            disabled={lignes.length === 0 || !objet}
+            disabled={lignesValides.length === 0 || !objet}
           />
         </>
       );
@@ -634,6 +488,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       activeStep={activeStep}
       title={isEditMode ? "Modifier la commande" : "Nouvelle commande"}
       mode={isEditMode ? "ÉDITION" : "CRÉATION"}
+      maxWidth="xl"
       actions={renderActions()}
     >
       {!employeeDemandeur && employees.length > 0 && (

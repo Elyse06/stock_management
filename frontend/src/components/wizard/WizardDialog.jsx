@@ -26,12 +26,13 @@ export function WizardDialog({
   onErrorClose,
   children,
   actions,
+  maxWidth = "md",
 }) {
   return (
     <Dialog
       open={isOpen}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth={maxWidth}
       fullWidth
       PaperProps={{ sx: { borderRadius: 2, minHeight: 500 } }}
     >

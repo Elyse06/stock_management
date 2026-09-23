@@ -1,7 +1,8 @@
-from apps.catalogue.models import Article, Fournisseur
-from apps.employee.models import Direction, Employer
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.catalogue.models import Article, Fournisseur
+from apps.employee.models import Direction, Employer
 
 from .mouvement import Mouvement
 
@@ -10,6 +11,7 @@ class DetailMouvement(models.Model):
     mouvement = models.ForeignKey(Mouvement, on_delete=models.CASCADE, related_name="details")
     article = models.ForeignKey(Article, on_delete=models.PROTECT, related_name="details_mouvement")
     quantite = models.PositiveIntegerField()
+    prix_achat = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     employe_beneficiaire = models.ForeignKey(
         Employer, on_delete=models.SET_NULL, null=True, blank=True,
