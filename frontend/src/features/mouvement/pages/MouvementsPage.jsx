@@ -7,7 +7,6 @@ import { usePagination } from "../../../hooks/usePagination";
 import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { PageHeader } from "../../../components/common/PageHeader";
-import { FilterBar } from "../../../components/common/FilterBar";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { ActionButtons } from "../../../components/common/ActionButtons";
@@ -83,7 +82,16 @@ export function MouvementsPage() {
   };
 
   const columns = [
-    { field: "mouvement_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
+    {
+      field: "date",
+      headerName: "Date",
+      width: 180,
+      // renderCell: (params) => formatDateTime(params.value),
+      valueFormatter: (value) => {
+        if (!value) return "";
+        return new Date(value).toLocaleDateString("fr-FR");
+      },
+    },
     {
       field: "type_mouvement",
       headerName: "Type",
@@ -91,32 +99,32 @@ export function MouvementsPage() {
       renderCell: (params) => <StatusChip status={params.value} />,
     },
     {
-      field: "magasin_source_nom",
-      headerName: "Source",
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => <EmptyValue value={params.value} />,
-    },
-    {
-      field: "magasin_destination_nom",
-      headerName: "Destination",
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => <EmptyValue value={params.value} />,
-    },
-    {
-      field: "date",
-      headerName: "Date",
-      width: 180,
-      renderCell: (params) => formatDateTime(params.value),
-    },
-    {
       field: "nb_articles",
-      headerName: "Articles",
-      width: 100,
+      headerName: "Nombre d'articles",
+      width: 150,
       headerAlign: "center",
       align: "center",
       renderCell: (params) => params.row.details?.length ?? 0,
+    },
+    {
+      field: "article_designation",
+      headerName: "Articles",
+      width: 700,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => {
+        const articles = params.row.details
+          ?.map(
+            (detail) =>
+              detail.article_designation ??
+              detail.article?.designation ??
+              detail.designation
+          )
+          .filter(Boolean)
+          .join(", ");
+
+        return articles || <EmptyValue />;
+      },
     },
     {
       field: "actions",
@@ -140,14 +148,9 @@ export function MouvementsPage() {
   return (
     <Box>
       <PageHeader
-        title="Mouvements de stock"
         actionLabel="Nouveau mouvement"
         onAction={() => setIsCreateModalOpen(true)}
         canAction={canEdit}
-      />
-      <ErrorAlert error={error?.message} />
-
-      <FilterBar
         onReset={reinitialiserFiltres}
         hasFilters={filterType || dateDebut || dateFin}
       >
@@ -165,21 +168,24 @@ export function MouvementsPage() {
           label="Du"
           type="date"
           size="small"
-          value={dateDebut}
+          value={dateDebut || ""}
           onChange={(e) => setDateDebut(e.target.value)}
           InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           sx={{ width: 150 }}
         />
         <TextField
           label="Au"
           type="date"
           size="small"
-          value={dateFin}
+          value={dateFin || ""}
           onChange={(e) => setDateFin(e.target.value)}
           InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           sx={{ width: 150 }}
         />
-      </FilterBar>
+      </PageHeader>
+      <ErrorAlert error={error?.message} />
 
       <PaginatedDataGrid
         rows={mouvementsFiltres}

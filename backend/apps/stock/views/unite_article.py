@@ -1,3 +1,8 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from apps.common.permissions import HasActionByMethod
 from apps.stock.models import UniteArticle
 from apps.stock.serializers import (
@@ -5,14 +10,10 @@ from apps.stock.serializers import (
     TransfertUniteSerializer,
     UniteArticleSerializer,
 )
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
 
 
 class UniteArticleViewSet(viewsets.ModelViewSet):
-    queryset = UniteArticle.objects.all().select_related(
+    queryset = UniteArticle.objects.filter(statut="ATTRIBUE").select_related(
         "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire"
     )
     serializer_class = UniteArticleSerializer

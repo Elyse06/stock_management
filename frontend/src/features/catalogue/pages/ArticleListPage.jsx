@@ -11,7 +11,6 @@ import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { useCategoryOptions } from "../../../hooks/useCategoryOptions";
 import { PageHeader } from "../../../components/common/PageHeader";
-import { FilterBar } from "../../../components/common/FilterBar";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { ActionButtons } from "../../../components/common/ActionButtons";
 import { CodeChip } from "../../../components/common/CodeChip";
@@ -137,12 +136,6 @@ export function ArticleListPage() {
   };
 
   const columns = [
-    {
-      field: "code_article",
-      headerName: "Code",
-      width: 130,
-      renderCell: (params) => <CodeChip value={params.value} />,
-    },
     { field: "designation", headerName: "Désignation", flex: 1, minWidth: 200 },
     {
       field: "categorie_nom",
@@ -151,8 +144,8 @@ export function ArticleListPage() {
       renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
-      field: "marque_libelle",
-      headerName: "Marque",
+      field: "description",
+      headerName: "Description",
       width: 130,
       renderCell: (params) => <EmptyValue value={params.value} />,
     },
@@ -188,10 +181,6 @@ export function ArticleListPage() {
         actionLabel="Nouvel article"
         onAction={openFormModalForCreate}
         canAction={canManageCatalogue}
-      />
-      <ErrorAlert error={error?.message} />
-
-      <FilterBar
         onReset={() => {
           setSearch("");
           setCategorieFiltre("");
@@ -234,7 +223,8 @@ export function ArticleListPage() {
           ]}
           minWidth={150}
         />
-      </FilterBar>
+      </PageHeader>
+      <ErrorAlert error={error?.message} />
 
       <PaginatedDataGrid
         rows={data?.articles || []}

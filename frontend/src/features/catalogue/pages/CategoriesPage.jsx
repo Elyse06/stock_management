@@ -124,8 +124,7 @@ export function CategoriesPage() {
   };
 
   const columns = [
-    { field: "categorie_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
-    { field: "cat_libelle", headerName: "Libellé", flex: 1, minWidth: 200 },
+    { field: "cat_libelle", headerName: "code", flex: 1, minWidth: 200 },
     {
       field: "cat_description",
       headerName: "Description",
@@ -155,7 +154,7 @@ export function CategoriesPage() {
 
   return (
     <Box>
-      <PageHeader title="Catégories" actionLabel="Nouvelle catégorie" onAction={ouvrirCreation} />
+      <PageHeader title="" actionLabel="Nouvelle catégorie" onAction={ouvrirCreation} />
       <ErrorAlert error={error?.message} />
       <PaginatedDataGrid
         rows={data?.categories || []}
@@ -176,7 +175,7 @@ export function CategoriesPage() {
         disabled={!formLibelle.trim()}
       >
         <TextField
-          label="Libellé"
+          label="Code"
           value={formLibelle}
           onChange={(e) => setFormLibelle(e.target.value)}
           required

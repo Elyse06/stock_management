@@ -19,8 +19,15 @@ import { ArticleFournisseurEditor } from "./ArticleFournisseurEditor";
 
 const MODES_SUIVI = [
   { value: "QUANTITE", label: "Quantité simple" },
-  { value: "LOT", label: "Suivi par lot" },
   { value: "NUMERO_SERIE", label: "Suivi par numéro de série" },
+];
+
+const UNITE = [
+  { value: "UNITE", label: "Unité" },
+  { value: "BOITE", label: "Boite" },
+  { value: "Carton", label: "Carton" },
+  { value: "Litre", label: "Litre" },
+  { value: "Paquet", label: "Paquet" },
 ];
 
 const EMPTY_FORM = {
@@ -28,13 +35,13 @@ const EMPTY_FORM = {
   code_barre: "",
   designation: "",
   description: "",
-  marque: "",
+  marque: "Non specifie",
   modele: "",
-  unite: "Unité",
+  unite: "UNITE",
   seuil: "0",
   mode_suivi: "QUANTITE",
   categorie: "",
-  is_immobilisation: true,
+  is_immobilisation: false,
 };
 
 export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = null }) {
@@ -78,7 +85,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         description: articleToEdit.description ?? "",
         marque: articleToEdit.marque ?? "",
         modele: articleToEdit.modele ?? "",
-        unite: articleToEdit.unite ?? "Unité",
+        unite: articleToEdit.unite ?? "UNITE",
         seuil: articleToEdit.seuil ?? "0",
         mode_suivi: articleToEdit.mode_suivi ?? "QUANTITE",
         categorie: articleToEdit.categorie ?? "",
@@ -210,6 +217,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
   ];
 
   const modeSuiviOptions = MODES_SUIVI.map((m) => ({ value: m.value, label: m.label }));
+  const uniteOptions = UNITE.map((u) => ({ value: u.value, label: u.label }));
 
   return (
     <FormDialog
@@ -226,6 +234,15 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
       headerBadgeColor={isEditMode ? "primary.main" : "success.main"}
     >
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+
+        <SelectFilter
+          label="Catégorie"
+          value={form.categorie}
+          onChange={handleChange("categorie")}
+          options={categorieOptions}
+          required
+        />
+
         <Box sx={{ position: "relative" }}>
           <TextField
             id="code-article"
@@ -234,12 +251,11 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
             onChange={handleChange("code_article")}
             required
             disabled={isEditMode}
-            placeholder="ART-XXXX"
             inputProps={{ maxLength: 20 }}
             fullWidth
           />
           {!isEditMode && (
-            <Tooltip title="Générer un code automatique basé sur la catégorie">
+            <Tooltip>
               <IconButton
                 size="small"
                 onClick={handleGenerateCode}
@@ -251,6 +267,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           )}
         </Box>
 
+        {/** Pas encore utilisé
         <TextField
           id="code-barre"
           label="Code-barre"
@@ -264,6 +281,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
             startAdornment: <QrCodeScannerIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />,
           }}
         />
+        */}
 
         <TextField
           id="designation"
@@ -274,14 +292,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           required
           inputProps={{ maxLength: 50 }}
           fullWidth
-        />
-
-        <SelectFilter
-          label="Catégorie"
-          value={form.categorie}
-          onChange={handleChange("categorie")}
-          options={categorieOptions}
-          required
         />
 
         <Autocomplete
@@ -307,15 +317,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         />
 
         <TextField
-          label="Unité"
-          value={form.unite}
-          onChange={handleChange("unite")}
-          placeholder="Unité, kg, boîte..."
-          inputProps={{ maxLength: 20 }}
-          fullWidth
-        />
-
-        <TextField
           id="seuil"
           inputRef={seuilRef}
           label="Seuil de réapprovisionnement"
@@ -328,11 +329,21 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         />
 
         <SelectFilter
+          label="Unité"
+          value={form.unite}
+          onChange={handleChange("unite")}
+          options={uniteOptions}
+        />
+
+        {/** On laisse juste tous les articles en quantite simple maintenant,
+         * possible evolution
+        <SelectFilter
           label="Mode de suivi"
           value={form.mode_suivi}
           onChange={handleChange("mode_suivi")}
           options={modeSuiviOptions}
         />
+        */}
 
         <TextField
           label="Description"
@@ -363,6 +374,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         />
       </Box>
 
+      {/** on specifie le fournisseur et le prix d'achat quand on fait l'entrée du stock 
       <Box sx={{ mt: 3 }}>
         <Divider sx={{ mb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
@@ -376,6 +388,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           fournisseurs={fournisseurs}
         />
       </Box>
+      */}
     </FormDialog>
   );
 }
