@@ -1,16 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  Box, TextField, Button, Autocomplete, Tooltip, IconButton, 
-  ToggleButtonGroup, ToggleButton, Typography, Chip,
+  Box, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tooltip, IconButton,
+  Typography,
 } from "@mui/material";
 import {
   Add as AddIcon, Delete as DeleteIcon,
   Person as PersonIcon, Business as BusinessIcon,
 } from "@mui/icons-material";
 import { StyledTable } from "../../../components/wizard/StyledTable";
-import { FormSection } from "../../../components/wizard/FormSection";
-import { ProgressBar } from "../../../components/common/ProgressBar";
-import { EmployeLocation, getEmployeLocation } from "../../../components/common/EmployeLocation";
 
 export function AttributionEditor({
   quantiteTotale,
@@ -52,7 +49,6 @@ export function AttributionEditor({
 
   const directionActive = directionSelectionnee || directionDemandeur || (directions.length > 0 ? directions[0] : null);
 
-  // Forcer direction si fourniture
   useEffect(() => {
     if (!isImmobilisation && typeBeneficiaire !== "DIRECTION") {
       setTypeBeneficiaire("DIRECTION");
@@ -77,6 +73,49 @@ export function AttributionEditor({
     }
     return true;
   });
+
+  const getBeneficiaireOptions = (type, currentIndex = -1) => {
+    if (type === "EMPLOYE") {
+      return employees.filter((employee) => {
+        const dejaAttribue = attributions.some(
+          (attribution, index) => index !== currentIndex &&
+            attribution.type === "EMPLOYE" &&
+            attribution.beneficiaire?.emp_id === employee.emp_id
+        );
+        if (dejaAttribue) return false;
+        if (directionDemandeur?.dir_libelle && employee.direction_libelle) {
+          return employee.direction_libelle.trim().toLowerCase() === directionDemandeur.dir_libelle.trim().toLowerCase();
+        }
+        return true;
+      });
+    }
+    return directionActive ? [directionActive] : [];
+  };
+
+  const modifierBeneficiaire = (index, beneficiaire) => {
+    if (!beneficiaire) return;
+    const type = beneficiaire.emp_id ? "EMPLOYE" : "DIRECTION";
+    const updated = [...attributions];
+    updated[index] = { ...updated[index], type, beneficiaire };
+    setAttributions(updated);
+  };
+
+  const modifierType = (index, type) => {
+    const updated = [...attributions];
+    updated[index] = { ...updated[index], type, beneficiaire: null };
+    setAttributions(updated);
+  };
+
+  const getBeneficiaireId = (beneficiaire) => String(
+    beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? ""
+  );
+
+  const getBeneficiaireLabel = (beneficiaire) => {
+    if (beneficiaire?.emp_id) {
+      return `${beneficiaire.emp_nom}${beneficiaire.emp_matricule ? ` (${beneficiaire.emp_matricule})` : ""}`;
+    }
+    return beneficiaire?.dir_libelle || "";
+  };
 
   const ajouterAttribution = () => {
     const qte = Number(quantiteAttribution);
@@ -122,116 +161,55 @@ export function AttributionEditor({
     setAttributions(updated);
   };
 
-  const handleTypeChange = (event, newType) => {
-    if (newType !== null) {
-      setTypeBeneficiaire(newType);
-      setEmployeSelectionne(null);
-      setQuantiteAttribution("");
-    }
+  const handleTypeChange = (event) => {
+    setTypeBeneficiaire(event.target.value);
+    setEmployeSelectionne(null);
+    setQuantiteAttribution("");
   };
 
   return (
     <Box>
-      <ProgressBar current={sommeAttribuee} total={quantiteTotale} label="Attribué" />
-
-      {!isImmobilisation && (
-        <Box sx={{ mb: 2, p: 1.5, bgcolor: "#E3F2FD", borderRadius: 1, border: "1px solid #90CAF9" }}>
-          <Typography variant="body2" color="info.main">
-            ℹ️ Cet article est une fourniture / consommable : l'attribution est réservée aux directions.
-          </Typography>
-        </Box>
-      )}
-
-      <Box sx={{ mb: 2 }}>
-        <ToggleButtonGroup
-          value={typeBeneficiaire}
-          exclusive
-          onChange={handleTypeChange}
-          size="small"
-          sx={{
-            "& .MuiToggleButton-root": {
-              px: 2,
-              py: 0.75,
-              border: "1px solid #E0E0E0",
-              "&.Mui-selected": {
-                bgcolor: "primary.light",
-                borderColor: "primary.main",
-                color: "text.primary",
-                "&:hover": {
-                  bgcolor: "primary.main",
-                  color: "white",
-                },
-              },
-            },
-          }}
-        >
-          <ToggleButton value="EMPLOYE" disabled={!isImmobilisation}>
-            <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
-            Employé
-          </ToggleButton>
-          <ToggleButton value="DIRECTION">
-            <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
-            Direction
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
 
       <StyledTable
         columns={[
+          { label: "Type", width: 140 },
           { label: "Bénéficiaire" },
-          { label: "Type", width: 120 },
-          { label: "Localisation", width: 180 },
           { label: "Quantité", align: "center", width: 120 },
-          { label: "", align: "center", width: 60 },
+          { label: "", align: "center", width: 120 },
         ]}
         emptyMessage="Aucune attribution. Vous recevrez toute la quantité."
       >
         {attributions.map((attr, index) => {
-          const isEmploye = attr.type === "EMPLOYE";
-
           return (
             <tr key={index}>
               <td>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  {isEmploye ? (
-                    <PersonIcon fontSize="small" color="primary" />
-                  ) : (
-                    <BusinessIcon fontSize="small" color="secondary" />
-                  )}
-                  <Box>
-                    <Typography variant="body2" fontWeight={600}>
-                      {isEmploye
-                        ? attr.beneficiaire.emp_nom
-                        : attr.beneficiaire.dir_libelle}
-                    </Typography>
-                    {isEmploye && (
-                      <Typography variant="caption" color="text.secondary">
-                        {attr.beneficiaire.emp_matricule}
-                        {attr.beneficiaire.emp_fonction
-                          ? ` • ${attr.beneficiaire.emp_fonction}`
-                          : ""}
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={attr.type}
+                    onChange={(event) => modifierType(index, event.target.value)}
+                  >
+                    <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
+                    <MenuItem value="DIRECTION">Direction</MenuItem>
+                  </Select>
+                </FormControl>
               </td>
               <td>
-                <Chip
-                  label={isEmploye ? "Employé" : "Direction"}
-                  size="small"
-                  color={isEmploye ? "primary" : "secondary"}
-                  variant="outlined"
-                  icon={isEmploye ? <PersonIcon /> : <BusinessIcon />}
-                />
-              </td>
-              <td>
-                {isEmploye ? (
-                  <EmployeLocation employe={attr.beneficiaire} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    {attr.beneficiaire.site_nom || "—"}
-                  </Typography>
-                )}
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={getBeneficiaireId(attr.beneficiaire)}
+                    onChange={(event) => {
+                      const beneficiaire = getBeneficiaireOptions(attr.type, index)
+                        .find((option) => getBeneficiaireId(option) === event.target.value);
+                      modifierBeneficiaire(index, beneficiaire);
+                    }}
+                  >
+                    {getBeneficiaireOptions(attr.type, index).map((option) => (
+                      <MenuItem key={getBeneficiaireId(option)} value={getBeneficiaireId(option)}>
+                        {getBeneficiaireLabel(option)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </td>
               <td align="center">
                 <TextField
@@ -257,101 +235,78 @@ export function AttributionEditor({
             </tr>
           );
         })}
-      </StyledTable>
-
-      <FormSection>
-        {typeBeneficiaire === "EMPLOYE" ? (
-          <Autocomplete
-            size="small"
-            options={employesDisponibles}
-            getOptionLabel={(option) =>
-              option?.emp_nom ? `${option.emp_nom} (${option.emp_matricule})` : ""
-            }
-            isOptionEqualToValue={(option, value) => option?.emp_id === value?.emp_id}
-            value={employeSelectionne}
-            onChange={(_, newValue) => setEmployeSelectionne(newValue)}
-            renderInput={(params) => (
-              <TextField {...params} label="Employé" placeholder="Rechercher un employé..." />
+        <tr>
+          <td>
+            <FormControl size="small" fullWidth>
+              <Select value={typeBeneficiaire} label="Type" onChange={handleTypeChange}>
+                <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
+                <MenuItem value="DIRECTION">Direction</MenuItem>
+              </Select>
+            </FormControl>
+          </td>
+          <td>
+            {typeBeneficiaire === "EMPLOYE" ? (
+              <FormControl size="small" fullWidth>
+                <Select
+                  value={getBeneficiaireId(employeSelectionne)}
+                  label="Employé"
+                  onChange={(event) => setEmployeSelectionne(
+                    employesDisponibles.find((employee) => getBeneficiaireId(employee) === event.target.value) || null
+                  )}
+                >
+                  {employesDisponibles.map((employee) => (
+                    <MenuItem key={employee.emp_id} value={getBeneficiaireId(employee)}>
+                      {getBeneficiaireLabel(employee)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : (
+              <TextField
+                size="small"
+                value={
+                  directionActive
+                    ? `${directionActive.dir_libelle}${directionActive.site_nom ? ` (${directionActive.site_nom})` : ""}`
+                    : "Direction non définie"
+                }
+                InputProps={{ readOnly: true }}
+                fullWidth
+              />
             )}
-            renderOption={(props, option) => {
-              const loc = getEmployeLocation(option);
-              return (
-                <li {...props} key={option.emp_id}>
-                  <Box sx={{ width: "100%" }}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {option.emp_nom}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {option.emp_matricule}
-                      {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
-                    </Typography>
-                    {loc && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                        <BusinessIcon sx={{ fontSize: 12 }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {loc.site ? `${loc.site} → ` : ""}
-                          {loc.direction || "—"}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </li>
-              );
-            }}
-            noOptionsText="Aucun employé disponible dans votre direction"
-          />
-        ) : (
-          <TextField
-            size="small"
-            label="Direction bénéficiaire"
-            value={
-              directionDemandeur
-                ? `${directionDemandeur.dir_libelle}${directionDemandeur.site_nom ? ` (${directionDemandeur.site_nom})` : ""}`
-                : "Direction non définie"
-            }
-            InputProps={{
-              readOnly: true,
-              startAdornment: (
-                <BusinessIcon sx={{ fontSize: 18, color: "primary.main", mr: 1 }} />
-              ),
-            }}
-            helperText="L'attribution est restreinte à votre direction"
-            sx={{ "& .MuiInputBase-input": { cursor: "default" } }}
-            fullWidth
-          />
-        )}
-
-        <TextField
-          label="Quantité"
-          type="number"
-          size="small"
-          value={quantiteAttribution}
-          onChange={(e) => setQuantiteAttribution(e.target.value)}
-          inputProps={{ min: 1, max: quantiteRestante }}
-          placeholder={`Max: ${quantiteRestante}`}
-        />
-
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={ajouterAttribution}
-          disabled={
-            typeBeneficiaire === "EMPLOYE"
-              ? !employeSelectionne ||
+          </td>
+          <td align="center">
+            <TextField
+              label="Quantité"
+              type="number"
+              size="small"
+              value={quantiteAttribution}
+              onChange={(e) => setQuantiteAttribution(e.target.value)}
+              inputProps={{ min: 1, max: quantiteRestante }}
+              placeholder={`Max: ${Math.max(quantiteRestante, 0)}`}
+              sx={{ width: 100 }}
+            />
+          </td>
+          <td align="center">
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={ajouterAttribution}
+              disabled={
+                quantiteRestante <= 0 ||
+                (typeBeneficiaire === "EMPLOYE"
+                  ? !employeSelectionne
+                  : !directionActive) ||
                 !quantiteAttribution ||
                 Number(quantiteAttribution) <= 0 ||
                 Number(quantiteAttribution) > quantiteRestante
-              : !directionActive ||
-                !quantiteAttribution ||
-                Number(quantiteAttribution) <= 0 ||
-                Number(quantiteAttribution) > quantiteRestante
-          }
-          sx={{ minWidth: 110, height: 40 }}
-        >
-          Ajouter
-        </Button>
-      </FormSection>
+              }
+            >
+              Ajouter
+            </Button>
+          </td>
+        </tr>
+      </StyledTable>
     </Box>
   );
 }

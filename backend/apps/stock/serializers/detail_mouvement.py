@@ -1,8 +1,9 @@
+from rest_framework import serializers
+
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
 from apps.employee.models import Direction, Employer
 from apps.stock.models import DetailMouvement
-from rest_framework import serializers
 
 from .unite_article import UniteArticleSerializer
 

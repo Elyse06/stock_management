@@ -65,12 +65,14 @@ const MENU_STRUCTURE = [
         icon: <CategoryIcon fontSize="small" />,
         actions: ["CAT_GERE"],
       },
+      /*
       {
         path: "/catalogue/marques",
         label: "Marques",
         icon: <LocalOfferIcon fontSize="small" />,
         actions: ["CAT_GERE"],
       },
+      */
       {
         path: "/catalogue/fournisseurs",
         label: "Fournisseurs",
@@ -99,7 +101,7 @@ const MENU_STRUCTURE = [
       },
       {
         path: "/inventaire/unites",
-        label: "Unités d'article",
+        label: "Unités Attribués",
         icon: <ListAltIcon fontSize="small" />,
         actions: ["CAT_LIRE"],
       },

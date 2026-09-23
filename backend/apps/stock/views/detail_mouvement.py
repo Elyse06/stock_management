@@ -1,8 +1,9 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets
+
 from apps.common.permissions import HasActionByMethod
 from apps.stock.models import DetailMouvement
 from apps.stock.serializers import DetailMouvementSerializer
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
 
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):

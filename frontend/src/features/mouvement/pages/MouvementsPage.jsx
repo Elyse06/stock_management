@@ -128,7 +128,7 @@ export function MouvementsPage() {
     },
     {
       field: "actions",
-      headerName: "Actions",
+      headerName: "Détails",
       width: 100,
       sortable: false,
       filterable: false,

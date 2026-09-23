@@ -1,56 +1,40 @@
 import { useEffect, useState, useCallback } from "react";
+import { Box, TextField, Typography, Chip } from "@mui/material";
 import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Alert,
-  Chip,
-} from "@mui/material";
-import {
-  Store as StoreIcon,
   Business as BusinessIcon,
   CalendarToday as CalendarIcon,
   Search as SearchIcon,
+  Store as StoreIcon,
 } from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
 import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS } from "../../../constants/api";
+import { PageHeader } from "../../../components/common/PageHeader";
+import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { SelectFilter } from "../../../components/common/SelectFilter";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
 
 function getTodayDate() {
   const today = new Date();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${today.getFullYear()}-${month}-${day}`;
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
 export function HistoriqueLocalisationPage() {
-  // ====== STATE ======
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
-  const [rowCount, setRowCount] = useState(0);
-
-  // Filtres
   const [typeLocalisation, setTypeLocalisation] = useState("magasin");
   const [magasinId, setMagasinId] = useState("");
   const [directionId, setDirectionId] = useState("");
   const [dateReference, setDateReference] = useState(getTodayDate);
-
-  // Données de référence
   const [magasins, setMagasins] = useState([]);
   const [directions, setDirections] = useState([]);
   const [dateRecherchee, setDateRecherchee] = useState(null);
 
-  // ====== CHARGEMENT DES MAGASINS ======
   useEffect(() => {
     Promise.all([
-      apiClient.get("/api/stock/magasins/", { params: { page_size: 100 } }),
-      apiClient.get("/api/employee/direction/", { params: { page_size: 200 } }),
+      apiClient.get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 200 } }),
     ])
       .then(([magasinsRes, directionsRes]) => {
         setMagasins(magasinsRes.data.results ?? magasinsRes.data);
@@ -59,30 +43,27 @@ export function HistoriqueLocalisationPage() {
       .catch(() => setError("Impossible de charger les magasins et les directions."));
   }, []);
 
-  // ====== CHARGEMENT DES STOCKS ======
   const charger = useCallback(async () => {
     const localisationId = typeLocalisation === "magasin" ? magasinId : directionId;
-    if (!localisationId || !dateReference) return;
+    if (!localisationId || !dateReference) {
+      setStocks([]);
+      setDateRecherchee(null);
+      return;
+    }
 
     setLoading(true);
     setError("");
     try {
       const params = { date: dateReference };
       params[typeLocalisation === "magasin" ? "magasin_id" : "direction_id"] = localisationId;
-
-      const { data } = await apiClient.get("/api/historique/localisation/", { params });
-      setStocks(data);
-      setRowCount(data.length ?? 0);
+      const { data } = await apiClient.get(API_ENDPOINTS.HISTORIQUE_LOCALISATION, { params });
+      setStocks(data ?? []);
       setDateRecherchee(dateReference);
-    } catch (err) {
-      const detail = err?.response?.data;
-      if (detail?.error) {
-        setError(detail.error);
-      } else {
-        setError("Impossible de charger l'historique de localisation.");
-      }
+      setPaginationModel((previous) => ({ ...previous, page: 0 }));
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || "Impossible de charger l'historique de localisation.");
       setStocks([]);
-      setRowCount(0);
+      setDateRecherchee(null);
     } finally {
       setLoading(false);
     }
@@ -92,245 +73,93 @@ export function HistoriqueLocalisationPage() {
     charger();
   }, [charger]);
 
-  // ====== HANDLERS ======
-  const handleMagasinChange = (value) => {
-    setMagasinId(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  };
-
-  const handleTypeLocalisationChange = (value) => {
+  const handleTypeChange = (value) => {
     setTypeLocalisation(value);
     setMagasinId("");
     setDirectionId("");
     setStocks([]);
-    setRowCount(0);
     setDateRecherchee(null);
-  };
-
-  const handleDirectionChange = (value) => {
-    setDirectionId(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  };
-
-  const handleDateChange = (value) => {
-    setDateReference(value);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setPaginationModel((previous) => ({ ...previous, page: 0 }));
   };
 
   const reinitialiserFiltres = () => {
+    setTypeLocalisation("magasin");
     setMagasinId("");
     setDirectionId("");
-    setTypeLocalisation("magasin");
     setDateReference(getTodayDate());
     setStocks([]);
-    setRowCount(0);
     setDateRecherchee(null);
+    setPaginationModel((previous) => ({ ...previous, page: 0 }));
   };
 
-  // ====== COLONNES ======
   const columns = [
-    {
-      field: "article_code",
-      headerName: "Code article",
-      width: 150,
-      renderCell: (params) => (
-        <Typography
-          variant="body2"
-          fontFamily="monospace"
-          fontWeight={600}
-          sx={{
-            bgcolor: "#FFF8E1",
-            px: 1,
-            py: 0.3,
-            borderRadius: 0.5,
-            border: "1px solid #F9A825",
-          }}
-        >
-          {params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: "article_designation",
-      headerName: "Désignation",
-      flex: 1,
-      minWidth: 200,
-    },
-    {
-      field: "stock",
-      headerName: "Stock à la date",
-      width: 150,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color="primary"
-          variant="filled"
-          sx={{
-            fontWeight: 700,
-            fontFamily: "monospace",
-            fontSize: 14,
-          }}
-        />
-      ),
-    },
+    { field: "article_code", headerName: "Code article", width: 150, renderCell: ({ value }) => <Typography variant="body2" fontFamily="monospace" fontWeight={600}>{value}</Typography> },
+    { field: "article_designation", headerName: "Désignation", flex: 1, minWidth: 220 },
+    { field: "stock", headerName: "Stock à la date", width: 150, headerAlign: "center", align: "center", renderCell: ({ value }) => <Chip label={value} color="primary" sx={{ fontWeight: 700, fontFamily: "monospace" }} /> },
   ];
 
-  // ====== RENDU ======
+  const localisationNom = typeLocalisation === "magasin"
+    ? magasins.find((magasin) => String(magasin.magasin_id) === String(magasinId))?.magasin_nom
+    : directions.find((direction) => String(direction.dir_id) === String(directionId))?.dir_libelle;
+  const hasFilters = Boolean(magasinId || directionId || dateReference !== getTodayDate());
+
   return (
     <Box>
-      {/* ====== HEADER ====== */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h2">Historique de Localisation</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Consultez les articles stockés dans un lieu à une date donnée
-        </Typography>
-      </Box>
-
-      {/* ====== ALERTES ====== */}
-      {error && (
-        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* ====== FILTRES ====== */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          alignItems: "center",
-          mb: 2,
-          p: 2,
-          bgcolor: "#FAFAFA",
-          borderRadius: 1,
-          border: "1px solid #E0E0E0",
-          flexWrap: "wrap",
-        }}
-      >
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Type de localisation</InputLabel>
-          <Select
-            value={typeLocalisation}
-            label="Type de localisation"
-            onChange={(e) => handleTypeLocalisationChange(e.target.value)}
-          >
-            <MenuItem value="magasin"><StoreIcon fontSize="small" sx={{ mr: 1, verticalAlign: "middle" }} />Magasin</MenuItem>
-            <MenuItem value="direction"><BusinessIcon fontSize="small" sx={{ mr: 1, verticalAlign: "middle" }} />Direction</MenuItem>
-          </Select>
-        </FormControl>
-
-        {/* Localisation */}
-        <FormControl size="small" sx={{ minWidth: 250 }}>
-          <InputLabel>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              {typeLocalisation === "magasin" ? <StoreIcon fontSize="small" /> : <BusinessIcon fontSize="small" />}
-              <span>{typeLocalisation === "magasin" ? "Magasin" : "Direction"}</span>
-            </Box>
-          </InputLabel>
-          {typeLocalisation === "magasin" ? <Select
-            value={magasinId}
-            label="Magasin"
-            onChange={(e) => handleMagasinChange(e.target.value)}
-          >
-            <MenuItem value="">Sélectionner un magasin...</MenuItem>
-            {magasins.map((m) => (
-              <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                {m.magasin_nom} {m.localite ? `(${m.localite})` : ""}
-              </MenuItem>
-            ))}
-          </Select> : <Select
-            value={directionId}
-            label="Direction"
-            onChange={(e) => handleDirectionChange(e.target.value)}
-          >
-            <MenuItem value="">Sélectionner une direction...</MenuItem>
-            {directions.map((direction) => (
-              <MenuItem key={direction.dir_id} value={direction.dir_id}>
-                {direction.dir_libelle}
-              </MenuItem>
-            ))}
-          </Select>}
-        </FormControl>
-
-        {/* Date */}
+      <PageHeader onReset={reinitialiserFiltres} hasFilters={hasFilters}>
+        <SelectFilter
+          label="Type de localisation"
+          value={typeLocalisation}
+          onChange={handleTypeChange}
+          minWidth={190}
+          options={[
+            { value: "magasin", label: "Magasin" },
+            { value: "direction", label: "Direction" },
+          ]}
+        />
+        <SelectFilter
+          label={typeLocalisation === "magasin" ? "Magasin" : "Direction"}
+          value={typeLocalisation === "magasin" ? magasinId : directionId}
+          onChange={(value) => {
+            if (typeLocalisation === "magasin") setMagasinId(value);
+            else setDirectionId(value);
+            setPaginationModel((previous) => ({ ...previous, page: 0 }));
+          }}
+          minWidth={250}
+          options={typeLocalisation === "magasin"
+            ? [{ value: "", label: "Sélectionner un magasin..." }, ...magasins.map((magasin) => ({ value: magasin.magasin_id, label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite})` : ""}` }))]
+            : [{ value: "", label: "Sélectionner une direction..." }, ...directions.map((direction) => ({ value: direction.dir_id, label: direction.dir_libelle }))]}
+        />
         <TextField
           label="Date de référence"
           type="date"
           size="small"
           value={dateReference}
-          onChange={(e) => handleDateChange(e.target.value)}
+          onChange={(event) => setDateReference(event.target.value)}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 180 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <CalendarIcon
-                  fontSize="small"
-                  sx={{ color: "text.secondary", mr: 1 }}
-                />
-              ),
-            },
-          }}
+          slotProps={{ input: { startAdornment: <CalendarIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} /> } }}
         />
-
-        {/* Réinitialiser */}
-        {(magasinId || directionId || dateReference) && (
-          <Button variant="outlined" size="small" onClick={reinitialiserFiltres}>
-            Réinitialiser
-          </Button>
-        )}
-      </Box>
-
-      {/* ====== INFO CONTEXTE ====== */}
-      {dateRecherchee && (magasinId || directionId) && (
-        <Box
-          sx={{
-            mb: 2,
-            p: 1.5,
-            bgcolor: "#FFF8E1",
-            borderRadius: 1,
-            border: "1px solid #F9A825",
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
+      </PageHeader>
+      <ErrorAlert error={error} onClose={() => setError("")} />
+      {dateRecherchee && localisationNom && (
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825", display: "flex", alignItems: "center", gap: 1 }}>
           <SearchIcon color="primary" />
           <Typography variant="body2" fontWeight={500}>
-            Articles {typeLocalisation === "magasin" ? "stockés au" : "attribués à la"}{" "}
-            <strong>
-              {typeLocalisation === "magasin"
-                ? magasins.find((m) => m.magasin_id === Number(magasinId))?.magasin_nom
-                : directions.find((d) => d.dir_id === directionId)?.dir_libelle || "direction"}
-            </strong>{" "}
-            à la date du{" "}
-            <strong>{new Date(dateRecherchee).toLocaleDateString("fr-FR")}</strong>
-            {rowCount > 0 && ` — ${rowCount} article(s) trouvé(s)`}
+            Articles {typeLocalisation === "magasin" ? "stockés au" : "attribués à la"} <strong>{localisationNom}</strong> à la date du <strong>{new Date(dateRecherchee).toLocaleDateString("fr-FR")}</strong>{stocks.length > 0 && ` — ${stocks.length} article(s) trouvé(s)`}
           </Typography>
         </Box>
       )}
-
-      {/* ====== DATAGRID ====== */}
-      <Box sx={{ height: 600, width: "100%" }}>
-        <DataGrid
-          rows={stocks}
-          columns={columns}
-          loading={loading}
-          rowCount={rowCount}
-          paginationMode="client"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.article_code}
-          localeText={{
-            noRowsLabel: "Aucun article trouvé pour cette date",
-            loadingOverlay: "Chargement...",
-          }}
-        />
-      </Box>
+      <PaginatedDataGrid
+        rows={stocks}
+        columns={columns}
+        loading={loading}
+        rowCount={stocks.length}
+        paginationMode="client"
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.article_code}
+        noRowsLabel="Aucun article trouvé pour cette date"
+      />
     </Box>
   );
 }

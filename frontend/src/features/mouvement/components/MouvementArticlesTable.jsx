@@ -7,7 +7,10 @@ export function MouvementArticlesTable({ mouvement }) {
     { field: "article_designation", headerName: "Article", flex: 1 },
     { field: "quantite", headerName: "Quantité", width: 100, headerAlign: "center", align: "center" },
     ...(mouvement.type_mouvement === "ENTREE"
-      ? [{ field: "fournisseur_nom", headerName: "Fournisseur", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> }]
+      ? [
+        { field: "fournisseur_nom", headerName: "Fournisseur", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> },
+        { field: "prix_achat", headerName: "Prix d'achat (MGA)", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> }
+      ]
       : []),
     ...(mouvement.type_mouvement === "SORTIE"
       ? [{ field: "employe_beneficiaire_nom", headerName: "Bénéficiaire", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> }]
@@ -24,7 +27,7 @@ export function MouvementArticlesTable({ mouvement }) {
           rows={mouvement.details ?? []}
           columns={columns}
           disableRowSelectionOnClick
-          getRowId={(row) => row.id}
+          getRowId={(row, index) => row.id ?? row.article_code ?? `article-${index}`}
           localeText={{ noRowsLabel: "Aucun article" }}
         />
       </Box>

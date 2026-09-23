@@ -18,6 +18,7 @@ export function MouvementFournisseursSection({ details }) {
                 <Typography variant="body2" color="text.secondary">Article</Typography>
                 <Typography variant="body1" fontWeight={600}>{detail.article_designation}</Typography>
                 <Typography variant="body2" sx={{ mt: 0.5 }}><strong>Fournisseur : </strong>{detail.fournisseur_nom}</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}><strong>Prix d'achat : </strong>{detail.prix_achat} MGA</Typography>
               </Box>
             </Box>
           </Grid>

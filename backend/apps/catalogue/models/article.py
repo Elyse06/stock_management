@@ -23,7 +23,7 @@ class Article(models.Model):
         Categorie, on_delete=models.PROTECT, related_name="articles"
     )
     marque = models.ForeignKey(
-        Marque, on_delete=models.PROTECT, related_name="articles"
+        Marque, on_delete=models.PROTECT, related_name="articles", null=True, blank=True
     )
     is_immobilisation = models.BooleanField(
         default=True,

@@ -17,6 +17,11 @@ export const API_ENDPOINTS = {
   INVENTAIRES: "/api/stock/inventaires/",
   UNITES_ARTICLE: "/api/stock/unites-article/",
 
+  // Historique
+  HISTORIQUE_GLOBALE: "/api/historique/globale/",
+  HISTORIQUE_ARTICLE: "/api/historique/article/",
+  HISTORIQUE_LOCALISATION: "/api/historique/localisation/",
+
   // Commandes
   COMMANDES: "/api/commandes/commandes/",
 

@@ -10,6 +10,7 @@ export function PaginatedDataGrid({
   onPaginationModelChange,
   getRowId,
   noRowsLabel = "Aucune donnée",
+  paginationMode = "server",
   ...props
 }) {
   return (
@@ -19,7 +20,7 @@ export function PaginatedDataGrid({
         columns={columns}
         loading={loading}
         rowCount={rowCount}
-        paginationMode="server"
+        paginationMode={paginationMode}
         paginationModel={paginationModel}
         onPaginationModelChange={onPaginationModelChange}
         pageSizeOptions={[10, 25, 50, 100]}

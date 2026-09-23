@@ -35,7 +35,7 @@ const EMPTY_FORM = {
   code_barre: "",
   designation: "",
   description: "",
-  marque: "Non specifie",
+  marque: "",
   modele: "",
   unite: "UNITE",
   seuil: "0",
@@ -213,7 +213,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
 
   const categorieOptions = [
     { value: "", label: "Choisir une catégorie..." },
-    ...categories.map((c) => ({ value: c.categorie_id, label: c.cat_libelle })),
+    ...categories.map((c) => ({ value: c.categorie_id, label: `${c.cat_libelle} - ${c.cat_description}` })),
   ];
 
   const modeSuiviOptions = MODES_SUIVI.map((m) => ({ value: m.value, label: m.label }));
@@ -294,6 +294,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           fullWidth
         />
 
+        {/** Unitilisable mais possible amelioration
         <Autocomplete
           options={marques}
           getOptionLabel={(option) => option.mq_libelle || ""}
@@ -307,6 +308,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           )}
           isOptionEqualToValue={(option, value) => option.marque_id === value.marque_id}
         />
+        */}
 
         <TextField
           label="Modèle"

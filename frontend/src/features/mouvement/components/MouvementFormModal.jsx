@@ -30,7 +30,7 @@ const TYPES_MANUELS = [
   { value: "TRANSFERT", label: "Transfert entre magasins", icon: <SwapHorizIcon fontSize="small" /> },
 ];
 
-const EMPTY_DETAIL = { article: "", quantite: 1, numeros_de_serie: [], fournisseur: "" };
+const EMPTY_DETAIL = { article: "", quantite: 1, numeros_de_serie: [], fournisseur: "" , prix_achat: ""};
 
 export function MouvementFormModal({
   isOpen,
@@ -63,7 +63,7 @@ export function MouvementFormModal({
     setMagasinDestination("");
     setDetails(
       preselectedArticle
-        ? [{ article: preselectedArticle, quantite: preselectedQuantite || 1, numeros_de_serie: [], fournisseur: "" }]
+        ? [{ article: preselectedArticle, quantite: preselectedQuantite || 1, numeros_de_serie: [], fournisseur: "", prix_achat: "" }]
         : [{ ...EMPTY_DETAIL }]
     );
 
@@ -202,6 +202,7 @@ export function MouvementFormModal({
           }
           if (typeMouvement === "ENTREE" && d.fournisseur) {
             detailPayload.fournisseur = Number(d.fournisseur);
+            detailPayload.prix_achat = d.prix_achat;
           }
           return detailPayload;
         }),
@@ -332,7 +333,14 @@ export function MouvementFormModal({
           { label: "Article" },
           { label: "Quantité", align: "center", width: 120 },
           { label: "Numéros de série", minWidth: 250 },
-          ...(typeMouvement === "ENTREE" ? [{ label: <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}><BusinessIcon fontSize="small" />Fournisseur</Box>, minWidth: 180 }] : []),
+          ...(typeMouvement === "ENTREE" ? [
+            {label: 
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <BusinessIcon fontSize="small" />Fournisseur
+            </Box>, 
+            minWidth: 180},
+            {label: "Prix d'achat (MGA)", minWidth: 150}
+          ] : []),
           { label: "", align: "center", width: 60 },
         ]}
       >
@@ -401,14 +409,21 @@ export function MouvementFormModal({
                 )}
               </td>
               {typeMouvement === "ENTREE" && (
-                <td>
+                <><td>
                   <SelectFilter
                     value={row.fournisseur}
                     onChange={(value) => handleDetailChange(index, "fournisseur", value)}
                     options={fournisseurOptions}
-                    size="small"
-                  />
-                </td>
+                    size="small" />
+                </td><td>
+                    <TextField
+                      type="number"
+                      size="small"
+                      value={row.prix_achat}
+                      onChange={(e) => handleDetailChange(index, "prix_achat", e.target.value)}
+                      inputProps={{ min: 1 }}
+                      sx={{ width: 100 }} />
+                  </td></>
               )}
               <td align="center">
                 {details.length > 1 && (
