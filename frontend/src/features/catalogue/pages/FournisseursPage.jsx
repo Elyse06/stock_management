@@ -145,7 +145,6 @@ export function FournisseursPage() {
   };
 
   const columns = [
-    { field: "fournisseur_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
     { field: "nom", headerName: "Nom", flex: 1, minWidth: 180 },
     { field: "email", headerName: "Email", flex: 1, minWidth: 200, renderCell: (params) => <EmptyValue value={params.value} /> },
     { field: "contact", headerName: "Contact", width: 160, renderCell: (params) => <EmptyValue value={params.value} /> },
@@ -174,7 +173,7 @@ export function FournisseursPage() {
 
   return (
     <Box>
-      <PageHeader title="Fournisseurs" actionLabel="Nouveau fournisseur" onAction={ouvrirCreation} />
+      <PageHeader title="" actionLabel="Nouveau fournisseur" onAction={ouvrirCreation} />
       <ErrorAlert error={error?.message} />
       <PaginatedDataGrid
         rows={data?.fournisseurs || []}

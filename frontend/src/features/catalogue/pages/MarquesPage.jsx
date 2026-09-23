@@ -124,7 +124,6 @@ export function MarquesPage() {
   };
 
   const columns = [
-    { field: "marque_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
     { field: "mq_libelle", headerName: "Libellé", flex: 1, minWidth: 200 },
     {
       field: "mq_descriprion",
@@ -155,7 +154,7 @@ export function MarquesPage() {
 
   return (
     <Box>
-      <PageHeader title="Marques" actionLabel="Nouvelle marque" onAction={ouvrirCreation} />
+      <PageHeader title="" actionLabel="Nouvelle marque" onAction={ouvrirCreation} />
       <ErrorAlert error={error?.message} />
       <PaginatedDataGrid
         rows={data?.marques || []}

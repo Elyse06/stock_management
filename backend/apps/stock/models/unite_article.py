@@ -1,7 +1,8 @@
-from apps.catalogue.models import Article
-from apps.employee.models import Direction, Employer
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.catalogue.models import Article
+from apps.employee.models import Direction, Employer
 
 from .detail_mouvement import DetailMouvement
 

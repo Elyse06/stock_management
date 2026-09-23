@@ -6,6 +6,7 @@ const STATUS_LABELS = {
   VALIDEE: "Validée",
   REJETEE: "Rejetée",
   VALIDE: "Validé",
+  TRAITE: "Traité",
   REJETE: "Rejeté",
   ENTREE: "Entrée",
   RETOUR: "Retour au stock",
@@ -21,6 +22,7 @@ export function StatusChip({ status, variant = "filled", size = "small" }) {
         return { borderColor: "#F9A825", color: "#F9A825" };
       case "VALIDEE":
       case "VALIDE":
+      case "TRAITE":
       case "ENTREE":
       case "RETOUR":
         return { borderColor: "#F9A825", color: "#F9A825", bgcolor: "#FFF8E1" };

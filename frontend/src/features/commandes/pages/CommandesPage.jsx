@@ -8,7 +8,6 @@ import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { PageHeader } from "../../../components/common/PageHeader";
-import { FilterBar } from "../../../components/common/FilterBar";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { ActionButtons } from "../../../components/common/ActionButtons";
@@ -157,12 +156,11 @@ export function CommandesPage() {
   };
 
   const columns = [
-    { field: "objet", headerName: "Objet", flex: 1, minWidth: 200 },
     {
-      field: "statut",
-      headerName: "Statut",
-      width: 140,
-      renderCell: (params) => <StatusChip status={params.value} />,
+      field: "date_commande",
+      headerName: "Date demande",
+      width: 160,
+      renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: "demandeur",
@@ -171,10 +169,33 @@ export function CommandesPage() {
       renderCell: (params) => params.row?.demandeur?.nom || params.row?.employe_demandeur || "—",
     },
     {
-      field: "date_commande",
-      headerName: "Date demande",
-      width: 160,
-      renderCell: (params) => formatDateTime(params.value),
+      field: "article_designation",
+      headerName: "Articles",
+      width: 700,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => {
+        const articles = params.row.details
+          ?.map(
+            (detail) =>
+              detail.article_designation ??
+              detail.article?.designation ??
+              detail.designation
+          )
+          .filter(Boolean)
+          .join(", ");
+
+        return articles || <EmptyValue />;
+      },
+    },
+    {
+      field: "statut",
+      headerName: "Statut",
+      width: 140,
+      renderCell: (params) => {
+        const statusValue = params.value === "VALIDEE" ? "TRAITE" : params.value;
+        return <StatusChip status={statusValue} />;
+      },
     },
     {
       field: "actions",
@@ -208,15 +229,9 @@ export function CommandesPage() {
   return (
     <Box>
       <PageHeader
-        title="Commandes"
-        subtitle="Gérez les demandes de matériel et leur traitement"
         actionLabel="Nouvelle demande"
         onAction={openFormModalForCreate}
         canAction={canCreateCommande}
-      />
-      <ErrorAlert error={error?.message} />
-
-      <FilterBar
         onReset={() => {
           setStatutFiltre("");
           setPeriodeFiltre("tous");
@@ -243,7 +258,8 @@ export function CommandesPage() {
           options={STATUTS}
           minWidth={150}
         />
-      </FilterBar>
+      </PageHeader>
+      <ErrorAlert error={error?.message} />
 
       <PaginatedDataGrid
         rows={commandesFiltrees}

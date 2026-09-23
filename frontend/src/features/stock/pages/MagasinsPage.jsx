@@ -169,7 +169,6 @@ export function MagasinsPage() {
   ];
 
   const columns = [
-    { field: "magasin_id", headerName: "ID", width: 80, headerAlign: "center", align: "center" },
     { field: "magasin_nom", headerName: "Nom", flex: 1, minWidth: 200 },
     {
       field: "localite_nom",
@@ -210,7 +209,7 @@ export function MagasinsPage() {
 
   return (
     <Box>
-      <PageHeader title="Magasins" actionLabel="Nouveau magasin" onAction={ouvrirCreation} />
+      <PageHeader title="" actionLabel="Nouveau magasin" onAction={ouvrirCreation} />
       <ErrorAlert error={error?.message} />
       <PaginatedDataGrid
         rows={data?.magasins || []}

@@ -8,7 +8,6 @@ import { usePagination } from "../../../hooks/usePagination";
 import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { PageHeader } from "../../../components/common/PageHeader";
-import { FilterBar } from "../../../components/common/FilterBar";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { ActionButtons } from "../../../components/common/ActionButtons";
@@ -172,32 +171,25 @@ export function InventairePage() {
 
   const columns = [
     {
-      field: "code_reference",
-      headerName: "Référence",
-      flex: 1,
-      minWidth: 180,
-      renderCell: (params) => <CodeChip value={params.value} />,
-    },
-    { field: "lieu_nom", headerName: "Lieu", flex: 1, minWidth: 200 },
-    {
       field: "date_creation",
-      headerName: "Date création",
+      headerName: "Date de l'inventaire",
       width: 160,
       renderCell: (params) => formatDateTime(params.value),
+    },
+    { field: "lieu_nom", headerName: "Lieu", flex: 1, minWidth: 150 },
+    {
+      field: "nb_lignes",
+      headerName: "Nombre d'articles",
+      width: 170,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => params.row.lignes?.length ?? 0,
     },
     {
       field: "statut",
       headerName: "Statut",
-      width: 140,
+      width: 120,
       renderCell: (params) => <StatusChip status={params.value} />,
-    },
-    {
-      field: "nb_lignes",
-      headerName: "Articles",
-      width: 100,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => params.row.lignes?.length ?? 0,
     },
     {
       field: "actions",
@@ -227,14 +219,10 @@ export function InventairePage() {
   return (
     <Box>
       <PageHeader
-        title="Inventaires"
+        title=""
         actionLabel="Nouvel inventaire"
         onAction={() => setIsFormModalOpen(true)}
         canAction={canManageInventaire}
-      />
-      <ErrorAlert error={error?.message} />
-
-      <FilterBar
         onReset={reinitialiserFiltres}
         hasFilters={statutFiltre || lieuTypeFiltre || lieuIdFiltre}
       >
@@ -271,7 +259,8 @@ export function InventairePage() {
             minWidth={200}
           />
         )}
-      </FilterBar>
+      </PageHeader>
+      <ErrorAlert error={error?.message} />
 
       <PaginatedDataGrid
         rows={data?.sessions || []}
