@@ -28,15 +28,17 @@ class LigneInventaireSerializer(serializers.ModelSerializer):
         
         is_numero_serie = article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE
         
-        if not is_numero_serie and propositions:
+        if not is_numero_serie and (
+            propositions.get('ajouts') or propositions.get('retraits')
+        ):
             raise serializers.ValidationError({
                 'propositions_series': (
-                    "Les propositions de numéros de série ne sont autorisées "
-                    "que pour les articles suivis par numéro de série."
+                    "Les ajouts et retraits ne sont autorisés que pour les articles "
+                    "suivis par numéro de série."
                 )
             })
         
-        if is_numero_serie and propositions:
+        if propositions:
             unite_ids_retraits = {r['unite_id'] for r in propositions.get('retraits', [])}
             unite_ids_changes = {c['unite_id'] for c in propositions.get('changements_etat', [])}
             tous_ids = unite_ids_retraits | unite_ids_changes
@@ -57,7 +59,7 @@ class LigneInventaireSerializer(serializers.ModelSerializer):
                     })
             
             numeros_ajouts = {a['numero_serie'] for a in propositions.get('ajouts', [])}
-            if numeros_ajouts:
+            if is_numero_serie and numeros_ajouts:
                 numeros_existants = UniteArticle.objects.filter(
                     article=article,
                     numero_de_serie__in=numeros_ajouts

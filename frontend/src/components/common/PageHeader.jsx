@@ -7,6 +7,9 @@ export function PageHeader({
   actionLabel,
   onAction,
   canAction = true,
+  secondaryActionLabel,
+  onSecondaryAction,
+  canSecondaryAction = true,
   children,
   onReset,
   hasFilters,
@@ -61,6 +64,15 @@ export function PageHeader({
           sx={{ ml: "auto" }}
         >
           {actionLabel}
+        </Button>
+      )}
+      {canSecondaryAction && secondaryActionLabel && (
+        <Button
+          variant="outlined"
+          onClick={onSecondaryAction}
+          sx={{ ml: actionLabel ? 0 : "auto" }}
+        >
+          {secondaryActionLabel}
         </Button>
       )}
     </Box>

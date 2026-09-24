@@ -139,7 +139,6 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
 
         <InventaireArticlesTable lignes={lignes} />
 
-        {/* 🆕 Affichage détaillé des propositions pour les articles NUMERO_SERIE */}
         {lignes.some(
           (l) =>
             l.article_mode_suivi === "NUMERO_SERIE" &&

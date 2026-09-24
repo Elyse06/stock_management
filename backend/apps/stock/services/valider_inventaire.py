@@ -62,6 +62,13 @@ def valider_session_inventaire(session: InventaireSession):
                 mouvement_perte=mouvement_perte,
             )
         else:
+            if ligne.propositions_series.get('changements_etat'):
+                _materieliser_propositions_serie(
+                    ligne=ligne,
+                    session=session,
+                    article=article,
+                )
+
             if ecart != 0:
                 mouvement_ref = mouvement_gain if ecart > 0 else mouvement_perte
                 DetailMouvement.objects.create(

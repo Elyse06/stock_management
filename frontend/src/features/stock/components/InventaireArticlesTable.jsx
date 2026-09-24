@@ -59,30 +59,10 @@ export function InventaireArticlesTable({ lignes }) {
 
   const columns = [
     {
-      field: "article",
-      headerName: "Code",
-      width: 120,
-      renderCell: (params) => <CodeChip value={params.value} />,
-    },
-    {
       field: "article_designation",
       headerName: "Article",
       flex: 1,
       minWidth: 200,
-    },
-    {
-      field: "article_mode_suivi",
-      headerName: "Mode",
-      width: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value === "NUMERO_SERIE" ? "N° Série" : "Quantité"}
-          size="small"
-          color={params.value === "NUMERO_SERIE" ? "info" : "default"}
-          variant="outlined"
-          sx={{ height: 20, fontSize: 10 }}
-        />
-      ),
     },
     {
       field: "quantite_theorique",
@@ -148,12 +128,14 @@ export function InventaireArticlesTable({ lignes }) {
         );
       },
     },
+    /* Utiliser pour l'implementation de numero de série
     {
       field: "propositions_series",
       headerName: "Propositions",
       width: 180,
       renderCell: (params) => renderPropositions(params.value),
     },
+   */
     {
       field: "commentaire",
       headerName: "Commentaire",

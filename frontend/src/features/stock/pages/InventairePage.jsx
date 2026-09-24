@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Box, Typography } from "@mui/material";
 import { Business as BusinessIcon, Store as StoreIcon } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
@@ -33,6 +34,7 @@ const TYPES_LIEU = [
 
 export function InventairePage() {
   const notify = useNotification();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
   const { canManageInventaire, canValidateInventaire } = usePermission();
@@ -219,10 +221,17 @@ export function InventairePage() {
   return (
     <Box>
       <PageHeader
-        title=""
+        actionLabel="Realisation de l'Inventaire"
+        onAction={() => navigate("/inventaire/sessions/realisation")}
+        canAction={canManageInventaire}
+        /*
         actionLabel="Nouvel inventaire"
         onAction={() => setIsFormModalOpen(true)}
         canAction={canManageInventaire}
+        secondaryActionLabel="Realisation de l'Inventaire"
+        onSecondaryAction={() => navigate("/inventaire/sessions/realisation")}
+        canSecondaryAction={canManageInventaire}
+        */
         onReset={reinitialiserFiltres}
         hasFilters={statutFiltre || lieuTypeFiltre || lieuIdFiltre}
       >
