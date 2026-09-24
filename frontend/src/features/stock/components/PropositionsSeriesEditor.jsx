@@ -17,7 +17,7 @@ const ETATS_AJOUT = ["BON", "MOYEN", "MAUVAIS"];
 const ETATS_CHANGE = ["MOYEN", "MAUVAIS", "HORS_USAGE"];
 
 export function PropositionsSeriesEditor({
-  type, // "ECART" ou "CHANGEMENT_ETAT"
+  type,
   ecart = 0,
   modeSuivi = "NUMERO_SERIE",
   unitesExistantes = [],
@@ -175,7 +175,6 @@ export function PropositionsSeriesEditor({
         </Typography>
 
         {modeSuivi === "QUANTITE" ? (
-          // 🆕 Mode QUANTITE : saisie directe de la quantité
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <TextField
               label="Nombre d'unités concernées"
@@ -192,12 +191,8 @@ export function PropositionsSeriesEditor({
                 {ETATS_CHANGE.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
               </Select>
             </FormControl>
-            <Typography variant="caption" color="text.secondary">
-              (Le système appliquera ce changement aux premières unités disponibles en stock)
-            </Typography>
           </Box>
         ) : (
-          // Mode NUMERO_SERIE : sélection unitaire
           <>
             <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
               <FormControl size="small" sx={{ flex: 1 }}>

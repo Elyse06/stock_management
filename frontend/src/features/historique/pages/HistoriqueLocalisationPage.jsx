@@ -93,7 +93,6 @@ export function HistoriqueLocalisationPage() {
   };
 
   const columns = [
-    { field: "article_code", headerName: "Code article", width: 150, renderCell: ({ value }) => <Typography variant="body2" fontFamily="monospace" fontWeight={600}>{value}</Typography> },
     { field: "article_designation", headerName: "Désignation", flex: 1, minWidth: 220 },
     { field: "stock", headerName: "Stock à la date", width: 150, headerAlign: "center", align: "center", renderCell: ({ value }) => <Chip label={value} color="primary" sx={{ fontWeight: 700, fontFamily: "monospace" }} /> },
   ];

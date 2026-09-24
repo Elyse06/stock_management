@@ -13,7 +13,7 @@ from apps.stock.serializers import (
 
 
 class UniteArticleViewSet(viewsets.ModelViewSet):
-    queryset = UniteArticle.objects.filter(statut="ATTRIBUE").select_related(
+    queryset = UniteArticle.objects.all().select_related(
         "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire"
     )
     serializer_class = UniteArticleSerializer
