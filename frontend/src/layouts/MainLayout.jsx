@@ -38,7 +38,10 @@ import {
   LocationOn as LocationOnIcon,
   Article as ArticleIcon,
   UploadFile as UploadFileIcon,
-  AdminPanelSettings as AdminPanelSettingsIcon
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  Badge as BadgeIcon,
+  AccountTree as AccountTreeIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 
 const MENU_STRUCTURE = [
@@ -53,6 +56,38 @@ const MENU_STRUCTURE = [
     label: "Utilisateurs & Rôles",
     icon: <AdminPanelSettingsIcon fontSize="small" />,
     actions: ["USR_GERE", "CAT_GERE"],
+  },
+  {
+    key: "employes",
+    label: "Employés",
+    icon: <BadgeIcon fontSize="small" />,
+    actions: [],
+    children: [
+      {
+        path: "/employes",
+        label: "Employé",
+        icon: <BadgeIcon fontSize="small" />,
+        actions: [],
+      },
+      {
+        path: "/employes/services",
+        label: "Service",
+        icon: <AccountTreeIcon fontSize="small" />,
+        actions: [],
+      },
+      {
+        path: "/employes/directions",
+        label: "Direction",
+        icon: <BusinessIcon fontSize="small" />,
+        actions: [],
+      },
+      {
+        path: "/employes/sites",
+        label: "Site",
+        icon: <LocationOnIcon fontSize="small" />,
+        actions: [],
+      },
+    ],
   },
   {
     key: "catalogue",

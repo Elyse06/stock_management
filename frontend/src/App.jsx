@@ -25,6 +25,11 @@ import { ImportImmobilisationsPage } from "./features/import/pages/ImportImmobil
 
 import { UtilisateursPage } from "./features/user/page/UtilisateursPage";
 
+import { EmployeesPage } from "./features/employes/pages/EmployeesPage";
+import { ServicesPage } from "./features/employes/pages/ServicesPage";
+import { DirectionsPage } from "./features/employes/pages/DirectionsPage";
+import { SitesPage } from "./features/employes/pages/SitesPage";
+
 function App() {
   return (
     <Routes>
@@ -147,6 +152,64 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/employes"
+          element={
+            <ProtectedRoute>
+              <EmployeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employes/services"
+          element={
+            <ProtectedRoute>
+              <ServicesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/services"
+          element={
+            <ProtectedRoute>
+              <ServicesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employes/directions"
+          element={
+            <ProtectedRoute>
+              <DirectionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/directions"
+          element={
+            <ProtectedRoute>
+              <DirectionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/employes/sites"
+          element={
+            <ProtectedRoute>
+              <SitesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sites"
+          element={
+            <ProtectedRoute>
+              <SitesPage />
+            </ProtectedRoute>
+          }
+        />
+
       </Route>
     </Routes>
   );
