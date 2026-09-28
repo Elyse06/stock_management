@@ -23,6 +23,8 @@ import { HistoriqueLocalisationPage } from "./features/historique/pages/Historiq
 import { HistoriqueArticlePage } from "./features/historique/pages/HistoriqueArticlePage";
 import { ImportImmobilisationsPage } from "./features/import/pages/ImportImmobilisationsPage";
 
+import { UtilisateursPage } from "./features/user/page/UtilisateursPage";
+
 function App() {
   return (
     <Routes>
@@ -133,6 +135,15 @@ function App() {
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <ImportImmobilisationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/utilisateurs"
+          element={
+            <ProtectedRoute actions={["USR_GERE", "CAT_GERE"]}>
+              <UtilisateursPage />
             </ProtectedRoute>
           }
         />

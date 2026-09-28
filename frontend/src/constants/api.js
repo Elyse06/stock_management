@@ -29,6 +29,12 @@ export const API_ENDPOINTS = {
   DIRECTIONS: "/api/employee/direction/",
   EMPLOYEES: "/api/employee/employee/",
   SITES: "/api/employee/sites/",
+
+  // Utilisateurs & Rôles
+  UTILISATEURS: "/api/utilisateur/utilisateurs/",
+  ACTIONS: "/api/utilisateur/action/",
+  ROLES: "/api/utilisateur/roles/",
+  AUTORISATIONS: "/api/utilisateur/autorisations/",
 };
 
 export const ERROR_MESSAGES = {

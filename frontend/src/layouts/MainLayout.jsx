@@ -37,7 +37,8 @@ import {
   Public as PublicIcon,
   LocationOn as LocationOnIcon,
   Article as ArticleIcon,
-  UploadFile as UploadFileIcon
+  UploadFile as UploadFileIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon
 } from "@mui/icons-material";
 
 const MENU_STRUCTURE = [
@@ -46,6 +47,12 @@ const MENU_STRUCTURE = [
     label: "Tableau de bord",
     icon: <DashboardIcon fontSize="small" />,
     actions: [],
+  },
+  {
+    path: "/utilisateurs",
+    label: "Utilisateurs & Rôles",
+    icon: <AdminPanelSettingsIcon fontSize="small" />,
+    actions: ["USR_GERE", "CAT_GERE"],
   },
   {
     key: "catalogue",

@@ -57,6 +57,8 @@ class Command(BaseCommand):
              "Créer et consulter ses propres commandes de matériel"),
             ("COM_VAL", "Valider commande",
              "Valider ou rejeter une commande de matériel"),
+              ("USR_GERE", "Gérer les utilisateurs",
+               "Créer des comptes, gérer les profils et leurs permissions"),
         ]
         created_count = 0
         for action_id, libelle, description in actions:
