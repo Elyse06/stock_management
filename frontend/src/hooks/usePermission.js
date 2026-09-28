@@ -21,6 +21,9 @@ export function usePermission() {
     // Mouvements
     canReadMouvements: hasAction("MOV_LIRE"),
     canManageMouvements: hasAction("MOV_GERE"),
+
+    // Utilisateurs & Rôles
+    canManageUsers: hasAction("USR_GERE") || hasAction("CAT_GERE"),
   }), [hasAction]);
 
   return {
