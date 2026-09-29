@@ -198,14 +198,31 @@ export function MainLayout() {
     return hasAnyAction(...item.actions);
   };
 
+  const matchesPath = (path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
+
   const activeParent = MENU_STRUCTURE.find(
     (item) => {
       const visibleChildren = item.children?.filter(canSeeItem) || [];
-      return visibleChildren.some((child) =>
-        location.pathname.startsWith(child.path),
-      );
+      return visibleChildren.some((child) => matchesPath(child.path));
     },
   );
+
+  const visibleActiveChildren = activeParent
+    ? activeParent.children
+        .filter(canSeeItem)
+        .filter((child) => matchesPath(child.path))
+    : [];
+  const activeChild = visibleActiveChildren.reduce(
+    (mostSpecific, child) =>
+      !mostSpecific || child.path.length > mostSpecific.path.length
+        ? child
+        : mostSpecific,
+    null,
+  );
+  const activeChildIndex = activeParent
+    ? activeParent.children.filter(canSeeItem).indexOf(activeChild)
+    : -1;
 
   const handleLogout = () => {
     logout();
@@ -275,10 +292,8 @@ export function MainLayout() {
           <Box sx={{ display: "flex", gap: 0.5, flex: 1 }}>
             {MENU_STRUCTURE.filter(canSeeItem).map((item) => {
               const isActive = item.path
-                ? location.pathname === item.path
-                : item.children.some((c) =>
-                    location.pathname.startsWith(c.path),
-                  );
+                ? matchesPath(item.path)
+                : item.children.some((child) => matchesPath(child.path));
 
               return (
                 <Button
@@ -359,9 +374,7 @@ export function MainLayout() {
             }}
           >
             <Tabs
-              value={activeParent.children
-                .filter(canSeeItem)
-                .findIndex((child) => location.pathname.startsWith(child.path))}
+              value={activeChildIndex}
               variant="scrollable"
               scrollButtons="auto"
               sx={{
