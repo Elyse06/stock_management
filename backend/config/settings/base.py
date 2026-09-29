@@ -38,8 +38,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -115,11 +115,12 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
-CORS_ALLOWED_ORIGINS = [
-    origin.strip() 
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-]
+#CORS_ALLOWED_ORIGINS = [
+#    origin.strip() 
+#    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+#    if origin.strip()
+#]
+CORS_ALLOW_ALL_ORIGINS = True
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://localhost:6379/0")

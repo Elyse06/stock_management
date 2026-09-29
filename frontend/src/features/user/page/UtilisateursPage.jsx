@@ -10,11 +10,7 @@ import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
-import { PageHeader } from "../../../components/common/PageHeader";
 import { extractApiError } from "../components/apiError";
-
-// Composants extraits
-import { UserKpiCards } from "../components/UserKpiCards";
 import { UserFilters } from "../components/UserFilters.jsx";
 import { UserTable } from "../components/UserTable";
 import { UserPermissionsModal } from "../components/UserPermissionsModal";
@@ -34,7 +30,7 @@ export function UtilisateursPage() {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  
+
   const [tabIndex, setTabIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
@@ -106,11 +102,15 @@ export function UtilisateursPage() {
       notify.error("Impossible de supprimer le compte administrateur principal.");
       return;
     }
-    confirm({
-      title: "Supprimer cet utilisateur ?",
-      message: `Êtes-vous sûr de vouloir supprimer le compte "${user.utilisateur_mail}" ?`,
-      onConfirm: () => deleteMutation.mutate(user.utilisateur_id),
-    });
+    confirm(
+      "Supprimer cet utilisateur ?",
+      `Êtes-vous sûr de vouloir supprimer le compte "${user.utilisateur_mail}" ?`,
+      async () => {
+        try {
+          await deleteMutation.mutateAsync(user.utilisateur_id);
+        } catch {}
+      }
+    );
   };
 
   const handleFormSubmit = (payload) => {
@@ -124,31 +124,46 @@ export function UtilisateursPage() {
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const search = searchTerm.toLowerCase();
-      const matchesSearch = !search || u.utilisateur_mail.toLowerCase().includes(search) || String(u.emp_nom || "").toLowerCase().includes(search) || String(u.emp_matricule || "").toLowerCase().includes(search) || String(u.role_nom || "").toLowerCase().includes(search);
+      const matchesSearch =
+        !search ||
+        u.utilisateur_mail.toLowerCase().includes(search) ||
+        String(u.emp_nom || "").toLowerCase().includes(search) ||
+        String(u.emp_matricule || "").toLowerCase().includes(search) ||
+        String(u.role_nom || "").toLowerCase().includes(search);
       const matchesRole = roleFilter === "ALL" || String(u.role_id) === roleFilter;
       return matchesSearch && matchesRole;
     });
   }, [users, searchTerm, roleFilter]);
 
-  const stats = useMemo(() => {
-    return {
-      total: users.length,
-      admins: users.filter((u) => u.role_id === "ADMIN" || u.actions?.includes("USR_GERE")).length,
-      linked: users.filter((u) => u.emp_id).length,
-    };
-  }, [users]);
-
   if (!canManageUsers) return <Navigate to="/" replace />;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400, margin: "0 auto" }}>
-      <PageHeader title="Utilisateurs & rôles" />
-      <UserKpiCards stats={stats} />
-      
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}>
-        <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} textColor="inherit" sx={{ "& .MuiTabs-indicator": { bgcolor: "primary.main", height: 3 } }}>
-          <Tab label={<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}><PeopleIcon fontSize="small" /><span>Utilisateurs & Accès ({filteredUsers.length})</span></Box>} sx={{ fontWeight: 600, textTransform: "none" }} />
-          <Tab label={<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}><SecurityIcon fontSize="small" /><span>Matrice des Rôles & Permissions</span></Box>} sx={{ fontWeight: 600, textTransform: "none" }} />
+        <Tabs
+          value={tabIndex}
+          onChange={(_, v) => setTabIndex(v)}
+          textColor="inherit"
+          sx={{ "& .MuiTabs-indicator": { bgcolor: "primary.main", height: 3 } }}
+        >
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <PeopleIcon fontSize="small" />
+                <span>Utilisateurs & Accès ({filteredUsers.length})</span>
+              </Box>
+            }
+            sx={{ fontWeight: 600, textTransform: "none" }}
+          />
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <SecurityIcon fontSize="small" />
+                <span>Matrice des Rôles & Permissions</span>
+              </Box>
+            }
+            sx={{ fontWeight: 600, textTransform: "none" }}
+          />
         </Tabs>
       </Box>
 
@@ -156,18 +171,59 @@ export function UtilisateursPage() {
 
       {tabIndex === 0 && (
         <Box>
-          <UserFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} roleFilter={roleFilter} setRoleFilter={setRoleFilter} onAddUser={() => { setEditingUser(null); setFormOpen(true); }} />
-          <UserTable users={filteredUsers} isLoading={usersLoading} onEdit={(user) => { setEditingUser(user); setFormOpen(true); }} onDelete={handleDelete} onViewPermissions={setPermissionsModalUser} />
+          <UserFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            roleFilter={roleFilter}
+            setRoleFilter={setRoleFilter}
+            onAddUser={() => {
+              setEditingUser(null);
+              setFormOpen(true);
+            }}
+          />
+          <UserTable
+            users={filteredUsers}
+            isLoading={usersLoading}
+            onEdit={(user) => {
+              setEditingUser(user);
+              setFormOpen(true);
+            }}
+            onDelete={handleDelete}
+            onViewPermissions={setPermissionsModalUser}
+          />
         </Box>
       )}
 
       {tabIndex === 1 && <RolesMatrixTab />}
 
-      <UserFormDialog open={formOpen} onClose={() => { setFormOpen(false); setEditingUser(null); }} onSubmit={handleFormSubmit} initialData={editingUser} employees={employees} />
-      
-      <UserPermissionsModal user={permissionsModalUser} onClose={() => setPermissionsModalUser(null)} onEdit={(user) => { setPermissionsModalUser(null); setEditingUser(user); setFormOpen(true); }} />
-      
-      <ConfirmDialog open={confirmState.open} title={confirmState.title} message={confirmState.message} onConfirm={handleConfirm} onCancel={handleCancel} />
+      <UserFormDialog
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingUser(null);
+        }}
+        onSubmit={handleFormSubmit}
+        initialData={editingUser}
+        employees={employees}
+      />
+
+      <UserPermissionsModal
+        user={permissionsModalUser}
+        onClose={() => setPermissionsModalUser(null)}
+        onEdit={(user) => {
+          setPermissionsModalUser(null);
+          setEditingUser(user);
+          setFormOpen(true);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 }

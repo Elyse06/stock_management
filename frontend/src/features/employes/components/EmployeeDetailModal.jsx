@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  IconButton,
   Box,
   Typography,
   Avatar,
@@ -11,34 +12,18 @@ import {
   Paper,
   Divider,
   Stack,
-  IconButton,
 } from "@mui/material";
 import {
   Close as CloseIcon,
-  Email as EmailIcon,
   Phone as PhoneIcon,
   Business as BusinessIcon,
   AccountTree as AccountTreeIcon,
   LocationOn as LocationOnIcon,
-  CalendarToday as CalendarIcon,
   Edit as EditIcon,
 } from "@mui/icons-material";
 
-export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
+export function EmployeeDetailModal({ employee, isOpen, onClose, onEdit }) {
   if (!employee) return null;
-
-  const getStatusChip = (st) => {
-    switch (st) {
-      case "ACTIF":
-        return <Chip label="Actif" size="small" sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontWeight: 700 }} />;
-      case "INACTIF":
-        return <Chip label="Inactif" size="small" sx={{ bgcolor: "#EEEEEE", color: "#616161", fontWeight: 700 }} />;
-      case "CONGE":
-        return <Chip label="En congé" size="small" sx={{ bgcolor: "#FFF3E0", color: "#E65100", fontWeight: 700 }} />;
-      default:
-        return <Chip label={st || "Inconnu"} size="small" />;
-    }
-  };
 
   const initials = employee.emp_nom
     ? employee.emp_nom
@@ -50,15 +35,7 @@ export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
     : "EP";
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 },
-      }}
-    >
+    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
       <DialogTitle sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="subtitle1" fontWeight={700}>
           Fiche Collaborateur
@@ -87,17 +64,14 @@ export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
             {initials}
           </Avatar>
           <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
-              <Typography variant="h6" fontWeight={700}>
-                {employee.emp_nom}
-              </Typography>
-              {getStatusChip(employee.statut)}
-            </Box>
+            <Typography variant="h6" fontWeight={700}>
+              {employee.emp_nom}
+            </Typography>
             <Typography variant="body2" color="primary.dark" fontWeight={600} sx={{ mb: 0.5 }}>
               {employee.emp_fonction || "Collaborateur"}
             </Typography>
             <Chip
-              label={`Matricule: ${employee.emp_matricule || employee.emp_id}`}
+              label={`Matricule: ${employee.emp_matricule}`}
               size="small"
               variant="outlined"
               sx={{ fontWeight: 600, fontSize: 11 }}
@@ -112,25 +86,11 @@ export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
           </Typography>
           <Stack spacing={1.5}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <EmailIcon fontSize="small" sx={{ color: "primary.dark" }} />
-              <Typography variant="body2" fontWeight={500}>
-                {employee.emp_email || "Non renseigné"}
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <PhoneIcon fontSize="small" sx={{ color: "primary.dark" }} />
               <Typography variant="body2" fontWeight={500}>
                 {employee.emp_contact || "Non renseigné"}
               </Typography>
             </Box>
-            {employee.date_embauche && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <CalendarIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                <Typography variant="body2" color="text.secondary">
-                  Date de prise de fonction : {new Date(employee.date_embauche).toLocaleDateString("fr-FR")}
-                </Typography>
-              </Box>
-            )}
           </Stack>
         </Paper>
 
@@ -151,7 +111,6 @@ export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
                 </Typography>
               </Box>
             </Box>
-
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
               <BusinessIcon fontSize="small" sx={{ color: "#0288D1", mt: 0.2 }} />
               <Box>
@@ -159,11 +118,10 @@ export function EmployeeDetailDialog({ open, onClose, employee, onEdit }) {
                   Direction
                 </Typography>
                 <Typography variant="body2" fontWeight={600}>
-                  {employee.direction_libelle || employee.direction_id || "Non affectée"}
+                  {employee.direction_libelle || "Non affectée"}
                 </Typography>
               </Box>
             </Box>
-
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
               <AccountTreeIcon fontSize="small" sx={{ color: "#7B1FA2", mt: 0.2 }} />
               <Box>
