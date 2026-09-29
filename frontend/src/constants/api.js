@@ -29,7 +29,7 @@ export const API_ENDPOINTS = {
   DIRECTIONS: "/api/employee/direction/",
   EMPLOYEES: "/api/employee/employee/",
   EMPLOYEES_IMPORT: "/api/employee/import/",
-  SERVICES: "/api/employee/services/",
+  SERVICES: "/api/employee/service/",
   SITES: "/api/employee/sites/",
 
   // Utilisateurs & Rôles

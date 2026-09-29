@@ -1,87 +1,71 @@
-import { useState, useMemo } from "react";
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  IconButton,
-  Tooltip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Divider,
-  Stack,
-  InputAdornment,
-} from "@mui/material";
-import {
-  Add as AddIcon,
-  Search as SearchIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  AccountTree as AccountTreeIcon,
-  Business as BusinessIcon,
-  People as PeopleIcon,
-  Clear as ClearIcon,
-} from "@mui/icons-material";
+import { useState } from "react";
+import { Box, TextField } from "@mui/material";
+import { Search as SearchIcon } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { usePagination } from "../../../hooks/usePagination";
+import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { PageHeader } from "../../../components/common/PageHeader";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
+import { ActionButtons } from "../../../components/common/ActionButtons";
+import { SelectFilter } from "../../../components/common/SelectFilter";
+import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { FormDialog } from "../../../components/common/FormDialog";
+import { Chip } from "@mui/material";
+
+const EMPTY_FORM = { serv_id: "", serv_libelle: "", serv_dir_id: "", serv_info: "" };
 
 export function ServicesPage() {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { canManageCatalogue } = usePermission();
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [directionFilter, setDirectionFilter] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [directionFiltre, setDirectionFiltre] = useState("");
+  const [servToEdit, setServToEdit] = useState(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
-  // Form modal
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingService, setEditingService] = useState(null);
-  const [code, setCode] = useState("");
-  const [libelle, setLibelle] = useState("");
-  const [directionId, setDirectionId] = useState("");
-  const [description, setDescription] = useState("");
-  const [errors, setErrors] = useState({});
-
-  // Queries
-  const { data: services = [], isLoading, error } = useQuery({
-    queryKey: ["services"],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["services", {
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
+      search,
+      direction: directionFiltre,
+    }],
     queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.SERVICES);
-      return Array.isArray(data) ? data : data.results || [];
+      const params = {
+        page: paginationModel.page + 1,
+        page_size: paginationModel.pageSize,
+      };
+      if (search) params.search = search;
+      if (directionFiltre) params.direction = directionFiltre;
+
+      const { data } = await apiClient.get(API_ENDPOINTS.SERVICES, { params });
+      return {
+        services: data.results ?? data,
+        totalCount: data.count ?? (data.results ?? data).length,
+      };
     },
+    keepPreviousData: true,
   });
 
   const { data: directions = [] } = useQuery({
-    queryKey: ["directions"],
+    queryKey: ["directions", "options"],
     queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS);
-      return Array.isArray(data) ? data : data.results || [];
+      const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } });
+      return data.results ?? data;
     },
+    staleTime: 1000 * 60 * 10,
   });
 
-  // Mutations
   const createMutation = useMutation({
     mutationFn: async (payload) => {
       const { data } = await apiClient.post(API_ENDPOINTS.SERVICES, payload);
@@ -89,7 +73,7 @@ export function ServicesPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      notify.success(`Service « ${data.service_libelle} » créé avec succès.`);
+      notify.success(`Service « ${data.serv_libelle} » créé avec succès.`);
       handleCloseModal();
     },
     onError: (err) => {
@@ -105,7 +89,7 @@ export function ServicesPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      notify.success(`Service mis à jour avec succès.`);
+      notify.success(`Service « ${data.serv_libelle} » mis à jour avec succès.`);
       handleCloseModal();
     },
     onError: (err) => {
@@ -117,11 +101,10 @@ export function ServicesPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       await apiClient.delete(`${API_ENDPOINTS.SERVICES}${id}/`);
-      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      notify.success("Service supprimé avec succès.");
+      notify.success("Service supprimé.");
     },
     onError: (err) => {
       const msg = err.response?.data?.detail || ERROR_MESSAGES.DELETE_FAILED;
@@ -131,400 +114,244 @@ export function ServicesPage() {
 
   const handleOpenModal = (serv = null) => {
     if (serv) {
-      setEditingService(serv);
-      setCode(serv.service_code || "");
-      setLibelle(serv.service_libelle || "");
-      setDirectionId(serv.direction_id || "");
-      setDescription(serv.service_description || "");
+      setServToEdit(serv);
+      setForm({
+        serv_id: serv.serv_id || "",
+        serv_libelle: serv.serv_libelle || "",
+        serv_dir_id: serv.serv_dir_id || "",
+        serv_info: serv.serv_info || "",
+      });
     } else {
-      setEditingService(null);
-      setCode("");
-      setLibelle("");
-      setDirectionId(directions[0]?.dir_id || "DSI");
-      setDescription("");
+      setServToEdit(null);
+      setForm({ ...EMPTY_FORM, serv_dir_id: directions[0]?.dir_id || "" });
     }
-    setErrors({});
-    setModalOpen(true);
+    setIsFormModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setModalOpen(false);
-    setEditingService(null);
-    setErrors({});
+    setIsFormModalOpen(false);
+    setServToEdit(null);
+    setForm(EMPTY_FORM);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = {};
-    if (!libelle.trim()) {
-      newErrors.libelle = "Le nom du service est requis.";
-    }
-    if (!directionId) {
-      newErrors.directionId = "Veuillez sélectionner une direction.";
-    }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    if (!form.serv_libelle.trim()) {
+      notify.error("Le nom du service est requis.");
       return;
     }
-
-    const payload = {
-      service_code: code.trim() || libelle.slice(0, 4).toUpperCase(),
-      service_libelle: libelle.trim(),
-      direction_id: directionId,
-      service_description: description.trim(),
-    };
-
-    if (editingService) {
-      updateMutation.mutate({ id: editingService.service_id, payload });
-    } else {
-      createMutation.mutate(payload);
+    if (!form.serv_dir_id) {
+      notify.error("Veuillez sélectionner une direction.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        serv_id: (form.serv_id || form.serv_libelle.slice(0, 4).toUpperCase()).trim(),
+        serv_libelle: form.serv_libelle.trim(),
+        serv_dir_id: form.serv_dir_id,
+        serv_info: form.serv_info.trim(),
+      };
+      if (servToEdit) {
+        await updateMutation.mutateAsync({ id: servToEdit.serv_id, payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = (serv) => {
-    confirm({
-      title: "Supprimer le service ?",
-      message: `Êtes-vous sûr de vouloir supprimer le service « ${serv.service_libelle} » ?`,
-      onConfirm: () => deleteMutation.mutate(serv.service_id),
-    });
+    confirm(
+      "Supprimer le service",
+      `Êtes-vous sûr de vouloir supprimer le service « ${serv.serv_libelle} » ?`,
+      async () => {
+        try {
+          await deleteMutation.mutateAsync(serv.serv_id);
+        } catch {}
+      }
+    );
   };
 
-  const filteredServices = useMemo(() => {
-    return services.filter((s) => {
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchesLibelle = s.service_libelle?.toLowerCase().includes(q);
-        const matchesCode = s.service_code?.toLowerCase().includes(q);
-        const matchesDir = s.direction_libelle?.toLowerCase().includes(q);
-        if (!matchesLibelle && !matchesCode && !matchesDir) return false;
-      }
-      if (directionFilter !== "ALL") {
-        if (s.direction_id !== directionFilter) return false;
-      }
-      return true;
-    });
-  }, [services, searchTerm, directionFilter]);
+  const columns = [
+    {
+      field: "serv_libelle",
+      headerName: "Code",
+      width: 100,
+      renderCell: (params) => (
+        <Chip
+          label={params.value}
+          size="small"
+          sx={{ bgcolor: "#F3E5F5", color: "#7B1FA2", fontWeight: 700, fontSize: 11 }}
+        />
+      ),
+    },
+    {
+      field: "serv_info",
+      headerName: "Description",
+      flex: 1,
+      minWidth: 200,
+    },
+    {
+      field: "direction_libelle",
+      headerName: "Direction parente",
+      width: 200,
+      renderCell: (params) => (
+        <Chip
+          label={params.value || "—"}
+          size="small"
+          sx={{ bgcolor: "#E3F2FD", color: "#1565C0", fontWeight: 600, fontSize: 11 }}
+        />
+      ),
+    },
+    {
+      field: "employees_count",
+      headerName: "Effectif",
+      width: 110,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Chip
+          label={`${params.value || 0}`}
+          size="small"
+          sx={{
+            bgcolor: (params.value || 0) > 0 ? "#E8F5E9" : "#FAFAFA",
+            color: (params.value || 0) > 0 ? "#2E7D32" : "#9E9E9E",
+            fontWeight: 600,
+          }}
+        />
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 160,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <ActionButtons
+          onEdit={canManageCatalogue ? () => handleOpenModal(params.row) : null}
+          onDelete={canManageCatalogue ? () => handleDelete(params.row) : null}
+        />
+      ),
+    },
+  ];
 
-  const totalEmployeesAttached = services.reduce((acc, s) => acc + (s.employees_count || 0), 0);
+  const directionOptions = [
+    { value: "", label: "Toutes les directions" },
+    ...directions.map((d) => ({ value: d.dir_id, label: d.dir_libelle })),
+  ];
 
   return (
-    <Box sx={{ maxWidth: 1300, mx: "auto" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Box
-            sx={{
-              width: 44,
-              height: 44,
-              bgcolor: "#F3E5F5",
-              borderRadius: 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#7B1FA2",
-            }}
-          >
-            <AccountTreeIcon fontSize="medium" />
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Gestion des Services
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Unités opérationnelles, divisions d'activités et rattachement aux directions
-            </Typography>
-          </Box>
-        </Box>
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenModal()}
-          sx={{
-            bgcolor: "primary.main",
-            color: "#000",
-            fontWeight: 700,
-            textTransform: "none",
-            px: 2.5,
-            boxShadow: "0 2px 6px rgba(249, 168, 37, 0.4)",
-            "&:hover": { bgcolor: "primary.dark" },
+    <Box>
+      <PageHeader
+        actionLabel="Nouveau Service"
+        onAction={() => handleOpenModal()}
+        canAction={canManageCatalogue}
+        onReset={() => {
+          setSearch("");
+          setDirectionFiltre("");
+          resetPage();
+        }}
+        hasFilters={Boolean(search || directionFiltre)}
+      >
+        <TextField
+          placeholder="Rechercher par nom de service, code ou direction..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            resetPage();
           }}
-        >
-          Nouveau Service
-        </Button>
-      </Box>
+          size="small"
+          sx={{ flex: 1 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <SearchIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />
+              ),
+            },
+          }}
+        />
+        <SelectFilter
+          label="Direction"
+          value={directionFiltre}
+          onChange={(value) => {
+            setDirectionFiltre(value);
+            resetPage();
+          }}
+          options={directionOptions}
+          minWidth={200}
+        />
+      </PageHeader>
+      <ErrorAlert error={error?.message} />
 
-      {/* KPI Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={4}>
-          <Card elevation={0} sx={{ border: "1px solid #E0E0E0", borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: "uppercase" }}>
-                    Total Services
-                  </Typography>
-                  <Typography variant="h4" fontWeight={800} color="text.primary">
-                    {services.length}
-                  </Typography>
-                </Box>
-                <Chip label="Unités" size="small" sx={{ bgcolor: "#F3E5F5", color: "#7B1FA2", fontWeight: 700 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      <PaginatedDataGrid
+        rows={data?.services || []}
+        columns={columns}
+        loading={isLoading}
+        rowCount={data?.totalCount || 0}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        getRowId={(row) => row.serv_id}
+        noRowsLabel="Aucun service trouvé"
+      />
 
-        <Grid item xs={12} sm={4}>
-          <Card elevation={0} sx={{ border: "1px solid #E0E0E0", borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: "uppercase" }}>
-                    Collaborateurs affectés
-                  </Typography>
-                  <Typography variant="h4" fontWeight={800} color="#2E7D32">
-                    {totalEmployeesAttached}
-                  </Typography>
-                </Box>
-                <PeopleIcon sx={{ color: "#2E7D32", fontSize: 32 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      <FormDialog
+        open={isFormModalOpen}
+        onClose={handleCloseModal}
+        title={servToEdit ? "Modifier le Service" : "Ajouter un Service"}
+        onSubmit={handleSubmit}
+        saving={saving || createMutation.isPending || updateMutation.isPending}
+        submitLabel={servToEdit ? "Enregistrer" : "Créer le service"}
+        maxWidth="sm"
+      >
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
+            label="Code"
+            value={form.serv_libelle}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm({ ...form, serv_libelle: val });
+              if (!servToEdit && !form.serv_id) {
+                setForm((prev) => ({ ...prev, serv_id: val.slice(0, 4).toUpperCase() }));
+              }
+            }}
+            required
+            autoFocus
+            fullWidth
+          />
+          <SelectFilter
+            label="Direction de rattachement *"
+            value={form.serv_dir_id}
+            onChange={(value) => setForm({ ...form, serv_dir_id: value })}
+            options={[
+              { value: "", label: "-- Sélectionner --" },
+              ...directions.map((d) => ({ value: d.dir_id, label: d.dir_libelle })),
+            ]}
+            required
+          />
+          <TextField
+            label="Description"
+            value={form.serv_info}
+            onChange={(e) => setForm({ ...form, serv_info: e.target.value })}
+            multiline
+            rows={3}
+            fullWidth
+          />
+        </Box>
+      </FormDialog>
 
-        <Grid item xs={12} sm={4}>
-          <Card elevation={0} sx={{ border: "1px solid #E0E0E0", borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: "uppercase" }}>
-                    Directions de rattachement
-                  </Typography>
-                  <Typography variant="h4" fontWeight={800} color="#0288D1">
-                    {directions.length}
-                  </Typography>
-                </Box>
-                <BusinessIcon sx={{ color: "#0288D1", fontSize: 32 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Barre de Recherche & Filtres */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, border: "1px solid #E0E0E0", borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Rechercher par nom de service, code ou direction..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm ? (
-                  <IconButton size="small" onClick={() => setSearchTerm("")}>
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                ) : null,
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12} sm={4}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>Filtrer par Direction</InputLabel>
-              <Select
-                value={directionFilter}
-                label="Filtrer par Direction"
-                onChange={(e) => setDirectionFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">Toutes les directions</MenuItem>
-                {directions.map((d) => (
-                  <MenuItem key={d.dir_id} value={d.dir_id}>
-                    {d.dir_libelle} ({d.dir_id})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {error && <ErrorAlert message={error.message || ERROR_MESSAGES.LOAD_FAILED} sx={{ mb: 2 }} />}
-
-      {/* Table */}
-      <Paper elevation={0} sx={{ border: "1px solid #E0E0E0", borderRadius: 2, overflow: "hidden" }}>
-        <TableContainer>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: "#FAFAFA" }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700, py: 1.5 }}>Code</TableCell>
-                <TableCell sx={{ fontWeight: 700, py: 1.5 }}>Libellé du Service</TableCell>
-                <TableCell sx={{ fontWeight: 700, py: 1.5 }}>Direction Parente</TableCell>
-                <TableCell sx={{ fontWeight: 700, py: 1.5 }}>Description & Missions</TableCell>
-                <TableCell sx={{ fontWeight: 700, py: 1.5, textAlign: "center" }}>Effectif</TableCell>
-                <TableCell sx={{ fontWeight: 700, py: 1.5, textAlign: "center" }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                    Chargement des services...
-                  </TableCell>
-                </TableRow>
-              ) : filteredServices.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                    Aucun service trouvé.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredServices.map((s) => (
-                  <TableRow key={s.service_id} hover>
-                    <TableCell>
-                      <Chip
-                        label={s.service_code || `SRV-${s.service_id}`}
-                        size="small"
-                        sx={{ fontFamily: "monospace", fontWeight: 700, bgcolor: "#F5F5F5" }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{s.service_libelle}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={s.direction_libelle || s.direction_id || "DSI"}
-                        size="small"
-                        sx={{ bgcolor: "#E3F2FD", color: "#1565C0", fontWeight: 600, fontSize: 11 }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: "text.secondary", maxWidth: 350 }}>
-                      {s.service_description || "Aucune description fournie"}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={`${s.employees_count || 0} employé${(s.employees_count || 0) > 1 ? "s" : ""}`}
-                        size="small"
-                        sx={{
-                          bgcolor: (s.employees_count || 0) > 0 ? "#E8F5E9" : "#FAFAFA",
-                          color: (s.employees_count || 0) > 0 ? "#2E7D32" : "#9E9E9E",
-                          fontWeight: 600,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <Tooltip title="Modifier le service">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenModal(s)}
-                            sx={{ color: "text.secondary", "&:hover": { color: "#1976D2" } }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Supprimer le service">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDelete(s)}
-                            sx={{ color: "text.secondary", "&:hover": { color: "#D32F2F" } }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-
-      {/* Modal Ajout / Modification */}
-      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ p: 2.5 }}>
-            <Typography variant="h6" fontWeight={700}>
-              {editingService ? "Modifier le Service" : "Ajouter un nouveau Service"}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {editingService ? "Mise à jour des informations de l'unité" : "Création d'une nouvelle unité opérationnelle"}
-            </Typography>
-          </DialogTitle>
-          <Divider />
-          <DialogContent sx={{ p: 3 }}>
-            <Stack spacing={2.5}>
-              <TextField
-                label="Libellé du Service *"
-                fullWidth
-                size="small"
-                value={libelle}
-                onChange={(e) => setLibelle(e.target.value)}
-                error={Boolean(errors.libelle)}
-                helperText={errors.libelle || "Ex: Support IT, Comptabilité Générale, Ventes"}
-                autoFocus
-              />
-
-              <TextField
-                label="Code abrégé"
-                fullWidth
-                size="small"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                helperText="Ex: SUP_IT, COMPTA, RES_TEL"
-              />
-
-              <FormControl fullWidth size="small" error={Boolean(errors.directionId)}>
-                <InputLabel>Direction de rattachement *</InputLabel>
-                <Select
-                  value={directionId}
-                  label="Direction de rattachement *"
-                  onChange={(e) => setDirectionId(e.target.value)}
-                >
-                  {directions.map((d) => (
-                    <MenuItem key={d.dir_id} value={d.dir_id}>
-                      {d.dir_libelle} ({d.dir_id})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <TextField
-                label="Description & Attributions"
-                fullWidth
-                multiline
-                rows={3}
-                size="small"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Précisez les missions, attributions et compétences couvertes..."
-              />
-            </Stack>
-          </DialogContent>
-          <Divider />
-          <DialogActions sx={{ p: 2, bgcolor: "#FAFAFA" }}>
-            <Button onClick={handleCloseModal} color="inherit">
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{ bgcolor: "primary.main", color: "#000", fontWeight: 700, "&:hover": { bgcolor: "primary.dark" } }}
-            >
-              {editingService ? "Enregistrer" : "Créer le service"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-
-      <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 }
