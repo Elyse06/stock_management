@@ -8,11 +8,7 @@ import {
   Typography,
   Box,
   Chip,
-  Divider,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
   Grid,
 } from "@mui/material";
 import {
@@ -22,7 +18,6 @@ import {
   Label as LabelIcon,
   Straighten as StraightenIcon,
   Description as DescriptionIcon,
-  People as PeopleIcon,
 } from "@mui/icons-material";
 
 export function ArticleModal({ article, isOpen, onClose }) {
@@ -37,15 +32,6 @@ export function ArticleModal({ article, isOpen, onClose }) {
   }, [isOpen]);
 
   if (!article) return null;
-
-  const getCategorieColor = (cat) => {
-    if (!cat) return "default";
-    const c = cat.toLowerCase();
-    if (c.includes("info")) return "info";
-    if (c.includes("bureau")) return "primary";
-    if (c.includes("consommable")) return "warning";
-    return "default";
-  };
 
   return (
     <Dialog
@@ -69,7 +55,6 @@ export function ArticleModal({ article, isOpen, onClose }) {
           {article.categorie_nom && (
             <Chip
               label={article.categorie_nom}
-              color={getCategorieColor(article.categorie_nom)}
               size="small"
               sx={{ mb: 1, fontWeight: 600 }}
             />
@@ -120,18 +105,7 @@ export function ArticleModal({ article, isOpen, onClose }) {
             </Typography>
           </Grid>
 
-          {article.marque_libelle && (
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                <LabelIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary">
-                  Marque
-                </Typography>
-              </Box>
-              <Typography variant="body1">{article.marque_libelle}</Typography>
-            </Grid>
-          )}
-
+          {/** 
           {article.code_barre && (
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -145,6 +119,7 @@ export function ArticleModal({ article, isOpen, onClose }) {
               </Typography>
             </Grid>
           )}
+          */}
 
           {article.unite && (
             <Grid item xs={12} sm={6}>
@@ -191,60 +166,6 @@ export function ArticleModal({ article, isOpen, onClose }) {
             </Grid>
           )}
         </Grid>
-
-        <Box sx={{ mt: 3 }}>
-          <Divider sx={{ mb: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-              <PeopleIcon fontSize="small" />
-              <Typography variant="body2" fontWeight={600}>
-                Fournisseurs & Prix d'achat
-              </Typography>
-            </Box>
-          </Divider>
-
-          {article.fournisseurs && article.fournisseurs.length > 0 ? (
-            <List dense disablePadding>
-              {article.fournisseurs.map((f) => (
-                <ListItem
-                  key={f.id}
-                  sx={{
-                    bgcolor: "#FAFAFA",
-                    mb: 0.5,
-                    borderRadius: 1,
-                    border: "1px solid #E0E0E0",
-                  }}
-                >
-                  <ListItemText
-                    primary={f.fournisseur_nom}
-                    secondary={
-                      <Typography
-                        variant="body2"
-                        fontFamily="monospace"
-                        color="primary.main"
-                        fontWeight={600}
-                      >
-                        {Number(f.prix_achat).toLocaleString("fr-FR")} Ar
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          ) : (
-            <Box
-              sx={{
-                textAlign: "center",
-                py: 3,
-                color: "text.secondary",
-                bgcolor: "#FAFAFA",
-                borderRadius: 1,
-              }}
-            >
-              <PeopleIcon sx={{ fontSize: 32, mb: 1, opacity: 0.5 }} />
-              <Typography variant="body2">Aucun fournisseur associé</Typography>
-            </Box>
-          )}
-        </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>

@@ -4,12 +4,10 @@ import {
   Category as CategoryIcon,
   Label as LabelIcon,
   Straighten as StraightenIcon,
-  Description as DescriptionIcon,
   QrCode as QrCodeIcon,
   Warning as WarningIcon,
 } from "@mui/icons-material";
 import { CodeChip } from "../../../components/common/CodeChip";
-import { EmptyValue } from "../../../components/common/EmptyValue";
 
 export function ArticleIdentityCard({ article, stocks_par_magasin }) {
   const stock_total = Object.values(stocks_par_magasin).reduce((sum, val) => {
@@ -51,19 +49,6 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
           <Typography variant="body1" fontWeight={500}>
             {article.categorie}
           </Typography>
-        </Box>
-      )}
-
-      {/* Marque */}
-      {article.marque && (
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <LabelIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">
-              Marque
-            </Typography>
-          </Box>
-          <Typography variant="body1">{article.marque}</Typography>
         </Box>
       )}
 
@@ -109,24 +94,8 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
         </Box>
       )}
 
-      {/* Code-barre */}
-      {article.code_barre && (
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <QrCodeIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">
-              Code-barre
-            </Typography>
-          </Box>
-          <Typography variant="body2" fontFamily="monospace">
-            {article.code_barre}
-          </Typography>
-        </Box>
-      )}
-
       <Divider sx={{ my: 2 }} />
 
-      {/* STOCK TOTAL - KPI principal */}
       <Box
         sx={{
           p: 2,
@@ -162,7 +131,6 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
           {article.unite || "unités"}
         </Typography>
 
-        {/* Badges de statut */}
         <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mt: 1.5 }}>
           {est_en_rupture && (
             <Chip
@@ -183,7 +151,6 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
         </Box>
       </Box>
 
-      {/* Répartition par magasin */}
       {Object.keys(stocks_par_magasin).length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography

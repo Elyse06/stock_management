@@ -1,9 +1,8 @@
-import { Box, Typography, Alert, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
-import { TrendingUp as TrendingUpIcon, People as PeopleIcon } from "@mui/icons-material";
+import { Box, Typography } from "@mui/material";
+import { TrendingUp as TrendingUpIcon } from "@mui/icons-material";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { formatCurrency } from "../../../utils/formatters";
 
-export function ArticleSyntheseTab({ evolution_data, fournisseurs }) {
+export function ArticleSyntheseTab({ evolution_data }) {
   return (
     <Box>
       <Typography
@@ -14,7 +13,6 @@ export function ArticleSyntheseTab({ evolution_data, fournisseurs }) {
         Vue d'ensemble
       </Typography>
 
-      {/* Mini graphique d'évolution */}
       {evolution_data.length > 0 && (
         <Box
           sx={{
@@ -47,63 +45,6 @@ export function ArticleSyntheseTab({ evolution_data, fournisseurs }) {
             </LineChart>
           </ResponsiveContainer>
         </Box>
-      )}
-
-      {/* Fournisseurs */}
-      <Typography
-        variant="h3"
-        sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}
-      >
-        <PeopleIcon color="primary" />
-        Fournisseurs ({fournisseurs.length})
-      </Typography>
-      {fournisseurs.length > 0 ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Fournisseur
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Prix d'achat
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {fournisseurs.map((f) => (
-              <TableRow
-                key={f.fournisseur_id}
-                sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}
-              >
-                <TableCell>{f.fournisseur_nom}</TableCell>
-                <TableCell align="right">
-                  <Typography
-                    variant="body2"
-                    fontFamily="monospace"
-                    fontWeight={600}
-                  >
-                    {formatCurrency(f.prix_achat)}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <Alert severity="info">Aucun fournisseur associé</Alert>
       )}
     </Box>
   );

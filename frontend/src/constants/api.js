@@ -8,7 +8,6 @@ export const API_ENDPOINTS = {
   // Catalogue
   ARTICLES: "/api/catalogue/articles/",
   CATEGORIES: "/api/catalogue/categories/",
-  MARQUES: "/api/catalogue/marque/",
   FOURNISSEURS: "/api/catalogue/fournisseurs/",
 
   // Stock

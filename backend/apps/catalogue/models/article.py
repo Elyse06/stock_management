@@ -1,7 +1,6 @@
 from django.db import models
 
 from .categorie import Categorie
-from .marque import Marque
 
 
 class Article(models.Model):
@@ -21,9 +20,6 @@ class Article(models.Model):
     )
     categorie = models.ForeignKey(
         Categorie, on_delete=models.PROTECT, related_name="articles"
-    )
-    marque = models.ForeignKey(
-        Marque, on_delete=models.PROTECT, related_name="articles", null=True, blank=True
     )
     is_immobilisation = models.BooleanField(
         default=True,

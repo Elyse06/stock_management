@@ -4,10 +4,13 @@ import { apiClient } from "../../../api/client";
 const TAILLE_MAX = 10 * 1024 * 1024; // 10 Mo
 const ETAPES = { CHOIX: "choix", APERCU: "apercu", CONFIRME: "confirme" };
 
-async function envoyerFichier(fichier, dryRun, signal) {
+async function envoyerFichier(fichier, dryRun, signal, resolutionsDirection) {
   const formData = new FormData();
   formData.append("fichier", fichier);
   formData.append("dry_run", dryRun ? "true" : "false");
+  if (resolutionsDirection && Object.keys(resolutionsDirection).length > 0) {
+    formData.append("resolutions_direction", JSON.stringify(resolutionsDirection));
+  }
 
   const { data } = await apiClient.post(
     "/api/stock/import-immobilisations/",
@@ -23,6 +26,7 @@ export function useImportImmobilisations() {
   const [etape, setEtape] = useState(ETAPES.CHOIX);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState(null);
+  const [resolutionsDirection, setResolutionsDirection] = useState({});
   const abortRef = useRef(null);
 
   const choisirFichier = useCallback((f) => {
@@ -31,6 +35,7 @@ export function useImportImmobilisations() {
       setRapport(null);
       setEtape(ETAPES.CHOIX);
       setErreur(null);
+      setResolutionsDirection({});
       return;
     }
     if (f.size > TAILLE_MAX) {
@@ -45,6 +50,14 @@ export function useImportImmobilisations() {
     setRapport(null);
     setEtape(ETAPES.CHOIX);
     setErreur(null);
+    setResolutionsDirection({});
+  }, []);
+
+  const definirResolutionDirection = useCallback((ligne, directionId) => {
+    setResolutionsDirection((precedent) => ({
+      ...precedent,
+      [ligne]: directionId || "",
+    }));
   }, []);
 
   const previsualiser = useCallback(async () => {
@@ -77,10 +90,17 @@ export function useImportImmobilisations() {
     setErreur(null);
     abortRef.current = new AbortController();
     try {
+      // Seules les lignes où l'utilisateur a explicitement choisi une
+      // direction existante sont envoyées. Une ligne absente (ou vide)
+      // entraîne la création automatique d'une nouvelle direction côté serveur.
+      const resolutionsAEnvoyer = Object.fromEntries(
+        Object.entries(resolutionsDirection).filter(([, valeur]) => valeur)
+      );
       const resultat = await envoyerFichier(
         fichier,
         false,
-        abortRef.current.signal
+        abortRef.current.signal,
+        resolutionsAEnvoyer
       );
       setRapport(resultat);
       setEtape(ETAPES.CONFIRME);
@@ -93,7 +113,7 @@ export function useImportImmobilisations() {
       setLoading(false);
       abortRef.current = null;
     }
-  }, [fichier]);
+  }, [fichier, resolutionsDirection]);
 
   const annuler = useCallback(() => {
     abortRef.current?.abort();
@@ -104,6 +124,7 @@ export function useImportImmobilisations() {
     setRapport(null);
     setEtape(ETAPES.CHOIX);
     setErreur(null);
+    setResolutionsDirection({});
   }, []);
 
   return {
@@ -113,6 +134,8 @@ export function useImportImmobilisations() {
     loading,
     erreur,
     ETAPES,
+    resolutionsDirection,
+    definirResolutionDirection,
     choisirFichier,
     previsualiser,
     confirmer,

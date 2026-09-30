@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pandas as pd  # type: ignore
@@ -43,6 +44,20 @@ class ImportImmobilisationsView(APIView):
         feuille = request.data.get("feuille", 0)
         ligne_entete_forcee = request.data.get("ligne_entete")
 
+        resolutions_direction_brut = request.data.get("resolutions_direction")
+        resolutions_direction = {}
+        if resolutions_direction_brut:
+            try:
+                parsees = json.loads(resolutions_direction_brut)
+                resolutions_direction = {
+                    int(ligne): dir_id for ligne, dir_id in parsees.items() if dir_id
+                }
+            except (ValueError, TypeError, AttributeError) as exc:
+                return Response(
+                    {"detail": f"Paramètre 'resolutions_direction' invalide : {exc}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         logger.info(
             "Début import immobilisations | utilisateur=%s | fichier=%s | taille=%d octets | dry_run=%s",
             request.user,
@@ -77,7 +92,9 @@ class ImportImmobilisationsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        rapport = importer_immobilisations(df, dry_run=dry_run)
+        rapport = importer_immobilisations(
+            df, dry_run=dry_run, resolutions_direction=resolutions_direction
+        )
         rapport["ligne_entete_utilisee"] = ligne_entete + 1
 
         logger.info(

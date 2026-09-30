@@ -7,7 +7,6 @@ import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ArticlePremiumPage } from "./features/catalogue/pages/ArticlePremiumPage";
 import { ArticleListPage } from "./features/catalogue/pages/ArticleListPage";
 import { CategoriesPage } from "./features/catalogue/pages/CategoriesPage";
-import { MarquesPage } from "./features/catalogue/pages/MarquesPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 
 import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
@@ -58,14 +57,6 @@ function App() {
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <CategoriesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/catalogue/marques"
-          element={
-            <ProtectedRoute actions={["CAT_GERE"]}>
-              <MarquesPage />
             </ProtectedRoute>
           }
         />

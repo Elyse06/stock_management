@@ -1,12 +1,9 @@
 from .article import ArticleViewSet
 from .categorie import CategorieViewSet
-from .fournisseur import ArticleFournisseurViewSet, FournisseurViewSet
-from .marque import MarqueViewSet
+from .fournisseur import FournisseurViewSet
 
 __all__ = [
-    'ArticleFournisseurViewSet',
     'ArticleViewSet',
     'CategorieViewSet',
     'FournisseurViewSet',
-    'MarqueViewSet'
 ]

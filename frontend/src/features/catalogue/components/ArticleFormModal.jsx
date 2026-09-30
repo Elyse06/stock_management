@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import {
-  TextField, Autocomplete, Box,
-  Divider, Tooltip, IconButton,
+  TextField, Box,
+  Tooltip, IconButton,
   FormControlLabel, Checkbox, Typography,
 } from "@mui/material";
 import {
   Save as SaveIcon, Update as UpdateIcon,
-  People as PeopleIcon, AutoFixHigh as AutoFixIcon,
-  QrCodeScanner as QrCodeScannerIcon,
+  AutoFixHigh as AutoFixIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -15,7 +14,6 @@ import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { FormDialog } from "../../../components/common/FormDialog";
 import { SelectFilter } from "../../../components/common/SelectFilter";
-import { ArticleFournisseurEditor } from "./ArticleFournisseurEditor";
 
 const MODES_SUIVI = [
   { value: "QUANTITE", label: "Quantité simple" },
@@ -35,7 +33,6 @@ const EMPTY_FORM = {
   code_barre: "",
   designation: "",
   description: "",
-  marque: "",
   modele: "",
   unite: "UNITE",
   seuil: "0",
@@ -49,11 +46,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
   const { canManageCatalogue } = usePermission();
 
   const [form, setForm] = useState(EMPTY_FORM);
-  const [lignesFournisseurs, setLignesFournisseurs] = useState([]);
-  const [lignesInitiales, setLignesInitiales] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [marques, setMarques] = useState([]);
-  const [fournisseurs, setFournisseurs] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const designationRef = useRef(null);
@@ -64,13 +57,9 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     if (!isOpen) return;
     Promise.all([
       apiClient.get(API_ENDPOINTS.CATEGORIES, { params: { page_size: 100 } }),
-      apiClient.get(API_ENDPOINTS.MARQUES, { params: { page_size: 100 } }),
-      apiClient.get(API_ENDPOINTS.FOURNISSEURS, { params: { page_size: 100 } }),
     ])
-      .then(([catRes, marqueRes, fourRes]) => {
+      .then(([catRes]) => {
         setCategories(catRes.data.results ?? catRes.data);
-        setMarques(marqueRes.data.results ?? marqueRes.data);
-        setFournisseurs(fourRes.data.results ?? fourRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen]);
@@ -83,7 +72,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         code_barre: articleToEdit.code_barre ?? "",
         designation: articleToEdit.designation ?? "",
         description: articleToEdit.description ?? "",
-        marque: articleToEdit.marque ?? "",
         modele: articleToEdit.modele ?? "",
         unite: articleToEdit.unite ?? "UNITE",
         seuil: articleToEdit.seuil ?? "0",
@@ -91,13 +79,8 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
         categorie: articleToEdit.categorie ?? "",
         is_immobilisation: articleToEdit.is_immobilisation ?? true,
       });
-      const fours = articleToEdit.fournisseurs ?? [];
-      setLignesFournisseurs(fours);
-      setLignesInitiales(fours);
     } else {
       setForm(EMPTY_FORM);
-      setLignesFournisseurs([]);
-      setLignesInitiales([]);
     }
   }, [isOpen, articleToEdit]);
 
@@ -124,46 +107,10 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     setForm((prev) => ({ ...prev, code_article: `${prefix}-${randomSuffix}` }));
   };
 
-  const handleBarcodeKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (designationRef.current) {
-        designationRef.current.focus();
-      }
-    }
-  };
 
   const handleClose = () => {
     setForm(EMPTY_FORM);
-    setLignesFournisseurs([]);
-    setLignesInitiales([]);
     onClose();
-  };
-
-  const synchroniserFournisseurs = async (codeArticle) => {
-    const idsInitiaux = new Set(lignesInitiales.filter((l) => l.id).map((l) => l.id));
-    const idsActuels = new Set(lignesFournisseurs.filter((l) => l.id).map((l) => l.id));
-
-    for (const l of lignesInitiales) {
-      if (l.id && !idsActuels.has(l.id)) {
-        await apiClient.delete(`/api/catalogue/article-fournisseurs/${l.id}/`);
-      }
-    }
-    for (const l of lignesFournisseurs) {
-      if (l.id && idsInitiaux.has(l.id)) {
-        await apiClient.put(`/api/catalogue/article-fournisseurs/${l.id}/`, {
-          article: codeArticle,
-          fournisseur: l.fournisseur,
-          prix_achat: l.prix_achat,
-        });
-      } else if (!l.id) {
-        await apiClient.post("/api/catalogue/article-fournisseurs/", {
-          article: codeArticle,
-          fournisseur: l.fournisseur,
-          prix_achat: l.prix_achat,
-        });
-      }
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -173,23 +120,14 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
       const payload = {
         ...form,
         categorie: Number(form.categorie),
-        marque: form.marque ? Number(form.marque) : null,
         seuil: form.seuil === "" ? 0 : Number(form.seuil),
       };
 
       if (isEditMode) {
         await apiClient.put(`${API_ENDPOINTS.ARTICLES}${articleToEdit.code_article}/`, payload);
-        await synchroniserFournisseurs(articleToEdit.code_article);
         notify.success("Article modifié avec succès");
       } else {
-        const { data } = await apiClient.post(API_ENDPOINTS.ARTICLES, payload);
-        for (const l of lignesFournisseurs) {
-          await apiClient.post("/api/catalogue/article-fournisseurs/", {
-            article: data.code_article,
-            fournisseur: l.fournisseur,
-            prix_achat: l.prix_achat,
-          });
-        }
+        await apiClient.post(API_ENDPOINTS.ARTICLES, payload);
         notify.success("Article créé avec succès");
       }
 
@@ -216,7 +154,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
     ...categories.map((c) => ({ value: c.categorie_id, label: `${c.cat_libelle} - ${c.cat_description}` })),
   ];
 
-  const modeSuiviOptions = MODES_SUIVI.map((m) => ({ value: m.value, label: m.label }));
   const uniteOptions = UNITE.map((u) => ({ value: u.value, label: u.label }));
 
   return (
@@ -375,22 +312,6 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           }
         />
       </Box>
-
-      {/** on specifie le fournisseur et le prix d'achat quand on fait l'entrée du stock 
-      <Box sx={{ mt: 3 }}>
-        <Divider sx={{ mb: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-            <PeopleIcon fontSize="small" />
-            <Box variant="body2" fontWeight={600}>Fournisseurs et prix d'achat</Box>
-          </Box>
-        </Divider>
-        <ArticleFournisseurEditor
-          lignes={lignesFournisseurs}
-          setLignes={setLignesFournisseurs}
-          fournisseurs={fournisseurs}
-        />
-      </Box>
-      */}
     </FormDialog>
   );
 }
