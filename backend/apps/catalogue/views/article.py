@@ -17,7 +17,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
     queryset = (
         Article.objects.all()
         .select_related("categorie")
-        .prefetch_related("fournisseurs_liaison__fournisseur")
     )
     serializer_class = ArticleSerializer
     lookup_field = "code_article"
@@ -27,9 +26,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
     search_fields = ["code_article", "designation", "code_barre"]  # noqa: RUF012
 
     def get_queryset(self):
-        queryset = Article.objects.select_related("categorie").prefetch_related(
-            "fournisseurs_liaison__fournisseur"
-        )
+        queryset = Article.objects.select_related("categorie")
 
         magasin_id = self.request.query_params.get("magasin_id")
         

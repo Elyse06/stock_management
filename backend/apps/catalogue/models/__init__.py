@@ -1,12 +1,9 @@
 from .article import Article
 from .categorie import Categorie
-from .fournisseur import ArticleFournisseur, Fournisseur
-from .marque import Marque
+from .fournisseur import Fournisseur
 
 __all__ = [
     'Article',
-    'ArticleFournisseur',
     'Categorie',
     'Fournisseur',
-    'Marque'
 ]

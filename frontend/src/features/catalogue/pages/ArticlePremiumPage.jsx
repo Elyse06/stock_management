@@ -90,7 +90,6 @@ export function ArticlePremiumPage() {
     commandes_recentes,
   } = data;
 
-  // Données pour le graphique d'évolution
   const stock_total = Object.values(stocks_par_magasin).reduce((sum, val) => {
     const quantite = typeof val === "object" && val !== null ? val.stock : val;
     return sum + (quantite || 0);
@@ -108,7 +107,6 @@ export function ArticlePremiumPage() {
 
   return (
     <Box>
-      {/* Header avec bouton retour */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
@@ -125,9 +123,7 @@ export function ArticlePremiumPage() {
         </Box>
       </Box>
 
-      {/* Layout 2 colonnes */}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 2fr" }, gap: 3 }}>
-        {/* Colonne gauche : Carte d'identité */}
         <Box>
           <ArticleIdentityCard
             article={article}
@@ -135,7 +131,6 @@ export function ArticlePremiumPage() {
           />
         </Box>
 
-        {/* Colonne droite : Onglets */}
         <Box
           sx={{
             border: "1px solid #E0E0E0",

@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react";
 import {
+  Alert,
   Box,
+  Checkbox,
+  FormControlLabel,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -22,7 +27,13 @@ const FILTRES = {
   ERREURS: "erreurs",
 };
 
-export function ImportReportTable({ rapport }) {
+export function ImportReportTable({
+  rapport,
+  editable = false,
+  directionsDisponibles = [],
+  resolutionsDirection = {},
+  onChangeResolutionDirection,
+}) {
   const [filtre, setFiltre] = useState(FILTRES.TOUS);
 
   const details = useMemo(() => {
@@ -34,8 +45,20 @@ export function ImportReportTable({ rapport }) {
 
   if (!rapport) return null;
 
+  const aDesLignesDirection = rapport.details?.some(
+    (l) => l.attribution?.type === "DIRECTION"
+  );
+
   return (
     <Box>
+      {editable && aDesLignesDirection && (
+        <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
+          Certaines lignes sont attribuées à une direction. Confirmez une correspondance
+          proposée, ou choisissez une autre direction ; sans action de votre part, une
+          nouvelle direction sera créée automatiquement à la confirmation.
+        </Alert>
+      )}
+
       {/* Barre de filtre */}
       <Stack
         direction="row"
@@ -115,7 +138,18 @@ export function ImportReportTable({ rapport }) {
                   <DataCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
                     {ligne.article || "—"}
                   </DataCell>
-                  <DataCell>{ligne.attribue_a || "—"}</DataCell>
+                  <DataCell sx={{ minWidth: 240 }}>
+                    {editable && ligne.attribution?.type === "DIRECTION" ? (
+                      <ResolveurDirection
+                        ligne={ligne}
+                        directionsDisponibles={directionsDisponibles}
+                        valeurChoisie={resolutionsDirection[ligne.ligne] || ""}
+                        onChange={(v) => onChangeResolutionDirection?.(ligne.ligne, v)}
+                      />
+                    ) : (
+                      ligne.attribue_a || "—"
+                    )}
+                  </DataCell>
                   <DataCell
                     sx={{
                       color: ligne.statut === "ERREUR" ? "#C0392B" : "#B8860B",
@@ -131,6 +165,57 @@ export function ImportReportTable({ rapport }) {
         </Table>
       </TableContainer>
     </Box>
+  );
+}
+
+// Contrôle affiché sur les lignes attribuées à une direction, pendant l'aperçu :
+// permet de confirmer une correspondance trouvée automatiquement, ou de
+// choisir une autre direction existante. Sans action, une nouvelle direction
+// est créée automatiquement à la confirmation (comportement par défaut).
+function ResolveurDirection({ ligne, directionsDisponibles, valeurChoisie, onChange }) {
+  const { attribution } = ligne;
+  const estCorrespondanceConfirmee =
+    !!attribution.necessite_confirmation &&
+    valeurChoisie === attribution.direction_suggeree_id;
+
+  return (
+    <Stack spacing={0.5}>
+      {attribution.necessite_confirmation && (
+        <FormControlLabel
+          sx={{ m: 0 }}
+          control={
+            <Checkbox
+              size="small"
+              checked={estCorrespondanceConfirmee}
+              onChange={(e) =>
+                onChange(e.target.checked ? attribution.direction_suggeree_id : "")
+              }
+            />
+          }
+          label={
+            <Typography variant="caption">
+              Confirmer : {attribution.direction_suggeree_libelle}
+            </Typography>
+          }
+        />
+      )}
+      <Select
+        size="small"
+        displayEmpty
+        value={valeurChoisie}
+        onChange={(e) => onChange(e.target.value)}
+        sx={{ fontSize: 13 }}
+      >
+        <MenuItem value="">
+          <em>Nouvelle direction : « {attribution.detenteur_texte} »</em>
+        </MenuItem>
+        {directionsDisponibles.map((d) => (
+          <MenuItem key={d.id} value={d.id}>
+            {d.libelle}
+          </MenuItem>
+        ))}
+      </Select>
+    </Stack>
   );
 }
 

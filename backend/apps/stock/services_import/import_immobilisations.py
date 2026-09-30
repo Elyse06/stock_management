@@ -3,15 +3,13 @@ import unicodedata
 from datetime import datetime
 
 import pandas as pd  # type: ignore
-from django.db import models, transaction
+from django.db import transaction
 from django.utils import timezone
 
-from apps.catalogue.models import Article, Categorie, Fournisseur, Marque
-from apps.commande.models import AttributionDetailCommande, Commande, DetailCommande
-from apps.employee.models import Employer, Service, Site
+from apps.catalogue.models import Article, Categorie, Fournisseur
+from apps.employee.models import Direction, Employer, Site
 from apps.stock.models import DetailMouvement, Magasin, Mouvement, UniteArticle
 
-MARQUE_PAR_DEFAUT = "NON_SPECIFIEE"
 VALEURS_NON_APPLICABLE = {"non applicable", "n/a", "na", "", "none", "nan"}
 
 COLONNES_ATTENDUES = [
@@ -80,14 +78,6 @@ def parse_date(valeur):
     return timezone.now()
 
 
-def get_or_create_marque_defaut():
-    marque, _ = Marque.objects.get_or_create(
-        mq_libelle=MARQUE_PAR_DEFAUT,
-        defaults={"mq_descriprion": "Marque par défaut - non renseignée à l'import"},
-    )
-    return marque
-
-
 def get_or_create_categorie(code_famille):
     code_famille = (str(code_famille).strip() if not est_non_applicable(code_famille) else "DIVERS")[:20]
     categorie, _ = Categorie.objects.get_or_create(
@@ -122,7 +112,8 @@ def get_or_create_magasin(site):
     return magasin
 
 
-def get_or_create_article(designation, categorie, marque, mode_suivi):
+def get_or_create_article(designation, categorie, mode_suivi):
+    """Marque supprimée : l'article n'est plus rattaché à une marque."""
     designation = designation.strip()
     article = Article.objects.filter(designation__iexact=designation).first()
     if article:
@@ -131,7 +122,6 @@ def get_or_create_article(designation, categorie, marque, mode_suivi):
         code_article=generer_code_article_unique(designation),
         designation=designation[:50],
         categorie=categorie,
-        marque=marque,
         mode_suivi=mode_suivi,
         is_immobilisation=True,
     )
@@ -148,39 +138,74 @@ def _generer_emp_id_unique(matricule_str: str) -> str:
     return candidat
 
 
-def resoudre_ou_creer_employe(matricule, detenteur):
+def resoudre_ou_creer_employe(matricule):
+    """Résout l'employé UNIQUEMENT à partir du matricule.
+
+    - Si le matricule correspond à un employé déjà en base, c'est cet employé
+      (avec son nom déjà enregistré) qui est utilisé — jamais le texte de la
+      colonne 'Détenteur' du fichier Excel.
+    - Si le matricule ne correspond à aucun employé, un nouvel employé est créé
+      avec un nom générique à compléter ; le texte 'Détenteur' n'est pas non
+      plus utilisé pour ce nom.
+    """
     if est_non_applicable(matricule):
         return None, False
 
-    matricule_str = str(matricule).strip()
-    matricule_str = matricule_str.removesuffix(".0")
+    matricule_str = str(matricule).strip().removesuffix(".0")
 
     employe = Employer.objects.filter(emp_matricule=matricule_str).first()
     if employe:
         return employe, False
 
-    detenteur_str = "" if est_non_applicable(detenteur) else str(detenteur).strip()
-
-    service = None
-    if detenteur_str:
-        service = Service.objects.filter(
-            models.Q(serv_id__iexact=detenteur_str) | models.Q(serv_libelle__iexact=detenteur_str)
-        ).first()
-
-    if service:
-        nom = f"Employé matricule {matricule_str} (nom à compléter)"
-    else:
-        nom = detenteur_str or f"Employé matricule {matricule_str} (nom à compléter)"
-
     employe = Employer.objects.create(
         emp_id=_generer_emp_id_unique(matricule_str),
-        emp_nom=nom[:255],
+        emp_nom=f"Employé matricule {matricule_str} (nom à compléter)"[:255],
         emp_matricule=matricule_str,
         emp_contact="",
         emp_fonction="",
-        emp_serv_id=service,
     )
     return employe, True
+
+
+def _generer_dir_id_unique(libelle: str) -> str:
+    base = re.sub(r"[^A-Za-z0-9]", "", libelle).upper()[:6] or "DIR"
+    candidat = base[:8]
+    suffixe = 0
+    while Direction.objects.filter(pk=candidat).exists():
+        suffixe += 1
+        candidat = f"{base[:8 - len(str(suffixe))]}{suffixe}"[:8]
+    return candidat
+
+
+def _creer_direction(libelle: str) -> Direction:
+    libelle_str = str(libelle).strip()
+    return Direction.objects.create(
+        dir_id=_generer_dir_id_unique(libelle_str),
+        dir_libelle=libelle_str[:50],
+        dir_description="Créée automatiquement à l'import",
+    )
+
+
+def _resoudre_direction(detenteur_texte, ligne_no, resolutions_direction):
+    """Détermine la direction à utiliser pour une ligne donnée.
+
+    - Si l'utilisateur a explicitement choisi une direction existante pour
+      cette ligne (reçu depuis le front au moment de la confirmation), on
+      l'utilise telle quelle.
+    - Sinon — qu'il n'y ait eu aucune correspondance automatique, ou qu'une
+      correspondance ait été trouvée mais pas confirmée par l'utilisateur —
+      on crée systématiquement une nouvelle direction avec le texte brut du
+      'Détenteur'. Aucune tentative de réutilisation silencieuse d'une
+      direction existante n'est faite ici : sans confirmation explicite, une
+      nouvelle entrée est créée.
+    """
+    direction_id_choisi = (resolutions_direction or {}).get(ligne_no)
+    if direction_id_choisi:
+        direction = Direction.objects.filter(pk=direction_id_choisi).first()
+        if direction:
+            return direction, False
+
+    return _creer_direction(detenteur_texte), True
 
 
 def detecter_index_entete(source, feuille=0, max_lignes_recherche=10) -> int:
@@ -218,53 +243,20 @@ def colonnes_manquantes(df: pd.DataFrame):
     return [c for c in COLONNES_ATTENDUES if c not in df.columns]
 
 
-def creer_attribution_historique(employe, article, date_acquisition, origine_import, nature):
-    commande = Commande.objects.create(
-        employe_demandeur=employe,
-        objet=f"Import immobilisation - {nature}"[:100],
-        statut=Commande.Statut.VALIDEE,
-        date_traitement=date_acquisition,
-        commentaire_agent=origine_import,
-    )
-    Commande.objects.filter(pk=commande.pk).update(date_commande=date_acquisition)
-
-    detail_commande = DetailCommande.objects.create(
-        commande=commande, article=article, quantite=1,
-    )
-
-    attribution = AttributionDetailCommande.objects.create(
-        detail_commande=detail_commande,
-        employe_beneficiaire=employe,
-        quantite=1,
-    )
-    AttributionDetailCommande.objects.filter(pk=attribution.pk).update(
-        date_acquisition=date_acquisition
-    )
-    attribution.refresh_from_db()
-
-    return attribution
-
-
-def _traiter_ligne(row, marque_defaut, origine_import):
+def _traiter_ligne(row, origine_import, ligne_no, resolutions_direction):
     nature = "" if est_non_applicable(row.get("Nature")) else str(row.get("Nature")).strip()
     if not nature:
         raise ValueError("Colonne 'Nature' vide")
 
-    numero_serie_brut = row.get("Numero de série")
-    numero_serie_ok = not est_non_applicable(numero_serie_brut)
-    mode_suivi = Article.ModeSuivi.NUMERO_SERIE if numero_serie_ok else Article.ModeSuivi.QUANTITE
-
     categorie = get_or_create_categorie(row.get("Code famille"))
-    article, cree = get_or_create_article(nature, categorie, marque_defaut, mode_suivi)
+    article, cree = get_or_create_article(nature, categorie, Article.ModeSuivi.QUANTITE)
 
     fournisseur = get_or_create_fournisseur(row.get("Fournisseur"))
     site = get_or_create_site(row.get("Agence") or row.get("Code agence"))
     magasin = get_or_create_magasin(site)
     date_acquisition = parse_date(row.get("Date D'acquisition"))
-    employe, employe_cree = resoudre_ou_creer_employe(
-        row.get("N° Matricule"), row.get("Détenteur")
-    )
 
+    # --- Entrée en stock (obligatoire pour chaque ligne) ---
     mvt_entree = Mouvement(
         date=date_acquisition,
         type_mouvement=Mouvement.Type.ENTREE,
@@ -280,7 +272,6 @@ def _traiter_ligne(row, marque_defaut, origine_import):
 
     unite = UniteArticle.objects.create(
         article=article,
-        numero_de_serie=str(numero_serie_brut).strip() if mode_suivi == Article.ModeSuivi.NUMERO_SERIE else None,
         statut=UniteArticle.Statut.EN_STOCK,
         mouvement_entree=detail_entree,
     )
@@ -289,22 +280,33 @@ def _traiter_ligne(row, marque_defaut, origine_import):
         "article": article.code_article,
         "article_cree": cree,
         "designation": nature,
-        "mode_suivi": mode_suivi,
         "avertissement": None,
         "attribue_a": None,
-        "code_unique_attribution": None,
+        "attribution": None,
     }
 
-    matricule_val = row.get("N° Matricule")
-    if employe:
-        attribution = creer_attribution_historique(
-            employe=employe,
-            article=article,
-            date_acquisition=date_acquisition,
-            origine_import=origine_import,
-            nature=nature,
-        )
+    # --- Résolution du bénéficiaire : employé (matricule) ou direction (détenteur) ---
+    employe, employe_cree = resoudre_ou_creer_employe(row.get("N° Matricule"))
 
+    direction = None
+    direction_cree = False
+    detenteur_texte = None
+    direction_suggeree = None
+
+    if not employe:
+        detenteur = row.get("Détenteur")
+        if not est_non_applicable(detenteur):
+            detenteur_texte = str(detenteur).strip()
+            # Recherche purement informative (ne crée/modifie rien) : sert à
+            # proposer une correspondance que l'utilisateur devra confirmer.
+            direction_suggeree = Direction.objects.filter(
+                dir_libelle__iexact=detenteur_texte
+            ).first()
+            direction, direction_cree = _resoudre_direction(
+                detenteur_texte, ligne_no, resolutions_direction
+            )
+
+    if employe or direction:
         mvt_sortie = Mouvement(
             date=date_acquisition,
             type_mouvement=Mouvement.Type.SORTIE,
@@ -319,31 +321,59 @@ def _traiter_ligne(row, marque_defaut, origine_import):
             article=article,
             quantite=1,
             employe_beneficiaire=employe,
-            code_tracabilite=str(attribution.code_unique),
+            direction_beneficiaire=direction,
         )
-        unite.attribuer(beneficiaire=employe, mouvement_sortie=detail_sortie)
+        unite.attribuer(beneficiaire=employe or direction, mouvement_sortie=detail_sortie)
 
-        resultat["attribue_a"] = f"{employe.emp_nom} ({employe.emp_matricule})"
-        resultat["code_unique_attribution"] = str(attribution.code_unique)
-        if employe_cree:
-            resultat["avertissement"] = (
-                f"Employé '{employe.emp_matricule}' créé automatiquement (nom à vérifier/compléter)"
+        if employe:
+            resultat["attribue_a"] = f"{employe.emp_nom} ({employe.emp_matricule})"
+            resultat["attribution"] = {"type": "EMPLOYE"}
+            if employe_cree:
+                resultat["avertissement"] = (
+                    f"Employé '{employe.emp_matricule}' créé automatiquement (nom à vérifier/compléter)"
+                )
+        else:
+            resultat["attribue_a"] = (
+                f"Direction (nouvelle) : {direction.dir_libelle}"
+                if direction_cree
+                else f"Direction : {direction.dir_libelle}"
             )
-    elif not est_non_applicable(matricule_val):
-        resultat["avertissement"] = f"Matricule '{matricule_val}' introuvable, article resté EN_STOCK"
+            resultat["attribution"] = {
+                "type": "DIRECTION",
+                "detenteur_texte": detenteur_texte,
+                "direction_suggeree_id": direction_suggeree.pk if direction_suggeree else None,
+                "direction_suggeree_libelle": direction_suggeree.dir_libelle if direction_suggeree else None,
+                "necessite_confirmation": direction_suggeree is not None,
+                "direction_utilisee_id": direction.pk,
+                "direction_utilisee_libelle": direction.dir_libelle,
+                "direction_creee": direction_cree,
+            }
 
     return resultat
 
 
-def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True) -> dict:
+def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, resolutions_direction=None) -> dict:
+    """
+    resolutions_direction : dict optionnel {ligne_excel (int): dir_id (str)}.
+    Envoyé par le front au moment de la confirmation, pour indiquer quelle
+    direction existante utiliser pour telle ligne (correspondance auto
+    confirmée, ou choix manuel différent). Une ligne absente de ce dict —
+    ou dont la valeur est vide — entraîne la création automatique d'une
+    nouvelle direction à partir du texte 'Détenteur'.
+    """
     df = normaliser_colonnes(df)
     manquantes = colonnes_manquantes(df)
+    resolutions_direction = resolutions_direction or {}
 
     rapport = {
         "dry_run": dry_run,
         "colonnes_manquantes": manquantes,
         "lignes_ok": 0,
         "lignes_erreur": 0,
+        "directions_disponibles": [
+            {"id": d["dir_id"], "libelle": d["dir_libelle"]}
+            for d in Direction.objects.order_by("dir_libelle").values("dir_id", "dir_libelle")
+        ],
         "details": [],
     }
 
@@ -351,11 +381,10 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True) -> dict:
 
     try:
         with transaction.atomic():
-            marque_defaut = get_or_create_marque_defaut()
             for idx, row in df.iterrows():
-                ligne_no = idx + 2 
+                ligne_no = idx + 2
                 try:
-                    resultat = _traiter_ligne(row, marque_defaut, origine_import)
+                    resultat = _traiter_ligne(row, origine_import, ligne_no, resolutions_direction)
                     rapport["lignes_ok"] += 1
                     rapport["details"].append({"ligne": ligne_no, "statut": "OK", **resultat})
                 except Exception as exc:  # noqa: BLE001

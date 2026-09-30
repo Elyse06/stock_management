@@ -10,7 +10,7 @@ Usage (Windows, chemin entre guillemets s'il contient des espaces) :
 import pandas as pd
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.stock.services.import_immobilisations import (
+from apps.stock.services_import.import_immobilisations import (
     detecter_index_entete,
     importer_immobilisations,
 )

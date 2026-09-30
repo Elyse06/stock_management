@@ -14,6 +14,8 @@ export function ImportImmobilisationsPage() {
     loading,
     erreur,
     ETAPES,
+    resolutionsDirection,
+    definirResolutionDirection,
     choisirFichier,
     previsualiser,
     confirmer,
@@ -76,7 +78,13 @@ export function ImportImmobilisationsPage() {
           {rapport && (
             <Stack spacing={2}>
               <ImportSummary rapport={rapport} />
-              <ImportReportTable rapport={rapport} />
+              <ImportReportTable
+                rapport={rapport}
+                editable={etape === ETAPES.APERCU}
+                directionsDisponibles={rapport.directions_disponibles || []}
+                resolutionsDirection={resolutionsDirection}
+                onChangeResolutionDirection={definirResolutionDirection}
+              />
             </Stack>
           )}
 
