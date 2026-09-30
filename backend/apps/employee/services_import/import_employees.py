@@ -1,6 +1,5 @@
 # apps/employee/services_import/import_employees.py
 import logging
-import re
 
 from apps.employee.models import Direction, Employer, Service, Site
 from django.db import transaction
@@ -25,16 +24,6 @@ def est_non_applicable(valeur) -> bool:
     except (TypeError, ValueError):
         pass
     return str(valeur).strip().lower() in VALEURS_NON_APPLICABLE
-
-
-def _generer_emp_id_unique(matricule_str: str) -> str:
-    base = re.sub(r"[^A-Za-z0-9]", "", matricule_str)[-5:].upper() or "EMP"
-    candidat = f"E{base}"[:6]
-    suffixe = 0
-    while Employer.objects.filter(emp_id=candidat).exists():
-        suffixe += 1
-        candidat = f"E{base[:5 - len(str(suffixe))]}{suffixe}"[:6]
-    return candidat
 
 
 def _get_or_create_site(nom_site: str) -> Site:
@@ -92,7 +81,7 @@ def _resoudre_ou_creer_employe(row: dict) -> tuple:
     avertissement = None
 
     if not matricule:
-        matricule = _generer_emp_id_unique(nom or "INCONNU")
+        matricule = Employer.generer_emp_id_unique(nom or "INCONNU")
         avertissement = "Matricule manquant, généré automatiquement"
 
     employe = Employer.objects.filter(emp_matricule=matricule).first()
@@ -105,7 +94,7 @@ def _resoudre_ou_creer_employe(row: dict) -> tuple:
 
     nom_final = nom or f"Employé matricule {matricule} (nom à compléter)"
     employe = Employer.objects.create(
-        emp_id=_generer_emp_id_unique(matricule),
+        emp_id=Employer.generer_emp_id_unique(matricule),
         emp_nom=nom_final[:255],
         emp_matricule=matricule,
         emp_fonction=fonction[:50],

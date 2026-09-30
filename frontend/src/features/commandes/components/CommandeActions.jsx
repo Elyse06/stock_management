@@ -10,9 +10,9 @@ export function CommandeActions({
   statut,
   traitement,
   magasinSource,
-  validations, // 
+  validations,
 }) {
-  // 🆕 Vérifier si toutes les attributions ont été décidées
+  //  Vérifier si toutes les attributions ont été décidées
   const totalAttributions = Object.keys(validations || {}).length;
   const allDecided = totalAttributions > 0 && Object.values(validations).every(
     (v) => v.statut === "VALIDEE" || v.statut === "REFUSEE"
@@ -23,20 +23,34 @@ export function CommandeActions({
       <Button onClick={onClose} disabled={traitement}>Fermer</Button>
       {peutTraiter && (
         <>
-          <Button variant="outlined" color="error" onClick={() => onTraiter("REJETEE")} disabled={traitement} startIcon={traitement ? <CircularProgress size={16} /> : <CancelIcon />}>
+          <Button 
+            variant="outlined" 
+            color="error" 
+            onClick={() => onTraiter("REJETEE")} 
+            disabled={traitement} 
+            startIcon={traitement ? <CircularProgress size={16} /> : <CancelIcon />}
+          >
             Rejeter
           </Button>
+          
           {isAgentSecondaire && statut === "EN_ATTENTE" && (
-            <Button variant="outlined" color="info" onClick={() => onTraiter("EN_COURS")} disabled={traitement} startIcon={traitement ? <CircularProgress size={16} /> : <HourglassEmptyIcon />}>
-              Pré-valider
+            <Button 
+              variant="contained"
+              color="primary"
+              onClick={() => onTraiter("EN_COURS")} 
+              disabled={traitement || !allDecided}
+              startIcon={traitement ? <CircularProgress size={16} /> : <HourglassEmptyIcon />}
+            >
+              {allDecided ? "Transmettre (pré-valider)" : "Décidez de toutes les attributions"}
             </Button>
           )}
+          
           {isAgentPrincipal && statut === "EN_COURS" && (
             <Button
               variant="contained"
               color="success"
               onClick={() => onTraiter("VALIDEE")}
-              disabled={traitement || !magasinSource || !allDecided} // 🆕 Bloqué si pas toutes décidées
+              disabled={traitement || !magasinSource || !allDecided}
               startIcon={traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />}
             >
               Valider la sortie

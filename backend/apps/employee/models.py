@@ -1,3 +1,5 @@
+import re
+
 from django.db import models
 
 from apps.utilisateur.models import Utilisateur
@@ -77,6 +79,21 @@ class Employer(models.Model):
 
     class Meta:
         db_table = "t_employee"
+
+    @staticmethod
+    def generer_emp_id_unique(matricule_str):
+        base = re.sub(r"[^A-Za-z0-9]", "", matricule_str)[-5:].upper() or "EMP"
+        candidat = f"E{base}"[:6]
+        suffixe = 0
+        while Employer.objects.filter(emp_id=candidat).exists():
+            suffixe += 1
+            candidat = f"E{base[:5 - len(str(suffixe))]}{suffixe}"[:6]
+        return candidat
+
+    def save(self, *args, **kwargs):
+        if not self.emp_id:
+            self.emp_id = self.generer_emp_id_unique(self.emp_matricule)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.emp_nom
