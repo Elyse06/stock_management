@@ -24,6 +24,7 @@ export function usePermission() {
 
     // Utilisateurs & Rôles
     canManageUsers: hasAction("USR_GERE") || hasAction("CAT_GERE"),
+    canManageEmployee: hasAction("USR_GERE")
   }), [hasAction]);
 
   return {
