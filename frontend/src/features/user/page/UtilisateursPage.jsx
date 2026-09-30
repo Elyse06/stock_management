@@ -198,6 +198,7 @@ export function UtilisateursPage() {
 
       <UserFormDialog
         open={formOpen}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
         onClose={() => {
           setFormOpen(false);
           setEditingUser(null);

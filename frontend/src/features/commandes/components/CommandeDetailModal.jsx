@@ -96,13 +96,11 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     onSettled: () => setTraitement(false),
   });
 
-  // Reset + pré-remplissage des validations à l'ouverture
   useEffect(() => {
     if (isOpen && commande) {
       setMagasinSource("");
       setUnitesSelectionnees({});
       setCommentaire("");
-      // Pré-remplir chaque attribution à VALIDEE avec sa quantité demandée
       const initial = {};
       commande.details?.forEach((detail) => {
         detail.attributions?.forEach((attr) => {
@@ -122,6 +120,14 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const getArticle = (codeArticle) => articles.find((a) => a.code_article === codeArticle);
   const peutTraiter = (isAgentPrincipal && commande.statut === "EN_COURS") || (isAgentSecondaire && commande.statut === "EN_ATTENTE");
 
+  const getDialogTitle = () => {
+    if (peutTraiter) {
+      return "Traitement de la commande";
+    }
+    return "Détail de la commande";
+  };
+  const dialogTitle = getDialogTitle();
+
   const toggleUnite = (detailId, uniteId) => {
     setUnitesSelectionnees((prev) => {
       const current = prev[detailId] || [];
@@ -130,67 +136,65 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
     });
   };
 
-    const validerAvantTraitement = (targetStatut) => {
-      // 1. Vérification du magasin source
-      if (targetStatut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
-        return "Veuillez sélectionner un magasin source pour la sortie de stock.";
-      }
-
-      if (targetStatut === "VALIDEE") {
-        for (const detail of commande.details || []) {
-          const article = getArticle(detail.article);
-          if (isAgentPrincipal && detail.attributions?.length > 0) {
-            const toutesDecidees = detail.attributions.every((attr) => {
-              const decision = validations[attr.id];
-              return decision && (decision.statut === "VALIDEE" || decision.statut === "REFUSEE");
-            });
-            if (!toutesDecidees) {
-              return `Veuillez statuer (Valider ou Refuser) sur toutes les attributions pour "${article?.designation}".`;
-            }
+  const validerAvantTraitement = (targetStatut) => {
+    if (targetStatut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
+      return "Veuillez sélectionner un magasin source pour la sortie de stock.";
+    }
+    
+    if (targetStatut === "VALIDEE" || targetStatut === "EN_COURS") {
+      for (const detail of commande.details || []) {
+        const article = getArticle(detail.article);
+        if (detail.attributions?.length > 0) {
+          const toutesDecidees = detail.attributions.every((attr) => {
+            const decision = validations[attr.id];
+            return decision && (decision.statut === "VALIDEE" || decision.statut === "REFUSEE");
+          });
+          if (!toutesDecidees) {
+            return `Veuillez statuer (Valider ou Refuser) sur toutes les attributions pour "${article?.designation}".`;
           }
-
-          if (article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE") {
-            const quantiteValideeTotale = (detail.attributions || []).reduce((sum, attr) => {
-              const decision = validations[attr.id];
-              if (decision?.statut === "VALIDEE") {
-                return sum + Number(decision.quantite_validee || attr.quantite_demandee || attr.quantite);
-              }
-              return sum;
-            }, 0);
-
-            if (!Number.isInteger(quantiteValideeTotale)) {
-              return `La quantité validée pour "${article.designation}" doit être entière.`;
+        }
+        
+        if (targetStatut === "VALIDEE" && article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE") {
+          const quantiteValideeTotale = (detail.attributions || []).reduce((sum, attr) => {
+            const decision = validations[attr.id];
+            if (decision?.statut === "VALIDEE") {
+              return sum + Number(decision.quantite_validee || attr.quantite_demandee || attr.quantite);
             }
-
-            const unitesSel = unitesSelectionnees[detail.id] || [];
-            
-            if (unitesSel.length !== quantiteValideeTotale) {
-              return `Pour "${article.designation}", veuillez sélectionner exactement ${quantiteValideeTotale} unité(s) physique(s) correspondant à la quantité validée. Actuellement : ${unitesSel.length} sélectionnée(s).`;
-            }
+            return sum;
+          }, 0);
+          
+          if (!Number.isInteger(quantiteValideeTotale)) {
+            return `La quantité validée pour "${article.designation}" doit être entière.`;
+          }
+          
+          const unitesSel = unitesSelectionnees[detail.id] || [];
+          if (unitesSel.length !== quantiteValideeTotale) {
+            return `Pour "${article.designation}", veuillez sélectionner exactement ${quantiteValideeTotale} unité(s) physique(s). Actuellement : ${unitesSel.length} sélectionnée(s).`;
           }
         }
       }
-      return null;
-    };
+    }
+    return null;
+  };
 
   const traiter = async (statut) => {
     const erreur = validerAvantTraitement(statut);
     if (erreur) { notify.error(erreur); return; }
     setTraitement(true);
-
+    
     const payload = { statut, commentaire_agent: commentaire.trim() };
     
-    if (statut === "VALIDEE" && magasinSource) {
-      payload.magasin_source = Number(magasinSource);
-      
-      // 🆕 Construction du tableau validations pour le backend
+    if ((statut === "VALIDEE" || statut === "EN_COURS") && Object.keys(validations).length > 0) {
       payload.validations = Object.entries(validations).map(([attrId, data]) => ({
         attribution_id: Number(attrId),
         statut: data.statut,
         quantite_validee: data.statut === "VALIDEE" ? (Number(data.quantite_validee) || null) : null,
         motif_refus: data.statut === "REFUSEE" ? (data.motif_refus || "") : null,
       }));
-
+    }
+    
+    if (statut === "VALIDEE" && magasinSource) {
+      payload.magasin_source = Number(magasinSource);
       payload.details = (commande.details || []).map((detail) => {
         const article = getArticle(detail.article);
         if (article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE") {
@@ -199,7 +203,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         return { detail_id: detail.id, unites_a_attribuer: [] };
       });
     }
-
+    
     await traiterMutation.mutateAsync({ commandeId: commande.commande_id, payload });
   };
 
@@ -207,13 +211,45 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
 
   return (
     <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#FFF8E1", borderBottom: "2px solid", borderColor: "primary.main" }}>
+      
+      <DialogTitle
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          bgcolor: "#FFF8E1",
+          borderBottom: "2px solid",
+          borderColor: "primary.main",
+        }}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Typography variant="h3">Commande <CodeChip value={`#${commande.commande_id}`} /></Typography>
+          <Typography variant="h3">
+            {dialogTitle} <CodeChip value={`#${commande.commande_id}`} />
+          </Typography>
           <StatusChip status={commande.statut} />
+          
+          {peutTraiter && (
+            <Chip
+              label={
+                isAgentSecondaire && commande.statut === "EN_ATTENTE"
+                  ? "Pré-validation"
+                  : "Validation finale"
+              }
+              size="small"
+              color={
+                isAgentSecondaire && commande.statut === "EN_ATTENTE"
+                  ? "info"
+                  : "success"
+              }
+              sx={{ fontWeight: 600, fontSize: 11 }}
+            />
+          )}
         </Box>
-        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
       </DialogTitle>
+
       <DialogContent sx={{ pt: 3 }}>
         <CommandeInfoSection commande={commande} />
         <CommandeArticlesTable commande={commande} articles={articles} />
@@ -231,8 +267,9 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
             commentaire={commentaire}
             onCommentaireChange={(e) => setCommentaire(e.target.value)}
             isAgentPrincipal={isAgentPrincipal}
-            validations={validations} // 
-            setValidations={setValidations} // 🆕
+            isAgentSecondaire={isAgentSecondaire}
+            validations={validations}
+            setValidations={setValidations}
           />
         )}
       </DialogContent>
@@ -245,7 +282,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
         statut={commande.statut}
         traitement={traitement}
         magasinSource={magasinSource}
-        validations={validations} // 
+        validations={validations}
       />
     </Dialog>
   );

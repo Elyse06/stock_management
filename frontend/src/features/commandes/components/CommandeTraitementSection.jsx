@@ -1,5 +1,6 @@
-import { Box, Typography, TextField, Divider, CircularProgress, Radio, RadioGroup, FormControlLabel, Paper } from "@mui/material";
-import { Store as StoreIcon } from "@mui/icons-material";
+import { useState } from "react";
+import { Box, Typography, TextField, Divider, CircularProgress, Radio, RadioGroup, FormControlLabel, Paper, Alert } from "@mui/material";
+import { Store as StoreIcon, Edit as EditIcon } from "@mui/icons-material";
 import { SelectFilter } from "../../../components/common/SelectFilter";
 import { StatutAttributionBadge } from "../../../components/common/StatutAttributionBadge";
 import { ArticleUniteSelector } from "./ArticleUniteSelector";
@@ -17,12 +18,15 @@ export function CommandeTraitementSection({
   commentaire,
   onCommentaireChange,
   isAgentPrincipal,
+  isAgentSecondaire,
   validations,
   setValidations,
 }) {
   const getArticle = (codeArticle) => articles.find((a) => a.code_article === codeArticle);
+  
+  const isPreValidation = isAgentSecondaire && commande.statut === "EN_ATTENTE";
+  const isFinalValidation = isAgentPrincipal && commande.statut === "EN_COURS";
 
-  // Handler pour mettre à jour une décision
   const handleValidationChange = (attributionId, field, value) => {
     setValidations((prev) => ({
       ...prev,
@@ -38,12 +42,16 @@ export function CommandeTraitementSection({
       <Divider sx={{ mb: 2 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
           <StoreIcon fontSize="small" />
-          <Typography variant="body2" fontWeight={600}>Traitement de la commande</Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {isPreValidation 
+              ? "Pré-validation (ajustement des quantités)" 
+              : "Traitement de la commande"}
+          </Typography>
         </Box>
       </Divider>
 
-      {/* SECTION 1 : Validation des attributions — agent principal uniquement */}
-      {isAgentPrincipal && commande.details?.map((detail) => {
+      {/*  SECTION 1 : Validation des attributions — visible pour les DEUX agents */}
+      {(isAgentPrincipal || isAgentSecondaire) && commande.details?.map((detail) => {
         const article = getArticle(detail.article);
         if (!detail.attributions || detail.attributions.length === 0) return null;
 
@@ -54,8 +62,11 @@ export function CommandeTraitementSection({
             </Typography>
             
             {detail.attributions.map((attr) => {
-              const decision = validations[attr.id] || { statut: attr.statut || "EN_ATTENTE" };
-              
+              const decision = validations[attr.id] || { 
+                statut: attr.statut || "EN_ATTENTE",
+                quantite_validee: attr.quantite_demandee || attr.quantite,
+              };
+
               return (
                 <Paper key={attr.id} variant="outlined" sx={{ p: 1.5, mb: 1, bgcolor: "#FAFAFA" }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
@@ -81,17 +92,24 @@ export function CommandeTraitementSection({
                     <FormControlLabel value="REFUSEE" control={<Radio size="small" />} label="Refuser" />
                   </RadioGroup>
 
-                  {/* Champs conditionnels */}
+                  {/* 🆕 Champ quantité modifiable (pour pré-validation ET validation finale) */}
                   {decision.statut === "VALIDEE" && (
-                    <TextField
-                      label="Quantité validée"
-                      type="number"
-                      size="small"
-                      value={decision.quantite_validee || attr.quantite_demandee || attr.quantite}
-                      onChange={(e) => handleValidationChange(attr.id, "quantite_validee", e.target.value)}
-                      inputProps={{ min: 1, max: attr.quantite_demandee || attr.quantite }}
-                      sx={{ width: 140 }}
-                    />
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+                      <EditIcon fontSize="small" color="action" />
+                      <TextField
+                        label={isPreValidation ? "Qté ajustée" : "Quantité validée"}
+                        type="number"
+                        size="small"
+                        value={decision.quantite_validee || attr.quantite_demandee || attr.quantite}
+                        onChange={(e) => handleValidationChange(attr.id, "quantite_validee", e.target.value)}
+                        inputProps={{ 
+                          min: 1, 
+                          max: attr.quantite_demandee || attr.quantite 
+                        }}
+                        sx={{ width: 140 }}
+                        helperText={isPreValidation ? "Modifiable pour la pré-validation" : undefined}
+                      />
+                    </Box>
                   )}
 
                   {decision.statut === "REFUSEE" && (
@@ -102,6 +120,7 @@ export function CommandeTraitementSection({
                       onChange={(e) => handleValidationChange(attr.id, "motif_refus", e.target.value)}
                       fullWidth
                       required
+                      sx={{ mt: 1 }}
                     />
                   )}
                 </Paper>
@@ -111,8 +130,8 @@ export function CommandeTraitementSection({
         );
       })}
 
-      {/* SECTION 2 : Magasin et Unités (Existant) */}
-      {isAgentPrincipal && commande.statut === "EN_COURS" && (
+      {/* SECTION 2 : Magasin et Unités (uniquement pour validation finale) */}
+      {isFinalValidation && (
         <>
           <SelectFilter
             label="Magasin source pour la sortie de stock"
@@ -135,8 +154,6 @@ export function CommandeTraitementSection({
               
               {commande.details.map((detail) => {
                 const article = getArticle(detail.article);
-                
-                // 🆕 CORRECTION : Calculer la somme des quantités VALIDÉES pour ce détail
                 const quantiteValideeTotale = detail.attributions.reduce((sum, attr) => {
                   const decision = validations[attr.id] || { statut: attr.statut || "EN_ATTENTE" };
                   if (decision.statut === "VALIDEE") {
@@ -145,12 +162,7 @@ export function CommandeTraitementSection({
                   return sum;
                 }, 0);
 
-                // Ne montrer le sélecteur que si c'est du NUMERO_SERIE ET qu'il y a au moins 1 unité validée
-                if (
-                  !article?.is_immobilisation ||
-                  article?.mode_suivi !== "NUMERO_SERIE" ||
-                  quantiteValideeTotale === 0
-                ) {
+                if (!article?.is_immobilisation || article?.mode_suivi !== "NUMERO_SERIE" || quantiteValideeTotale === 0) {
                   return null;
                 }
 
@@ -161,7 +173,7 @@ export function CommandeTraitementSection({
                     detailId={detail.id}
                     unitesDisponibles={unitesDisponibles[detail.article] || []}
                     unitesSelectionnees={unitesSelectionnees[detail.id] || []}
-                    quantiteRequise={quantiteValideeTotale} // 🆕 On passe la quantité validée, pas la quantité demandée
+                    quantiteRequise={quantiteValideeTotale}
                     onToggleUnite={onToggleUnite}
                   />
                 );

@@ -40,15 +40,18 @@ class CommandeTraitementSerializer(serializers.Serializer):
         magasin_source = attrs.get("magasin_source")
         details_data = attrs.get("details", [])
         validations = attrs.get("validations", [])
-
+        
+        #  Magasin source requis uniquement pour VALIDEE
         if nouveau_statut == Commande.Statut.VALIDEE and not magasin_source:
             raise serializers.ValidationError({
                 "magasin_source": "Le magasin source est requis pour valider la commande."
             })
-
+        
+        # 🆕 Calculer les quantités validées par détail (uniquement pour VALIDEE)
         quantites_validees_par_detail = {}
         attribution_ids = set()
-        if validations:
+        
+        if validations and nouveau_statut == Commande.Statut.VALIDEE:
             for v in validations:
                 attribution_id = v['attribution_id']
                 if attribution_id in attribution_ids:
@@ -56,18 +59,19 @@ class CommandeTraitementSerializer(serializers.Serializer):
                         "validations": f"L'attribution #{attribution_id} est répétée."
                     })
                 attribution_ids.add(attribution_id)
-
+                
                 attribution = AttributionDetailCommande.objects.filter(
                     id=attribution_id,
                     detail_commande__commande=commande,
                 ).select_related("detail_commande").first()
+                
                 if attribution is None:
                     raise serializers.ValidationError({
                         "validations": (
                             f"L'attribution #{attribution_id} n'appartient pas à cette commande."
                         )
                     })
-
+                
                 if v.get('statut') == 'VALIDEE':
                     qte = v.get('quantite_validee') or Decimal(0)
                     if qte != qte.to_integral_value():
@@ -77,13 +81,12 @@ class CommandeTraitementSerializer(serializers.Serializer):
                                 "doit être un nombre entier."
                             )
                         })
-
                     qte = int(qte)
                     detail_id = attribution.detail_commande_id
                     quantites_validees_par_detail[detail_id] = (
                         quantites_validees_par_detail.get(detail_id, 0) + qte
                     )
-
+                    
                     if quantites_validees_par_detail[detail_id] > attribution.detail_commande.quantite:
                         raise serializers.ValidationError({
                             "validations": (
@@ -91,7 +94,8 @@ class CommandeTraitementSerializer(serializers.Serializer):
                                 "dépasse la quantité demandée."
                             )
                         })
-
+        
+        #  Validation des unités (uniquement pour VALIDEE)
         if details_data and nouveau_statut == Commande.Statut.VALIDEE:
             for detail_data in details_data:
                 try:
@@ -107,7 +111,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
                 article = detail.article
                 unites_ids = detail_data.get("unites_a_attribuer", [])
                 qte_validee_totale = quantites_validees_par_detail.get(detail.id, 0)
-
+                
                 if article.is_immobilisation and article.mode_suivi == Article.ModeSuivi.NUMERO_SERIE:
                     if qte_validee_totale == 0:
                         if unites_ids:
@@ -164,7 +168,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
                                 f"n'ont pas de numéro de série."
                             )
                         })
-                
+        
         return attrs
     
     @transaction.atomic
@@ -173,12 +177,12 @@ class CommandeTraitementSerializer(serializers.Serializer):
         request = self.context.get("request")
         details_data = self.validated_data.get("details", [])
         validations = self.validated_data.get("validations", [])
-
+        
         has_cat_gere = HasAction.for_actions("CAT_GERE")().has_permission(request, None)
         has_com_val = HasAction.for_actions("COM_VAL")().has_permission(request, None)
         status_actuel = commande.statut
         nouveau_statut = self.validated_data["statut"]
-
+        
         if has_cat_gere and has_com_val:
             transitions_autorisees = {
                 Commande.Statut.EN_COURS: [
@@ -195,25 +199,24 @@ class CommandeTraitementSerializer(serializers.Serializer):
             }
         else:
             transitions_autorisees = {}
-
+        
         transitions_possibles = transitions_autorisees.get(status_actuel, [])
         if nouveau_statut not in transitions_possibles:
             raise serializers.ValidationError({
                 "statut": f"Transition non autorisée : {status_actuel} -> {nouveau_statut}"
             })
-
+        
         traitant = self.validated_data.get("employe_traitant")
         if traitant is None and request and request.user:
             traitant = Employer.objects.filter(
                 emp_utilisateur_id_id=getattr(request.user, "pk", None)
             ).first()
-
         if traitant is None:
             raise serializers.ValidationError({
                 "employe_traitant": "Employé traitant requis."
             })
-
-        if validations and nouveau_statut == Commande.Statut.VALIDEE:
+        
+        if validations:
             for validation in validations:
                 try:
                     attribution = AttributionDetailCommande.objects.get(
@@ -221,24 +224,37 @@ class CommandeTraitementSerializer(serializers.Serializer):
                     )
                 except AttributionDetailCommande.DoesNotExist:
                     continue
-
-                attribution.statut = validation['statut']
-
-                if validation['statut'] == 'VALIDEE':
-                    attribution.quantite_validee = validation['quantite_validee']
-                    attribution.motif_refus = None
-                elif validation['statut'] == 'REFUSEE':
+                
+                if validation['statut'] == 'REFUSEE':
+                    attribution.statut = 'REFUSEE'
                     attribution.quantite_validee = None
                     attribution.motif_refus = validation.get('motif_refus', '')
-
-                attribution.save()
-
+                    attribution.save()
+                
+                elif validation['statut'] == 'VALIDEE':
+                    if status_actuel == Commande.Statut.EN_ATTENTE:
+                        nouvelle_qte = validation.get('quantite_validee')
+                        if nouvelle_qte is not None and nouvelle_qte > 0:
+                            attribution.quantite_demandee = nouvelle_qte
+                            attribution.quantite = nouvelle_qte  # Synchroniser quantite aussi
+                        attribution.statut = 'EN_ATTENTE'  # Reste en attente jusqu'à validation finale
+                        attribution.motif_refus = None
+                        attribution.save()
+                    # En validation finale (EN_COURS → VALIDEE)
+                    else:
+                        attribution.statut = 'VALIDEE'
+                        attribution.quantite_validee = validation['quantite_validee']
+                        attribution.motif_refus = None
+                        attribution.save()
+        
+        # Mise à jour de la commande
         commande.statut = nouveau_statut
         commande.commentaire_agent = self.validated_data.get("commentaire_agent", "")
         commande.employe_traitant = traitant
         commande.date_traitement = timezone.now()
         commande.save()
-
+        
+        # Génération de la sortie de stock uniquement si VALIDEE
         if nouveau_statut == Commande.Statut.VALIDEE:
             magasin_source = self.validated_data.get("magasin_source")
             generer_sortie_stock_pour_commande(
@@ -246,5 +262,6 @@ class CommandeTraitementSerializer(serializers.Serializer):
                 magasin_source,
                 details_data,
             )
-
+        
         return commande
+
