@@ -1,13 +1,21 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  Box, TextField, Button, Select, MenuItem, FormControl, InputLabel, Tooltip, IconButton,
-  Typography,
+  Box, TextField, Button, Autocomplete, Tooltip, IconButton,
+  Typography, ToggleButtonGroup, ToggleButton, Chip, FormControl, Select, MenuItem,
 } from "@mui/material";
 import {
   Add as AddIcon, Delete as DeleteIcon,
   Person as PersonIcon, Business as BusinessIcon,
+  LocationCity as LocationCityIcon,
 } from "@mui/icons-material";
+import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS } from "../../../constants/api";
 import { StyledTable } from "../../../components/wizard/StyledTable";
+import { FormSection } from "../../../components/wizard/FormSection";
+import { ProgressBar } from "../../../components/common/ProgressBar";
+import { EmployeLocation, getEmployeLocation } from "../../../components/common/EmployeLocation";
+
+const SITES_ENDPOINT = "/api/employee/sites/";
 
 export function AttributionEditor({
   quantiteTotale,
@@ -22,7 +30,21 @@ export function AttributionEditor({
   const [typeBeneficiaire, setTypeBeneficiaire] = useState(isImmobilisation ? "EMPLOYE" : "DIRECTION");
   const [employeSelectionne, setEmployeSelectionne] = useState(null);
   const [directionSelectionnee, setDirectionSelectionnee] = useState(null);
+  const [siteSelectionne, setSiteSelectionne] = useState(null);
+  const [sites, setSites] = useState([]);
+  const [sitesLoading, setSitesLoading] = useState(false);
   const [quantiteAttribution, setQuantiteAttribution] = useState("");
+
+  // Charger les sites
+  useEffect(() => {
+    let cancelled = false;
+    setSitesLoading(true);
+    apiClient.get(SITES_ENDPOINT, { params: { page_size: 100 } })
+      .then((res) => { if (!cancelled) setSites(res.data.results ?? res.data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSitesLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const sommeAttribuee = attributions.reduce(
     (sum, a) => sum + (Number(a.quantite) || 0),
@@ -50,7 +72,7 @@ export function AttributionEditor({
   const directionActive = directionSelectionnee || directionDemandeur || (directions.length > 0 ? directions[0] : null);
 
   useEffect(() => {
-    if (!isImmobilisation && typeBeneficiaire !== "DIRECTION") {
+    if (!isImmobilisation && typeBeneficiaire !== "DIRECTION" && typeBeneficiaire !== "SITE") {
       setTypeBeneficiaire("DIRECTION");
       setEmployeSelectionne(null);
     }
@@ -67,55 +89,15 @@ export function AttributionEditor({
       (a) => a.type === "EMPLOYE" && a.beneficiaire?.emp_id === e.emp_id
     );
     if (dejaAttribue) return false;
-
     if (directionDemandeur?.dir_libelle && e.direction_libelle) {
       return e.direction_libelle.trim().toLowerCase() === directionDemandeur.dir_libelle.trim().toLowerCase();
     }
     return true;
   });
 
-  const getBeneficiaireOptions = (type, currentIndex = -1) => {
-    if (type === "EMPLOYE") {
-      return employees.filter((employee) => {
-        const dejaAttribue = attributions.some(
-          (attribution, index) => index !== currentIndex &&
-            attribution.type === "EMPLOYE" &&
-            attribution.beneficiaire?.emp_id === employee.emp_id
-        );
-        if (dejaAttribue) return false;
-        if (directionDemandeur?.dir_libelle && employee.direction_libelle) {
-          return employee.direction_libelle.trim().toLowerCase() === directionDemandeur.dir_libelle.trim().toLowerCase();
-        }
-        return true;
-      });
-    }
-    return directionActive ? [directionActive] : [];
-  };
-
-  const modifierBeneficiaire = (index, beneficiaire) => {
-    if (!beneficiaire) return;
-    const type = beneficiaire.emp_id ? "EMPLOYE" : "DIRECTION";
-    const updated = [...attributions];
-    updated[index] = { ...updated[index], type, beneficiaire };
-    setAttributions(updated);
-  };
-
-  const modifierType = (index, type) => {
-    const updated = [...attributions];
-    updated[index] = { ...updated[index], type, beneficiaire: null };
-    setAttributions(updated);
-  };
-
-  const getBeneficiaireId = (beneficiaire) => String(
-    beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? ""
-  );
-
-  const getBeneficiaireLabel = (beneficiaire) => {
-    if (beneficiaire?.emp_id) {
-      return `${beneficiaire.emp_nom}${beneficiaire.emp_matricule ? ` (${beneficiaire.emp_matricule})` : ""}`;
-    }
-    return beneficiaire?.dir_libelle || "";
-  };
+  const sitesDejaAttribues = attributions
+    .filter((a) => a.type === "SITE")
+    .map((a) => a.beneficiaire?.site_id);
 
   const ajouterAttribution = () => {
     const qte = Number(quantiteAttribution);
@@ -123,30 +105,26 @@ export function AttributionEditor({
 
     if (typeBeneficiaire === "EMPLOYE") {
       if (!employeSelectionne) return;
-
       setAttributions([
         ...attributions,
-        {
-          type: "EMPLOYE",
-          beneficiaire: employeSelectionne,
-          quantite: qte,
-        },
+        { type: "EMPLOYE", beneficiaire: employeSelectionne, quantite: qte },
       ]);
       setEmployeSelectionne(null);
-      setQuantiteAttribution("");
-    } else {
-      if (!directionActive) return;
-
+    } else if (typeBeneficiaire === "SITE") {
+      if (!siteSelectionne) return;
       setAttributions([
         ...attributions,
-        {
-          type: "DIRECTION",
-          beneficiaire: directionActive,
-          quantite: qte,
-        },
+        { type: "SITE", beneficiaire: siteSelectionne, quantite: qte },
       ]);
-      setQuantiteAttribution("");
+      setSiteSelectionne(null);
+    } else {
+      if (!directionActive) return;
+      setAttributions([
+        ...attributions,
+        { type: "DIRECTION", beneficiaire: directionActive, quantite: qte },
+      ]);
     }
+    setQuantiteAttribution("");
   };
 
   const retirerAttribution = (index) => {
@@ -161,14 +139,103 @@ export function AttributionEditor({
     setAttributions(updated);
   };
 
-  const handleTypeChange = (event) => {
-    setTypeBeneficiaire(event.target.value);
-    setEmployeSelectionne(null);
-    setQuantiteAttribution("");
+  const handleTypeChange = (event, newType) => {
+    if (newType !== null) {
+      setTypeBeneficiaire(newType);
+      setEmployeSelectionne(null);
+      setSiteSelectionne(null);
+      setQuantiteAttribution("");
+    }
+  };
+
+  const getBeneficiaireId = (beneficiaire) => String(
+    beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? beneficiaire?.site_id ?? ""
+  );
+
+  const getBeneficiaireLabel = (beneficiaire) => {
+    if (beneficiaire?.emp_id) {
+      return `${beneficiaire.emp_nom}${beneficiaire.emp_matricule ? ` (${beneficiaire.emp_matricule})` : ""}`;
+    }
+    if (beneficiaire?.site_id) {
+      return `${beneficiaire.site_nom} (${beneficiaire.site_type || "Site"})`;
+    }
+    return beneficiaire?.dir_libelle || "";
+  };
+
+  const modifierBeneficiaire = (index, beneficiaire) => {
+    if (!beneficiaire) return;
+    const type = beneficiaire.emp_id ? "EMPLOYE" : beneficiaire.site_id ? "SITE" : "DIRECTION";
+    const updated = [...attributions];
+    updated[index] = { ...updated[index], type, beneficiaire };
+    setAttributions(updated);
+  };
+
+  const modifierType = (index, type) => {
+    const updated = [...attributions];
+    updated[index] = { ...updated[index], type, beneficiaire: null };
+    setAttributions(updated);
+  };
+
+  const getBeneficiaireOptions = (type, currentIndex = -1) => {
+    if (type === "EMPLOYE") {
+      return employees.filter((employee) => {
+        const dejaAttribue = attributions.some(
+          (attribution, index) => index !== currentIndex &&
+          attribution.type === "EMPLOYE" &&
+          attribution.beneficiaire?.emp_id === employee.emp_id
+        );
+        if (dejaAttribue) return false;
+        if (directionDemandeur?.dir_libelle && employee.direction_libelle) {
+          return employee.direction_libelle.trim().toLowerCase() === directionDemandeur.dir_libelle.trim().toLowerCase();
+        }
+        return true;
+      });
+    }
+    if (type === "SITE") {
+      return sites.filter((s) => !sitesDejaAttribues.includes(s.site_id));
+    }
+    return directionActive ? [directionActive] : [];
   };
 
   return (
     <Box>
+      <ProgressBar current={sommeAttribuee} total={quantiteTotale} label="Attribué" />
+
+      {/* Toggle Type de bénéficiaire */}
+      <Box sx={{ mb: 2 }}>
+        <ToggleButtonGroup
+          value={typeBeneficiaire}
+          exclusive
+          onChange={handleTypeChange}
+          size="small"
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 2,
+              py: 0.75,
+              border: "1px solid #E0E0E0",
+              "&.Mui-selected": {
+                bgcolor: "primary.light",
+                borderColor: "primary.main",
+                color: "text.primary",
+                "&:hover": { bgcolor: "primary.main", color: "white" },
+              },
+            },
+          }}
+        >
+          <ToggleButton value="EMPLOYE" disabled={!isImmobilisation}>
+            <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Employé
+          </ToggleButton>
+          <ToggleButton value="DIRECTION">
+            <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Direction
+          </ToggleButton>
+          <ToggleButton value="SITE">
+            <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Site
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       <StyledTable
         columns={[
@@ -180,6 +247,11 @@ export function AttributionEditor({
         emptyMessage="Aucune attribution. Vous recevrez toute la quantité."
       >
         {attributions.map((attr, index) => {
+          const isEmploye = attr.type === "EMPLOYE";
+          const isDirection = attr.type === "DIRECTION";
+          const isSite = attr.type === "SITE";
+          const loc = isEmploye ? getEmployeLocation(attr.beneficiaire) : null;
+
           return (
             <tr key={index}>
               <td>
@@ -190,6 +262,7 @@ export function AttributionEditor({
                   >
                     <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
                     <MenuItem value="DIRECTION">Direction</MenuItem>
+                    <MenuItem value="SITE">Site</MenuItem>
                   </Select>
                 </FormControl>
               </td>
@@ -241,6 +314,7 @@ export function AttributionEditor({
               <Select value={typeBeneficiaire} label="Type" onChange={handleTypeChange}>
                 <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
                 <MenuItem value="DIRECTION">Direction</MenuItem>
+                <MenuItem value="SITE">Site</MenuItem>
               </Select>
             </FormControl>
           </td>
@@ -261,6 +335,33 @@ export function AttributionEditor({
                   ))}
                 </Select>
               </FormControl>
+            ) : typeBeneficiaire === "SITE" ? (
+              <Autocomplete
+                size="small"
+                options={sites.filter((s) => !sitesDejaAttribues.includes(s.site_id))}
+                loading={sitesLoading}
+                getOptionLabel={(option) => `${option.site_nom} (${option.site_type})`}
+                isOptionEqualToValue={(option, value) => option?.site_id === value?.site_id}
+                value={siteSelectionne}
+                onChange={(_, newValue) => setSiteSelectionne(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Site" placeholder="Rechercher un site..." />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.site_id}>
+                    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1 }}>
+                      <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{option.site_nom}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.site_type} • {option.localite || "—"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText="Aucun site trouvé"
+              />
             ) : (
               <TextField
                 size="small"
@@ -296,6 +397,8 @@ export function AttributionEditor({
                 quantiteRestante <= 0 ||
                 (typeBeneficiaire === "EMPLOYE"
                   ? !employeSelectionne
+                  : typeBeneficiaire === "SITE"
+                  ? !siteSelectionne
                   : !directionActive) ||
                 !quantiteAttribution ||
                 Number(quantiteAttribution) <= 0 ||

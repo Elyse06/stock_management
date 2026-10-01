@@ -53,6 +53,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   const [articles, setArticles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
+  const [sites, setSites] = useState([]);
   const [objet, setObjet] = useState("Utilisation simple");
   const [lignes, setLignes] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -88,11 +89,13 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       apiClient.get(API_ENDPOINTS.ARTICLES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
     ])
-      .then(([articlesRes, employeesRes, directionsRes]) => {
+      .then(([articlesRes, employeesRes, directionsRes, sitesRes]) => {
         setArticles(articlesRes.data.results ?? articlesRes.data);
         setEmployees(employeesRes.data.results ?? employeesRes.data);
         setDirections(directionsRes.data.results ?? directionsRes.data);
+        setSites(sitesRes.data.results ?? sitesRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen]);
@@ -120,6 +123,15 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               beneficiaire_id: attr.direction_beneficiaire,
               beneficiaire_nom: direction?.dir_libelle || attr.beneficiaire_nom || "Direction",
               beneficiaire: direction || { dir_id: attr.direction_beneficiaire, dir_libelle: attr.beneficiaire_nom },
+              quantite: Number(attr.quantite),
+            };
+          } else if (attr.site_beneficiaire) { // 🆕
+            const site = sites.find((s) => s.site_id === attr.site_beneficiaire);
+            return {
+              type: "SITE",
+              beneficiaire_id: attr.site_beneficiaire,
+              beneficiaire_nom: site?.site_nom || attr.beneficiaire_nom || "Site",
+              beneficiaire: site || { site_id: attr.site_beneficiaire, site_nom: attr.beneficiaire_nom },
               quantite: Number(attr.quantite),
             };
           }
@@ -214,6 +226,8 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
             };
             if (a.type === "EMPLOYE") {
               item.employe_beneficiaire = a.beneficiaire_id || a.beneficiaire?.emp_id;
+            } else if (a.type === "SITE") {
+              item.site_beneficiaire = a.beneficiaire_id || a.beneficiaire?.site_id;
             } else {
               item.direction_beneficiaire = a.beneficiaire_id || a.beneficiaire?.dir_id;
             }
@@ -387,23 +401,31 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                           {ligne.attributions.map((attr, idx) => {
                             const isEmploye = attr.type === "EMPLOYE";
+                            const isSite = attr.type === "SITE";
                             const beneficiaireNom = isEmploye
                               ? employees.find((e) => e.emp_id === attr.beneficiaire_id)?.emp_nom
                                 || attr.beneficiaire?.emp_nom
                                 || attr.beneficiaire_nom
                                 || "Employé"
+                              : isSite
+                              ? sites.find((s) => s.site_id === attr.beneficiaire_id)?.site_nom
+                                || attr.beneficiaire?.site_nom
+                                || attr.beneficiaire_nom
+                                || "Site"
                               : attr.beneficiaire?.dir_libelle
                                 || attr.beneficiaire_nom
                                 || "Direction";
+                            const Icon = isEmploye ? PersonIcon : isSite ? LocationCityIcon : BusinessIcon;
+                            const color = isEmploye ? "primary" : isSite ? "warning" : "secondary";
 
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>
                                 <Chip
                                   label={`${beneficiaireNom} (${attr.quantite})`}
                                   size="small"
-                                  color={isEmploye ? "primary" : "secondary"}
+                                  color={color}
                                   variant="outlined"
-                                  icon={isEmploye ? <PersonIcon /> : <BusinessIcon />}
+                                  icon={<Icon />}
                                 />
                               </Box>
                             );

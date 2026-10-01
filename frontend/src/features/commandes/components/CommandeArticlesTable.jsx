@@ -1,12 +1,11 @@
 import { Box, Typography, Chip, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
-import { Person as PersonIcon, Business as BusinessIcon } from "@mui/icons-material";
+import { Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon } from "@mui/icons-material";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { StatutAttributionBadge } from "../../../components/common/StatutAttributionBadge";
 
 export function CommandeArticlesTable({ commande, articles }) {
   const getArticle = (codeArticle) =>
     articles.find((a) => a.code_article === codeArticle);
-
   const defaultBeneficiaire =
     commande.demandeur?.nom || commande.employe_demandeur || "—";
 
@@ -32,9 +31,8 @@ export function CommandeArticlesTable({ commande, articles }) {
           <TableRow>
             <TableCell>Article</TableCell>
             <TableCell align="center" sx={{ width: 100 }}>
-              Demandée
+              Quantité
             </TableCell>
-            <TableCell align="center" sx={{ width: 110 }}>Validée</TableCell>
             <TableCell sx={{ minWidth: 200 }}>Attributions</TableCell>
           </TableRow>
         </TableHead>
@@ -42,7 +40,7 @@ export function CommandeArticlesTable({ commande, articles }) {
           {commande.details?.length > 0 ? (
             commande.details.map((detail) => {
               const article = getArticle(detail.article);
-              const isNS = article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE";
+              const isNS = article?.mode_suivi === "NUMERO_SERIE";
               return (
                 <TableRow
                   key={detail.id}
@@ -74,50 +72,33 @@ export function CommandeArticlesTable({ commande, articles }) {
                       {detail.quantite}
                     </Typography>
                   </TableCell>
-                  <TableCell align="center">
-                    <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                      {detail.attributions?.reduce(
-                        (total, attribution) => total + (
-                          attribution.statut === "VALIDEE"
-                            ? Number(attribution.quantite_validee ?? 0)
-                            : 0
-                        ),
-                        0
-                      ) || 0}
-                    </Typography>
-                  </TableCell>
                   <TableCell>
                     {detail.attributions?.length > 0 ? (
-                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                      {detail.attributions.map((attr) => {
-                        const quantiteDemandee = Number(attr.quantite_demandee ?? attr.quantite ?? 0);
-                        const quantiteValidee = attr.statut === "VALIDEE"
-                          ? Number(attr.quantite_validee ?? 0)
-                          : 0;
-                        const quantiteRefusee = Math.max(
-                          quantiteDemandee - quantiteValidee,
-                          0
-                        );
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 0.5,
+                        }}
+                      >
+                        {detail.attributions.map((attr) => {
+                          const isEmploye = attr.beneficiaire_type === "EMPLOYE";
+                          const isDirection = attr.beneficiaire_type === "DIRECTION";
+                          const isSite = attr.beneficiaire_type === "SITE";
+                          const Icon = isEmploye ? PersonIcon : isSite ? LocationCityIcon : BusinessIcon;
+                          const color = isEmploye ? "primary" : isSite ? "warning" : "secondary";
 
-                        return (
-                          <Box key={attr.id} sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                          return (
                             <Chip
-                              label={attr.beneficiaire_nom}
+                              key={attr.id}
+                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
                               size="small"
-                              color={attr.beneficiaire_type === "EMPLOYE" ? "primary" : "secondary"}
+                              color={color}
                               variant="outlined"
-                              icon={attr.beneficiaire_type === "EMPLOYE" ? <PersonIcon /> : <BusinessIcon />}
+                              icon={<Icon />}
                             />
-                            {attr.statut === "VALIDEE" && (
-                              <>
-                                <Chip label={`Validée : ${quantiteValidee}`} size="small" color="success" variant="outlined" />
-                                <Chip label={`Refusée : ${quantiteRefusee}`} size="small" color="error" variant="outlined" />
-                              </>
-                            )}
-                            <StatutAttributionBadge statut={attr.statut} />
-                          </Box>
-                        );
-                      })}
+                          );
+                        })}
                       </Box>
                     ) : (
                       <Chip
@@ -134,7 +115,7 @@ export function CommandeArticlesTable({ commande, articles }) {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   Aucun article dans cette commande
                 </Typography>
