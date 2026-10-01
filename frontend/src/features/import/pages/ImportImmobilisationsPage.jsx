@@ -14,8 +14,9 @@ export function ImportImmobilisationsPage() {
     loading,
     erreur,
     ETAPES,
-    resolutionsDirection,
-    definirResolutionDirection,
+    clesConfirmees,
+    basculerConfirmationCle,
+    peutConfirmer,
     choisirFichier,
     previsualiser,
     confirmer,
@@ -81,9 +82,8 @@ export function ImportImmobilisationsPage() {
               <ImportReportTable
                 rapport={rapport}
                 editable={etape === ETAPES.APERCU}
-                directionsDisponibles={rapport.directions_disponibles || []}
-                resolutionsDirection={resolutionsDirection}
-                onChangeResolutionDirection={definirResolutionDirection}
+                clesConfirmees={clesConfirmees}
+                onBasculerConfirmationCle={basculerConfirmationCle}
               />
             </Stack>
           )}
@@ -94,7 +94,7 @@ export function ImportImmobilisationsPage() {
             ETAPES={ETAPES}
             loading={loading}
             fichier={fichier}
-            lignesOk={rapport?.lignes_ok ?? 0}
+            peutConfirmer={peutConfirmer}
             onPrevisualiser={previsualiser}
             onConfirmer={confirmer}
             onRecommencer={recommencer}

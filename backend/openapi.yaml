@@ -1,0 +1,5076 @@
+openapi: 3.0.3
+info:
+  title: API Gestion de stock
+  version: 1.0.0
+  description: API du système interne de gestion de stock
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      responses:
+        '200':
+          description: No response body
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/catalogue/articles/:
+    get:
+      operationId: catalogue_articles_list
+      parameters:
+      - in: query
+        name: categorie
+        schema:
+          type: integer
+      - in: query
+        name: mode_suivi
+        schema:
+          type: string
+          enum:
+          - NUMERO_SERIE
+          - QUANTITE
+        description: |-
+          * `QUANTITE` - Quantité simple
+          * `NUMERO_SERIE` - Suivi par numéro de série
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArticleList'
+          description: ''
+    post:
+      operationId: catalogue_articles_create
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Article'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Article'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Article'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+  /api/catalogue/articles/{code_article}/:
+    get:
+      operationId: catalogue_articles_retrieve
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        description: A unique value identifying this Article.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+    put:
+      operationId: catalogue_articles_update
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        description: A unique value identifying this Article.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Article'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Article'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Article'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+    patch:
+      operationId: catalogue_articles_partial_update
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        description: A unique value identifying this Article.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedArticle'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+    delete:
+      operationId: catalogue_articles_destroy
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        description: A unique value identifying this Article.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '204':
+          description: No response body
+  /api/catalogue/articles/{code_article}/fiche-complete/:
+    get:
+      operationId: catalogue_articles_fiche_complete_retrieve
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        description: A unique value identifying this Article.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+  /api/catalogue/categories/:
+    get:
+      operationId: catalogue_categories_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategorieList'
+          description: ''
+    post:
+      operationId: catalogue_categories_create
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categorie'
+          description: ''
+  /api/catalogue/categories/{categorie_id}/:
+    get:
+      operationId: catalogue_categories_retrieve
+      parameters:
+      - in: path
+        name: categorie_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Catégorie.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categorie'
+          description: ''
+    put:
+      operationId: catalogue_categories_update
+      parameters:
+      - in: path
+        name: categorie_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Catégorie.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Categorie'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categorie'
+          description: ''
+    patch:
+      operationId: catalogue_categories_partial_update
+      parameters:
+      - in: path
+        name: categorie_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Catégorie.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategorie'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCategorie'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCategorie'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categorie'
+          description: ''
+    delete:
+      operationId: catalogue_categories_destroy
+      parameters:
+      - in: path
+        name: categorie_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Catégorie.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '204':
+          description: No response body
+  /api/catalogue/fournisseurs/:
+    get:
+      operationId: catalogue_fournisseurs_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFournisseurList'
+          description: ''
+    post:
+      operationId: catalogue_fournisseurs_create
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fournisseur'
+          description: ''
+  /api/catalogue/fournisseurs/{fournisseur_id}/:
+    get:
+      operationId: catalogue_fournisseurs_retrieve
+      parameters:
+      - in: path
+        name: fournisseur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Fournisseur.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fournisseur'
+          description: ''
+    put:
+      operationId: catalogue_fournisseurs_update
+      parameters:
+      - in: path
+        name: fournisseur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Fournisseur.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Fournisseur'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fournisseur'
+          description: ''
+    patch:
+      operationId: catalogue_fournisseurs_partial_update
+      parameters:
+      - in: path
+        name: fournisseur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Fournisseur.
+        required: true
+      tags:
+      - catalogue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFournisseur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFournisseur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFournisseur'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fournisseur'
+          description: ''
+    delete:
+      operationId: catalogue_fournisseurs_destroy
+      parameters:
+      - in: path
+        name: fournisseur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Fournisseur.
+        required: true
+      tags:
+      - catalogue
+      responses:
+        '204':
+          description: No response body
+  /api/commandes/attribution-detail-commande/:
+    get:
+      operationId: commandes_attribution_detail_commande_list
+      parameters:
+      - in: query
+        name: detail_commande
+        schema:
+          type: integer
+      - in: query
+        name: employe_beneficiaire
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAttributionDetailCommandeList'
+          description: ''
+    post:
+      operationId: commandes_attribution_detail_commande_create
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionDetailCommande'
+          description: ''
+  /api/commandes/attribution-detail-commande/{id}/:
+    get:
+      operationId: commandes_attribution_detail_commande_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this attribution detail commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionDetailCommande'
+          description: ''
+    put:
+      operationId: commandes_attribution_detail_commande_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this attribution detail commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttributionDetailCommande'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionDetailCommande'
+          description: ''
+    patch:
+      operationId: commandes_attribution_detail_commande_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this attribution detail commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAttributionDetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAttributionDetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAttributionDetailCommande'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionDetailCommande'
+          description: ''
+    delete:
+      operationId: commandes_attribution_detail_commande_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this attribution detail commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '204':
+          description: No response body
+  /api/commandes/commandes/:
+    get:
+      operationId: commandes_commandes_list
+      parameters:
+      - in: query
+        name: employe_demandeur
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: statut
+        schema:
+          type: string
+          enum:
+          - EN_ATTENTE
+          - EN_COURS
+          - REJETEE
+          - VALIDEE
+        description: |-
+          * `EN_ATTENTE` - En attente
+          * `EN_COURS` - En cours
+          * `VALIDEE` - Validée
+          * `REJETEE` - Rejetée
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCommandeList'
+          description: ''
+    post:
+      operationId: commandes_commandes_create
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Commande'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+  /api/commandes/commandes/{commande_id}/:
+    get:
+      operationId: commandes_commandes_retrieve
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+    put:
+      operationId: commandes_commandes_update
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Commande'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+    patch:
+      operationId: commandes_commandes_partial_update
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommande'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+    delete:
+      operationId: commandes_commandes_destroy
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '204':
+          description: No response body
+  /api/commandes/commandes/{commande_id}/recapitulatif/:
+    get:
+      operationId: commandes_commandes_recapitulatif_retrieve
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+  /api/commandes/commandes/{commande_id}/traiter/:
+    post:
+      operationId: commandes_commandes_traiter_create
+      parameters:
+      - in: path
+        name: commande_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Commande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Commande'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commande'
+          description: ''
+  /api/commandes/details-commande/:
+    get:
+      operationId: commandes_details_commande_list
+      parameters:
+      - in: query
+        name: article
+        schema:
+          type: string
+      - in: query
+        name: commande
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDetailCommandeList'
+          description: ''
+    post:
+      operationId: commandes_details_commande_create
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailCommande'
+          description: ''
+  /api/commandes/details-commande/{id}/:
+    get:
+      operationId: commandes_details_commande_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailCommande'
+          description: ''
+    put:
+      operationId: commandes_details_commande_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DetailCommande'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailCommande'
+          description: ''
+    patch:
+      operationId: commandes_details_commande_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail commande.
+        required: true
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailCommande'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailCommande'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailCommande'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailCommande'
+          description: ''
+    delete:
+      operationId: commandes_details_commande_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail commande.
+        required: true
+      tags:
+      - commandes
+      responses:
+        '204':
+          description: No response body
+  /api/dashboard/consommation-mensuelle/:
+    get:
+      operationId: dashboard_consommation_mensuelle_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/evolution-stock/:
+    get:
+      operationId: dashboard_evolution_stock_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/:
+    get:
+      operationId: dashboard_kpis_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/articles/:
+    get:
+      operationId: dashboard_kpis_articles_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/entrees-mois/:
+    get:
+      operationId: dashboard_kpis_entrees_mois_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/ruptures/:
+    get:
+      operationId: dashboard_kpis_ruptures_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/sorties-mois/:
+    get:
+      operationId: dashboard_kpis_sorties_mois_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/kpis/sous-seuil/:
+    get:
+      operationId: dashboard_kpis_sous_seuil_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/produits-dormants/:
+    get:
+      operationId: dashboard_produits_dormants_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/repartition-categorie/:
+    get:
+      operationId: dashboard_repartition_categorie_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/repartition-magasin/:
+    get:
+      operationId: dashboard_repartition_magasin_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/top-consommes/:
+    get:
+      operationId: dashboard_top_consommes_retrieve
+      tags:
+      - dashboard
+      responses:
+        '200':
+          description: No response body
+  /api/employee/direction/:
+    get:
+      operationId: employee_direction_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDirectionList'
+          description: ''
+    post:
+      operationId: employee_direction_create
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Direction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Direction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Direction'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+  /api/employee/direction/{dir_id}/:
+    get:
+      operationId: employee_direction_retrieve
+      parameters:
+      - in: path
+        name: dir_id
+        schema:
+          type: string
+        description: A unique value identifying this direction.
+        required: true
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    put:
+      operationId: employee_direction_update
+      parameters:
+      - in: path
+        name: dir_id
+        schema:
+          type: string
+        description: A unique value identifying this direction.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Direction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Direction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Direction'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    patch:
+      operationId: employee_direction_partial_update
+      parameters:
+      - in: path
+        name: dir_id
+        schema:
+          type: string
+        description: A unique value identifying this direction.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDirection'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDirection'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDirection'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    delete:
+      operationId: employee_direction_destroy
+      parameters:
+      - in: path
+        name: dir_id
+        schema:
+          type: string
+        description: A unique value identifying this direction.
+        required: true
+      tags:
+      - employee
+      responses:
+        '204':
+          description: No response body
+  /api/employee/employee/:
+    get:
+      operationId: employee_employee_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEmployerList'
+          description: ''
+    post:
+      operationId: employee_employee_create
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Employer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Employer'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+          description: ''
+  /api/employee/employee/{emp_id}/:
+    get:
+      operationId: employee_employee_retrieve
+      parameters:
+      - in: path
+        name: emp_id
+        schema:
+          type: string
+        description: A unique value identifying this employer.
+        required: true
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+          description: ''
+    put:
+      operationId: employee_employee_update
+      parameters:
+      - in: path
+        name: emp_id
+        schema:
+          type: string
+        description: A unique value identifying this employer.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Employer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Employer'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+          description: ''
+    patch:
+      operationId: employee_employee_partial_update
+      parameters:
+      - in: path
+        name: emp_id
+        schema:
+          type: string
+        description: A unique value identifying this employer.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployer'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+          description: ''
+    delete:
+      operationId: employee_employee_destroy
+      parameters:
+      - in: path
+        name: emp_id
+        schema:
+          type: string
+        description: A unique value identifying this employer.
+        required: true
+      tags:
+      - employee
+      responses:
+        '204':
+          description: No response body
+  /api/employee/employee/import/:
+    post:
+      operationId: employee_employee_import_create
+      tags:
+      - employee
+      responses:
+        '200':
+          description: No response body
+  /api/employee/service/:
+    get:
+      operationId: employee_service_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedServiceList'
+          description: ''
+    post:
+      operationId: employee_service_create
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Service'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Service'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+  /api/employee/service/{serv_id}/:
+    get:
+      operationId: employee_service_retrieve
+      parameters:
+      - in: path
+        name: serv_id
+        schema:
+          type: string
+        description: A unique value identifying this service.
+        required: true
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+    put:
+      operationId: employee_service_update
+      parameters:
+      - in: path
+        name: serv_id
+        schema:
+          type: string
+        description: A unique value identifying this service.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Service'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Service'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+    patch:
+      operationId: employee_service_partial_update
+      parameters:
+      - in: path
+        name: serv_id
+        schema:
+          type: string
+        description: A unique value identifying this service.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+    delete:
+      operationId: employee_service_destroy
+      parameters:
+      - in: path
+        name: serv_id
+        schema:
+          type: string
+        description: A unique value identifying this service.
+        required: true
+      tags:
+      - employee
+      responses:
+        '204':
+          description: No response body
+  /api/employee/sites/:
+    get:
+      operationId: employee_sites_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSiteList'
+          description: ''
+    post:
+      operationId: employee_sites_create
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Site'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Site'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+          description: ''
+  /api/employee/sites/{site_id}/:
+    get:
+      operationId: employee_sites_retrieve
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Site.
+        required: true
+      tags:
+      - employee
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+          description: ''
+    put:
+      operationId: employee_sites_update
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Site.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Site'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Site'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Site'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+          description: ''
+    patch:
+      operationId: employee_sites_partial_update
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Site.
+        required: true
+      tags:
+      - employee
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSite'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+          description: ''
+    delete:
+      operationId: employee_sites_destroy
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Site.
+        required: true
+      tags:
+      - employee
+      responses:
+        '204':
+          description: No response body
+  /api/historique/article/{code_article}/:
+    get:
+      operationId: historique_article_retrieve
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        required: true
+      tags:
+      - historique
+      responses:
+        '200':
+          description: No response body
+  /api/historique/article/{code_article}/export/:
+    get:
+      operationId: historique_article_export_retrieve
+      parameters:
+      - in: path
+        name: code_article
+        schema:
+          type: string
+        required: true
+      tags:
+      - historique
+      responses:
+        '200':
+          description: No response body
+  /api/historique/globale/:
+    get:
+      operationId: historique_globale_retrieve
+      tags:
+      - historique
+      responses:
+        '200':
+          description: No response body
+  /api/historique/localisation/:
+    get:
+      operationId: historique_localisation_retrieve
+      tags:
+      - historique
+      responses:
+        '200':
+          description: No response body
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - ht
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/stock/details-mouvement/:
+    get:
+      operationId: stock_details_mouvement_list
+      parameters:
+      - in: query
+        name: article
+        schema:
+          type: string
+      - in: query
+        name: employe_beneficiaire
+        schema:
+          type: string
+      - in: query
+        name: fournisseur
+        schema:
+          type: integer
+      - in: query
+        name: mouvement
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDetailMouvementList'
+          description: ''
+    post:
+      operationId: stock_details_mouvement_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailMouvement'
+          description: ''
+  /api/stock/details-mouvement/{id}/:
+    get:
+      operationId: stock_details_mouvement_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail mouvement.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailMouvement'
+          description: ''
+    put:
+      operationId: stock_details_mouvement_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail mouvement.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DetailMouvement'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailMouvement'
+          description: ''
+    patch:
+      operationId: stock_details_mouvement_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail mouvement.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailMouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailMouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDetailMouvement'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailMouvement'
+          description: ''
+    delete:
+      operationId: stock_details_mouvement_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Détail mouvement.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/import-immobilisations/:
+    post:
+      operationId: stock_import_immobilisations_create
+      tags:
+      - stock
+      responses:
+        '200':
+          description: No response body
+  /api/stock/inventaires/:
+    get:
+      operationId: stock_inventaires_list
+      parameters:
+      - in: query
+        name: direction
+        schema:
+          type: string
+      - in: query
+        name: magasin
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: statut
+        schema:
+          type: string
+          enum:
+          - EN_ATTENTE
+          - REJETE
+          - VALIDE
+        description: |-
+          * `EN_ATTENTE` - En attente de validation
+          * `VALIDE` - Validé (Stock mis à jour)
+          * `REJETE` - Rejeté
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInventaireSessionList'
+          description: ''
+    post:
+      operationId: stock_inventaires_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventaireSession'
+          description: ''
+  /api/stock/inventaires/{inventaire_id}/:
+    get:
+      operationId: stock_inventaires_retrieve
+      parameters:
+      - in: path
+        name: inventaire_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Session d'inventaire.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventaireSession'
+          description: ''
+    put:
+      operationId: stock_inventaires_update
+      parameters:
+      - in: path
+        name: inventaire_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Session d'inventaire.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventaireSession'
+          description: ''
+    patch:
+      operationId: stock_inventaires_partial_update
+      parameters:
+      - in: path
+        name: inventaire_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Session d'inventaire.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventaireSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventaireSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventaireSession'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventaireSession'
+          description: ''
+    delete:
+      operationId: stock_inventaires_destroy
+      parameters:
+      - in: path
+        name: inventaire_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Session d'inventaire.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/inventaires/{inventaire_id}/valider/:
+    post:
+      operationId: stock_inventaires_valider_create
+      parameters:
+      - in: path
+        name: inventaire_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Session d'inventaire.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventaireSession'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventaireSession'
+          description: ''
+  /api/stock/lignes-inventaire/:
+    get:
+      operationId: stock_lignes_inventaire_list
+      parameters:
+      - in: query
+        name: article
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: session
+        schema:
+          type: integer
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLigneInventaireList'
+          description: ''
+    post:
+      operationId: stock_lignes_inventaire_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LigneInventaire'
+          description: ''
+  /api/stock/lignes-inventaire/{id}/:
+    get:
+      operationId: stock_lignes_inventaire_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Ligne d'inventaire.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LigneInventaire'
+          description: ''
+    put:
+      operationId: stock_lignes_inventaire_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Ligne d'inventaire.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LigneInventaire'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LigneInventaire'
+          description: ''
+    patch:
+      operationId: stock_lignes_inventaire_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Ligne d'inventaire.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLigneInventaire'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLigneInventaire'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLigneInventaire'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LigneInventaire'
+          description: ''
+    delete:
+      operationId: stock_lignes_inventaire_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Ligne d'inventaire.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/magasins/:
+    get:
+      operationId: stock_magasins_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMagasinList'
+          description: ''
+    post:
+      operationId: stock_magasins_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Magasin'
+          description: ''
+  /api/stock/magasins/{magasin_id}/:
+    get:
+      operationId: stock_magasins_retrieve
+      parameters:
+      - in: path
+        name: magasin_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Magasin.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Magasin'
+          description: ''
+    put:
+      operationId: stock_magasins_update
+      parameters:
+      - in: path
+        name: magasin_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Magasin.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Magasin'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Magasin'
+          description: ''
+    patch:
+      operationId: stock_magasins_partial_update
+      parameters:
+      - in: path
+        name: magasin_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Magasin.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMagasin'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMagasin'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMagasin'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Magasin'
+          description: ''
+    delete:
+      operationId: stock_magasins_destroy
+      parameters:
+      - in: path
+        name: magasin_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Magasin.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/magasins/{magasin_id}/stocks/:
+    get:
+      operationId: stock_magasins_stocks_retrieve
+      parameters:
+      - in: path
+        name: magasin_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Magasin.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Magasin'
+          description: ''
+  /api/stock/mouvements/:
+    get:
+      operationId: stock_mouvements_list
+      parameters:
+      - in: query
+        name: magasin_destination
+        schema:
+          type: integer
+      - in: query
+        name: magasin_source
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: type_mouvement
+        schema:
+          type: string
+          enum:
+          - AJUSTEMENT
+          - ENTREE
+          - RETOUR
+          - SORTIE
+          - TRANSFERT
+        description: |-
+          * `ENTREE` - Entrée
+          * `SORTIE` - Sortie
+          * `TRANSFERT` - Transfert
+          * `AJUSTEMENT` - Ajustement d'inventaire
+          * `RETOUR` - Retour au stock
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMouvementList'
+          description: ''
+    post:
+      operationId: stock_mouvements_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mouvement'
+          description: ''
+  /api/stock/mouvements/{mouvement_id}/:
+    get:
+      operationId: stock_mouvements_retrieve
+      parameters:
+      - in: path
+        name: mouvement_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Mouvement.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mouvement'
+          description: ''
+    put:
+      operationId: stock_mouvements_update
+      parameters:
+      - in: path
+        name: mouvement_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Mouvement.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Mouvement'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mouvement'
+          description: ''
+    patch:
+      operationId: stock_mouvements_partial_update
+      parameters:
+      - in: path
+        name: mouvement_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Mouvement.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMouvement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMouvement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMouvement'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mouvement'
+          description: ''
+    delete:
+      operationId: stock_mouvements_destroy
+      parameters:
+      - in: path
+        name: mouvement_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Mouvement.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/unites-article/:
+    get:
+      operationId: stock_unites_article_list
+      parameters:
+      - in: query
+        name: article
+        schema:
+          type: string
+      - in: query
+        name: employe_beneficiaire
+        schema:
+          type: string
+      - in: query
+        name: etat
+        schema:
+          type: string
+          enum:
+          - BON
+          - HORS_USAGE
+          - MAUVAIS
+          - MOYEN
+          - PERDU
+        description: |-
+          * `BON` - Bon état
+          * `MOYEN` - État moyen
+          * `MAUVAIS` - Mauvais état
+          * `HORS_USAGE` - Hors usage
+          * `PERDU` - Perdu
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: statut
+        schema:
+          type: string
+          enum:
+          - ATTRIBUE
+          - EN_STOCK
+        description: |-
+          * `EN_STOCK` - En stock
+          * `ATTRIBUE` - Attribué
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUniteArticleList'
+          description: ''
+    post:
+      operationId: stock_unites_article_create
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+  /api/stock/unites-article/{unite_id}/:
+    get:
+      operationId: stock_unites_article_retrieve
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+    put:
+      operationId: stock_unites_article_update
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+    patch:
+      operationId: stock_unites_article_partial_update
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUniteArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUniteArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUniteArticle'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+    delete:
+      operationId: stock_unites_article_destroy
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      responses:
+        '204':
+          description: No response body
+  /api/stock/unites-article/{unite_id}/retourner-stock/:
+    post:
+      operationId: stock_unites_article_retourner_stock_create
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+  /api/stock/unites-article/{unite_id}/transferer/:
+    post:
+      operationId: stock_unites_article_transferer_create
+      parameters:
+      - in: path
+        name: unite_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Unité d'article.
+        required: true
+      tags:
+      - stock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UniteArticle'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniteArticle'
+          description: ''
+  /api/utilisateur/action/:
+    get:
+      operationId: utilisateur_action_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedActionList'
+          description: ''
+    post:
+      operationId: utilisateur_action_create
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Action'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Action'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Action'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+          description: ''
+  /api/utilisateur/action/{action_id}/:
+    get:
+      operationId: utilisateur_action_retrieve
+      parameters:
+      - in: path
+        name: action_id
+        schema:
+          type: string
+        description: A unique value identifying this action.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+          description: ''
+    put:
+      operationId: utilisateur_action_update
+      parameters:
+      - in: path
+        name: action_id
+        schema:
+          type: string
+        description: A unique value identifying this action.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Action'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Action'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Action'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+          description: ''
+    patch:
+      operationId: utilisateur_action_partial_update
+      parameters:
+      - in: path
+        name: action_id
+        schema:
+          type: string
+        description: A unique value identifying this action.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAction'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+          description: ''
+    delete:
+      operationId: utilisateur_action_destroy
+      parameters:
+      - in: path
+        name: action_id
+        schema:
+          type: string
+        description: A unique value identifying this action.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '204':
+          description: No response body
+  /api/utilisateur/autorisations/:
+    get:
+      operationId: utilisateur_autorisations_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAutoriserList'
+          description: ''
+    post:
+      operationId: utilisateur_autorisations_create
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autoriser'
+          description: ''
+  /api/utilisateur/autorisations/{id}/:
+    get:
+      operationId: utilisateur_autorisations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this autoriser.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autoriser'
+          description: ''
+    put:
+      operationId: utilisateur_autorisations_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this autoriser.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Autoriser'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autoriser'
+          description: ''
+    patch:
+      operationId: utilisateur_autorisations_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this autoriser.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAutoriser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAutoriser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAutoriser'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autoriser'
+          description: ''
+    delete:
+      operationId: utilisateur_autorisations_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this autoriser.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '204':
+          description: No response body
+  /api/utilisateur/utilisateurs/:
+    get:
+      operationId: utilisateur_utilisateurs_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUtilisateurList'
+          description: ''
+    post:
+      operationId: utilisateur_utilisateurs_create
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilisateur'
+          description: ''
+  /api/utilisateur/utilisateurs/{utilisateur_id}/:
+    get:
+      operationId: utilisateur_utilisateurs_retrieve
+      parameters:
+      - in: path
+        name: utilisateur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this utilisateur.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilisateur'
+          description: ''
+    put:
+      operationId: utilisateur_utilisateurs_update
+      parameters:
+      - in: path
+        name: utilisateur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this utilisateur.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Utilisateur'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilisateur'
+          description: ''
+    patch:
+      operationId: utilisateur_utilisateurs_partial_update
+      parameters:
+      - in: path
+        name: utilisateur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this utilisateur.
+        required: true
+      tags:
+      - utilisateur
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUtilisateur'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUtilisateur'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUtilisateur'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilisateur'
+          description: ''
+    delete:
+      operationId: utilisateur_utilisateurs_destroy
+      parameters:
+      - in: path
+        name: utilisateur_id
+        schema:
+          type: integer
+        description: A unique integer value identifying this utilisateur.
+        required: true
+      tags:
+      - utilisateur
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    Action:
+      type: object
+      properties:
+        action_id:
+          type: string
+          maxLength: 8
+        action_libelle:
+          type: string
+          maxLength: 50
+        action_description:
+          type: string
+      required:
+      - action_description
+      - action_id
+      - action_libelle
+    Article:
+      type: object
+      properties:
+        code_article:
+          type: string
+          maxLength: 20
+        code_barre:
+          type: string
+          nullable: true
+          maxLength: 100
+        designation:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+        modele:
+          type: string
+          maxLength: 30
+        unite:
+          type: string
+          maxLength: 20
+        seuil:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        mode_suivi:
+          $ref: '#/components/schemas/ModeSuiviEnum'
+        categorie:
+          type: integer
+        categorie_nom:
+          type: string
+          readOnly: true
+        stock_calcule:
+          type: integer
+          readOnly: true
+        is_immobilisation:
+          type: boolean
+          default: true
+      required:
+      - categorie
+      - categorie_nom
+      - code_article
+      - designation
+      - stock_calcule
+    AttributionDetailCommande:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        detail_commande:
+          type: integer
+          readOnly: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        beneficiaire_nom:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+        quantite:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        quantite_demandee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Quantité demandée
+        quantite_validee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Quantité validée
+        statut:
+          $ref: '#/components/schemas/AttributionDetailCommandeStatutEnum'
+        motif_refus:
+          type: string
+          nullable: true
+          title: Motif de refus
+          maxLength: 255
+        code_unique:
+          type: string
+          format: uuid
+          readOnly: true
+        date_acquisition:
+          type: string
+          format: date-time
+          readOnly: true
+        qr_code_data:
+          type: string
+          readOnly: true
+      required:
+      - beneficiaire_nom
+      - beneficiaire_type
+      - code_unique
+      - date_acquisition
+      - detail_commande
+      - id
+      - qr_code_data
+      - quantite
+    AttributionDetailCommandeStatutEnum:
+      enum:
+      - EN_ATTENTE
+      - VALIDEE
+      - REFUSEE
+      type: string
+      description: |-
+        * `EN_ATTENTE` - En attente
+        * `VALIDEE` - Validée
+        * `REFUSEE` - Refusée
+    Autoriser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        autoriser_utilisateur_id:
+          type: integer
+        autoriser_action_id:
+          type: string
+      required:
+      - autoriser_action_id
+      - autoriser_utilisateur_id
+      - id
+    Categorie:
+      type: object
+      properties:
+        categorie_id:
+          type: integer
+          readOnly: true
+        cat_libelle:
+          type: string
+          maxLength: 20
+        cat_description:
+          type: string
+      required:
+      - cat_libelle
+      - categorie_id
+    Commande:
+      type: object
+      properties:
+        commande_id:
+          type: integer
+          readOnly: true
+        objet:
+          type: string
+          maxLength: 100
+        statut:
+          $ref: '#/components/schemas/CommandeStatutEnum'
+        date_commande:
+          type: string
+          format: date-time
+          readOnly: true
+        date_traitement:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        commentaire_agent:
+          type: string
+          maxLength: 255
+        employe_demandeur:
+          type: string
+        demandeur:
+          type: string
+          readOnly: true
+        employe_traitant:
+          type: string
+          readOnly: true
+          nullable: true
+        traitant:
+          type: string
+          readOnly: true
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailCommande'
+      required:
+      - commande_id
+      - date_commande
+      - date_traitement
+      - demandeur
+      - employe_demandeur
+      - employe_traitant
+      - traitant
+    CommandeStatutEnum:
+      enum:
+      - EN_ATTENTE
+      - EN_COURS
+      - VALIDEE
+      - REJETEE
+      type: string
+      description: |-
+        * `EN_ATTENTE` - En attente
+        * `EN_COURS` - En cours
+        * `VALIDEE` - Validée
+        * `REJETEE` - Rejetée
+    DetailCommande:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        commande:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_designation:
+          type: string
+          readOnly: true
+        quantite:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        attributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributionDetailCommande'
+      required:
+      - article
+      - article_designation
+      - commande
+      - id
+      - quantite
+    DetailMouvement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        article_designation:
+          type: string
+          readOnly: true
+        employe_beneficiaire_nom:
+          type: string
+          readOnly: true
+        employe_beneficiaire_matricule:
+          type: string
+          readOnly: true
+        employe_beneficiaire_fonction:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        fournisseur_nom:
+          type: string
+          readOnly: true
+        qr_code_data:
+          type: string
+          readOnly: true
+        unites_creees:
+          type: array
+          items:
+            $ref: '#/components/schemas/UniteArticle'
+          readOnly: true
+        unites_attribuees:
+          type: array
+          items:
+            $ref: '#/components/schemas/UniteArticle'
+          readOnly: true
+        numeros_de_serie:
+          type: array
+          items:
+            type: string
+          writeOnly: true
+        quantite:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        prix_achat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        code_tracabilite:
+          type: string
+          nullable: true
+          maxLength: 100
+        mouvement:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        fournisseur:
+          type: integer
+          nullable: true
+      required:
+      - article
+      - article_designation
+      - beneficiaire_type
+      - employe_beneficiaire_fonction
+      - employe_beneficiaire_matricule
+      - employe_beneficiaire_nom
+      - fournisseur_nom
+      - id
+      - mouvement
+      - qr_code_data
+      - quantite
+      - unites_attribuees
+      - unites_creees
+    Direction:
+      type: object
+      properties:
+        dir_id:
+          type: string
+          readOnly: true
+        site_type:
+          type: string
+          readOnly: true
+        site_nom:
+          type: string
+          readOnly: true
+        dir_libelle:
+          type: string
+          maxLength: 50
+        dir_description:
+          type: string
+          maxLength: 255
+        site:
+          type: integer
+          nullable: true
+      required:
+      - dir_description
+      - dir_id
+      - dir_libelle
+      - site_nom
+      - site_type
+    Employer:
+      type: object
+      properties:
+        emp_id:
+          type: string
+          readOnly: true
+        service_libelle:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        site_nom:
+          type: string
+          readOnly: true
+        emp_nom:
+          type: string
+          maxLength: 255
+        emp_matricule:
+          type: string
+          maxLength: 15
+        emp_contact:
+          type: string
+          maxLength: 50
+        emp_fonction:
+          type: string
+          maxLength: 50
+        emp_serv_id:
+          type: string
+          nullable: true
+        emp_dir_id:
+          type: string
+          nullable: true
+        emp_site_id:
+          type: integer
+          nullable: true
+        emp_utilisateur_id:
+          type: integer
+          nullable: true
+        emp_chef_hierarchique:
+          type: string
+          nullable: true
+      required:
+      - direction_libelle
+      - emp_contact
+      - emp_fonction
+      - emp_id
+      - emp_matricule
+      - emp_nom
+      - service_libelle
+      - site_nom
+    EtatEnum:
+      enum:
+      - BON
+      - MOYEN
+      - MAUVAIS
+      - HORS_USAGE
+      - PERDU
+      type: string
+      description: |-
+        * `BON` - Bon état
+        * `MOYEN` - État moyen
+        * `MAUVAIS` - Mauvais état
+        * `HORS_USAGE` - Hors usage
+        * `PERDU` - Perdu
+    Fournisseur:
+      type: object
+      properties:
+        fournisseur_id:
+          type: integer
+          readOnly: true
+        nom:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        adresse:
+          type: string
+          maxLength: 50
+        contact:
+          type: string
+          maxLength: 20
+        nif:
+          type: string
+          maxLength: 20
+        stat:
+          type: string
+          maxLength: 20
+      required:
+      - email
+      - fournisseur_id
+      - nom
+    InventaireSession:
+      type: object
+      properties:
+        inventaire_id:
+          type: integer
+          readOnly: true
+        code_reference:
+          type: string
+          readOnly: true
+        date_creation:
+          type: string
+          format: date-time
+          readOnly: true
+        date_validation:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        statut:
+          allOf:
+          - $ref: '#/components/schemas/InventaireSessionStatutEnum'
+          readOnly: true
+        magasin:
+          type: integer
+          nullable: true
+        service:
+          type: string
+          writeOnly: true
+          nullable: true
+        service_libelle:
+          type: string
+          readOnly: true
+        lieu_nom:
+          type: string
+          readOnly: true
+        lignes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LigneInventaire'
+      required:
+      - code_reference
+      - date_creation
+      - date_validation
+      - inventaire_id
+      - lieu_nom
+      - service_libelle
+      - statut
+    InventaireSessionStatutEnum:
+      enum:
+      - EN_ATTENTE
+      - VALIDE
+      - REJETE
+      type: string
+      description: |-
+        * `EN_ATTENTE` - En attente de validation
+        * `VALIDE` - Validé (Stock mis à jour)
+        * `REJETE` - Rejeté
+    LigneInventaire:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_designation:
+          type: string
+          readOnly: true
+        article_mode_suivi:
+          type: string
+          readOnly: true
+        article_is_immobilisation:
+          type: boolean
+          readOnly: true
+        quantite_theorique:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        quantite_physique:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        ecart:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        commentaire:
+          type: string
+          nullable: true
+        propositions_series:
+          title: Propositions de numéros de série
+      required:
+      - article
+      - article_designation
+      - article_is_immobilisation
+      - article_mode_suivi
+      - ecart
+      - id
+      - quantite_theorique
+    Magasin:
+      type: object
+      properties:
+        magasin_id:
+          type: integer
+          readOnly: true
+        magasin_nom:
+          type: string
+          maxLength: 50
+        localite:
+          type: integer
+          nullable: true
+        localite_nom:
+          type: string
+          readOnly: true
+        localite_type:
+          type: string
+          readOnly: true
+      required:
+      - localite_nom
+      - localite_type
+      - magasin_id
+      - magasin_nom
+    ModeSuiviEnum:
+      enum:
+      - QUANTITE
+      - NUMERO_SERIE
+      type: string
+      description: |-
+        * `QUANTITE` - Quantité simple
+        * `NUMERO_SERIE` - Suivi par numéro de série
+    Mouvement:
+      type: object
+      properties:
+        mouvement_id:
+          type: integer
+          readOnly: true
+        date:
+          type: string
+          format: date-time
+          readOnly: true
+        type_mouvement:
+          $ref: '#/components/schemas/TypeMouvementEnum'
+        origine:
+          type: string
+          maxLength: 100
+        motif:
+          type: string
+          maxLength: 255
+        magasin_source:
+          type: integer
+          nullable: true
+        magasin_source_nom:
+          type: string
+          readOnly: true
+        magasin_destination:
+          type: integer
+          nullable: true
+        magasin_destination_nom:
+          type: string
+          readOnly: true
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailMouvement'
+      required:
+      - date
+      - magasin_destination_nom
+      - magasin_source_nom
+      - mouvement_id
+      - type_mouvement
+    PaginatedActionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Action'
+    PaginatedArticleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Article'
+    PaginatedAttributionDetailCommandeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributionDetailCommande'
+    PaginatedAutoriserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Autoriser'
+    PaginatedCategorieList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Categorie'
+    PaginatedCommandeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Commande'
+    PaginatedDetailCommandeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailCommande'
+    PaginatedDetailMouvementList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailMouvement'
+    PaginatedDirectionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Direction'
+    PaginatedEmployerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Employer'
+    PaginatedFournisseurList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fournisseur'
+    PaginatedInventaireSessionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventaireSession'
+    PaginatedLigneInventaireList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LigneInventaire'
+    PaginatedMagasinList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Magasin'
+    PaginatedMouvementList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mouvement'
+    PaginatedServiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+    PaginatedSiteList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Site'
+    PaginatedUniteArticleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UniteArticle'
+    PaginatedUtilisateurList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Utilisateur'
+    PatchedAction:
+      type: object
+      properties:
+        action_id:
+          type: string
+          maxLength: 8
+        action_libelle:
+          type: string
+          maxLength: 50
+        action_description:
+          type: string
+    PatchedArticle:
+      type: object
+      properties:
+        code_article:
+          type: string
+          maxLength: 20
+        code_barre:
+          type: string
+          nullable: true
+          maxLength: 100
+        designation:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+        modele:
+          type: string
+          maxLength: 30
+        unite:
+          type: string
+          maxLength: 20
+        seuil:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        mode_suivi:
+          $ref: '#/components/schemas/ModeSuiviEnum'
+        categorie:
+          type: integer
+        categorie_nom:
+          type: string
+          readOnly: true
+        stock_calcule:
+          type: integer
+          readOnly: true
+        is_immobilisation:
+          type: boolean
+          default: true
+    PatchedAttributionDetailCommande:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        detail_commande:
+          type: integer
+          readOnly: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        beneficiaire_nom:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+        quantite:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        quantite_demandee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Quantité demandée
+        quantite_validee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Quantité validée
+        statut:
+          $ref: '#/components/schemas/AttributionDetailCommandeStatutEnum'
+        motif_refus:
+          type: string
+          nullable: true
+          title: Motif de refus
+          maxLength: 255
+        code_unique:
+          type: string
+          format: uuid
+          readOnly: true
+        date_acquisition:
+          type: string
+          format: date-time
+          readOnly: true
+        qr_code_data:
+          type: string
+          readOnly: true
+    PatchedAutoriser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        autoriser_utilisateur_id:
+          type: integer
+        autoriser_action_id:
+          type: string
+    PatchedCategorie:
+      type: object
+      properties:
+        categorie_id:
+          type: integer
+          readOnly: true
+        cat_libelle:
+          type: string
+          maxLength: 20
+        cat_description:
+          type: string
+    PatchedCommande:
+      type: object
+      properties:
+        commande_id:
+          type: integer
+          readOnly: true
+        objet:
+          type: string
+          maxLength: 100
+        statut:
+          $ref: '#/components/schemas/CommandeStatutEnum'
+        date_commande:
+          type: string
+          format: date-time
+          readOnly: true
+        date_traitement:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        commentaire_agent:
+          type: string
+          maxLength: 255
+        employe_demandeur:
+          type: string
+        demandeur:
+          type: string
+          readOnly: true
+        employe_traitant:
+          type: string
+          readOnly: true
+          nullable: true
+        traitant:
+          type: string
+          readOnly: true
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailCommande'
+    PatchedDetailCommande:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        commande:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_designation:
+          type: string
+          readOnly: true
+        quantite:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        attributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributionDetailCommande'
+    PatchedDetailMouvement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        article_designation:
+          type: string
+          readOnly: true
+        employe_beneficiaire_nom:
+          type: string
+          readOnly: true
+        employe_beneficiaire_matricule:
+          type: string
+          readOnly: true
+        employe_beneficiaire_fonction:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        fournisseur_nom:
+          type: string
+          readOnly: true
+        qr_code_data:
+          type: string
+          readOnly: true
+        unites_creees:
+          type: array
+          items:
+            $ref: '#/components/schemas/UniteArticle'
+          readOnly: true
+        unites_attribuees:
+          type: array
+          items:
+            $ref: '#/components/schemas/UniteArticle'
+          readOnly: true
+        numeros_de_serie:
+          type: array
+          items:
+            type: string
+          writeOnly: true
+        quantite:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        prix_achat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        code_tracabilite:
+          type: string
+          nullable: true
+          maxLength: 100
+        mouvement:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        fournisseur:
+          type: integer
+          nullable: true
+    PatchedDirection:
+      type: object
+      properties:
+        dir_id:
+          type: string
+          readOnly: true
+        site_type:
+          type: string
+          readOnly: true
+        site_nom:
+          type: string
+          readOnly: true
+        dir_libelle:
+          type: string
+          maxLength: 50
+        dir_description:
+          type: string
+          maxLength: 255
+        site:
+          type: integer
+          nullable: true
+    PatchedEmployer:
+      type: object
+      properties:
+        emp_id:
+          type: string
+          readOnly: true
+        service_libelle:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        site_nom:
+          type: string
+          readOnly: true
+        emp_nom:
+          type: string
+          maxLength: 255
+        emp_matricule:
+          type: string
+          maxLength: 15
+        emp_contact:
+          type: string
+          maxLength: 50
+        emp_fonction:
+          type: string
+          maxLength: 50
+        emp_serv_id:
+          type: string
+          nullable: true
+        emp_dir_id:
+          type: string
+          nullable: true
+        emp_site_id:
+          type: integer
+          nullable: true
+        emp_utilisateur_id:
+          type: integer
+          nullable: true
+        emp_chef_hierarchique:
+          type: string
+          nullable: true
+    PatchedFournisseur:
+      type: object
+      properties:
+        fournisseur_id:
+          type: integer
+          readOnly: true
+        nom:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        adresse:
+          type: string
+          maxLength: 50
+        contact:
+          type: string
+          maxLength: 20
+        nif:
+          type: string
+          maxLength: 20
+        stat:
+          type: string
+          maxLength: 20
+    PatchedInventaireSession:
+      type: object
+      properties:
+        inventaire_id:
+          type: integer
+          readOnly: true
+        code_reference:
+          type: string
+          readOnly: true
+        date_creation:
+          type: string
+          format: date-time
+          readOnly: true
+        date_validation:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        statut:
+          allOf:
+          - $ref: '#/components/schemas/InventaireSessionStatutEnum'
+          readOnly: true
+        magasin:
+          type: integer
+          nullable: true
+        service:
+          type: string
+          writeOnly: true
+          nullable: true
+        service_libelle:
+          type: string
+          readOnly: true
+        lieu_nom:
+          type: string
+          readOnly: true
+        lignes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LigneInventaire'
+    PatchedLigneInventaire:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_designation:
+          type: string
+          readOnly: true
+        article_mode_suivi:
+          type: string
+          readOnly: true
+        article_is_immobilisation:
+          type: boolean
+          readOnly: true
+        quantite_theorique:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        quantite_physique:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        ecart:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        commentaire:
+          type: string
+          nullable: true
+        propositions_series:
+          title: Propositions de numéros de série
+    PatchedMagasin:
+      type: object
+      properties:
+        magasin_id:
+          type: integer
+          readOnly: true
+        magasin_nom:
+          type: string
+          maxLength: 50
+        localite:
+          type: integer
+          nullable: true
+        localite_nom:
+          type: string
+          readOnly: true
+        localite_type:
+          type: string
+          readOnly: true
+    PatchedMouvement:
+      type: object
+      properties:
+        mouvement_id:
+          type: integer
+          readOnly: true
+        date:
+          type: string
+          format: date-time
+          readOnly: true
+        type_mouvement:
+          $ref: '#/components/schemas/TypeMouvementEnum'
+        origine:
+          type: string
+          maxLength: 100
+        motif:
+          type: string
+          maxLength: 255
+        magasin_source:
+          type: integer
+          nullable: true
+        magasin_source_nom:
+          type: string
+          readOnly: true
+        magasin_destination:
+          type: integer
+          nullable: true
+        magasin_destination_nom:
+          type: string
+          readOnly: true
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailMouvement'
+    PatchedService:
+      type: object
+      properties:
+        serv_id:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        serv_libelle:
+          type: string
+          maxLength: 50
+        serv_info:
+          type: string
+        serv_dir_id:
+          type: string
+    PatchedSite:
+      type: object
+      properties:
+        site_id:
+          type: integer
+          readOnly: true
+        site_nom:
+          type: string
+          maxLength: 50
+        site_type:
+          $ref: '#/components/schemas/SiteTypeEnum'
+        localite:
+          type: string
+          maxLength: 50
+    PatchedUniteArticle:
+      type: object
+      properties:
+        unite_id:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_code:
+          type: string
+          readOnly: true
+        article_designation:
+          type: string
+          readOnly: true
+        numero_de_serie:
+          type: string
+          nullable: true
+          maxLength: 100
+        statut:
+          $ref: '#/components/schemas/UniteArticleStatutEnum'
+        etat:
+          $ref: '#/components/schemas/EtatEnum'
+        date_creation:
+          type: string
+          format: date-time
+          readOnly: true
+        mouvement_entree:
+          type: integer
+          readOnly: true
+          nullable: true
+        mouvement_sortie:
+          type: integer
+          readOnly: true
+          nullable: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        employe_attribue_nom:
+          type: string
+          readOnly: true
+        employe_attribue_matricule:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+    PatchedUtilisateur:
+      type: object
+      properties:
+        utilisateur_id:
+          type: integer
+          readOnly: true
+        utilisateur_mail:
+          type: string
+          format: email
+          maxLength: 254
+        utilisateur_mdp:
+          type: string
+          writeOnly: true
+        actions:
+          type: array
+          items:
+            type: string
+          writeOnly: true
+        actions_liste:
+          type: string
+          readOnly: true
+        emp_id:
+          type: string
+          writeOnly: true
+          nullable: true
+        emp_id_lie:
+          type: string
+          readOnly: true
+        emp_nom:
+          type: string
+          readOnly: true
+        emp_fonction:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        role_id:
+          type: string
+          readOnly: true
+        role_nom:
+          type: string
+          readOnly: true
+    Service:
+      type: object
+      properties:
+        serv_id:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        serv_libelle:
+          type: string
+          maxLength: 50
+        serv_info:
+          type: string
+        serv_dir_id:
+          type: string
+      required:
+      - direction_libelle
+      - serv_dir_id
+      - serv_id
+      - serv_info
+      - serv_libelle
+    Site:
+      type: object
+      properties:
+        site_id:
+          type: integer
+          readOnly: true
+        site_nom:
+          type: string
+          maxLength: 50
+        site_type:
+          $ref: '#/components/schemas/SiteTypeEnum'
+        localite:
+          type: string
+          maxLength: 50
+      required:
+      - localite
+      - site_id
+      - site_nom
+      - site_type
+    SiteTypeEnum:
+      enum:
+      - SIEGE
+      - AGENCE
+      type: string
+      description: |-
+        * `SIEGE` - Siège
+        * `AGENCE` - Agence
+    TypeMouvementEnum:
+      enum:
+      - ENTREE
+      - SORTIE
+      - TRANSFERT
+      - AJUSTEMENT
+      - RETOUR
+      type: string
+      description: |-
+        * `ENTREE` - Entrée
+        * `SORTIE` - Sortie
+        * `TRANSFERT` - Transfert
+        * `AJUSTEMENT` - Ajustement d'inventaire
+        * `RETOUR` - Retour au stock
+    UniteArticle:
+      type: object
+      properties:
+        unite_id:
+          type: integer
+          readOnly: true
+        article:
+          type: string
+        article_code:
+          type: string
+          readOnly: true
+        article_designation:
+          type: string
+          readOnly: true
+        numero_de_serie:
+          type: string
+          nullable: true
+          maxLength: 100
+        statut:
+          $ref: '#/components/schemas/UniteArticleStatutEnum'
+        etat:
+          $ref: '#/components/schemas/EtatEnum'
+        date_creation:
+          type: string
+          format: date-time
+          readOnly: true
+        mouvement_entree:
+          type: integer
+          readOnly: true
+          nullable: true
+        mouvement_sortie:
+          type: integer
+          readOnly: true
+          nullable: true
+        employe_beneficiaire:
+          type: string
+          nullable: true
+        direction_beneficiaire:
+          type: string
+          nullable: true
+        site_beneficiaire:
+          type: integer
+          nullable: true
+        employe_attribue_nom:
+          type: string
+          readOnly: true
+        employe_attribue_matricule:
+          type: string
+          readOnly: true
+        beneficiaire_type:
+          type: string
+          readOnly: true
+      required:
+      - article
+      - article_code
+      - article_designation
+      - beneficiaire_type
+      - date_creation
+      - employe_attribue_matricule
+      - employe_attribue_nom
+      - mouvement_entree
+      - mouvement_sortie
+      - unite_id
+    UniteArticleStatutEnum:
+      enum:
+      - EN_STOCK
+      - ATTRIBUE
+      type: string
+      description: |-
+        * `EN_STOCK` - En stock
+        * `ATTRIBUE` - Attribué
+    Utilisateur:
+      type: object
+      properties:
+        utilisateur_id:
+          type: integer
+          readOnly: true
+        utilisateur_mail:
+          type: string
+          format: email
+          maxLength: 254
+        utilisateur_mdp:
+          type: string
+          writeOnly: true
+        actions:
+          type: array
+          items:
+            type: string
+          writeOnly: true
+        actions_liste:
+          type: string
+          readOnly: true
+        emp_id:
+          type: string
+          writeOnly: true
+          nullable: true
+        emp_id_lie:
+          type: string
+          readOnly: true
+        emp_nom:
+          type: string
+          readOnly: true
+        emp_fonction:
+          type: string
+          readOnly: true
+        direction_libelle:
+          type: string
+          readOnly: true
+        role_id:
+          type: string
+          readOnly: true
+        role_nom:
+          type: string
+          readOnly: true
+      required:
+      - actions_liste
+      - direction_libelle
+      - emp_fonction
+      - emp_id_lie
+      - emp_nom
+      - role_id
+      - role_nom
+      - utilisateur_id
+      - utilisateur_mail

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
-from apps.employee.models import Direction, Employer
+from apps.employee.models import Direction, Employer, Site
 
 
 class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
@@ -14,6 +14,9 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
     direction_beneficiaire = serializers.PrimaryKeyRelatedField(
         queryset=Direction.objects.all(), required=False, allow_null=True
     )
+    site_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Site.objects.all(), required=False, allow_null=True
+    )
     qr_code_data = serializers.SerializerMethodField()
     date_acquisition = serializers.DateTimeField(read_only=True)
 
@@ -21,7 +24,7 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
         model = AttributionDetailCommande
         fields = [  # noqa: RUF012
             "id", "detail_commande",
-            "employe_beneficiaire", "direction_beneficiaire",
+            "employe_beneficiaire", "direction_beneficiaire", "site_beneficiaire",
             "beneficiaire_nom", "beneficiaire_type",
             "quantite", "quantite_demandee", "quantite_validee",
             "statut", "motif_refus",
@@ -30,26 +33,18 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "detail_commande", "code_unique", "qr_code_data", "date_acquisition"]  # noqa: RUF012
 
     def validate(self, attrs):
-        employe = attrs.get(
-            "employe_beneficiaire",
-            getattr(self.instance, "employe_beneficiaire", None)
-        )
-        direction = attrs.get(
-            "direction_beneficiaire",
-            getattr(self.instance, "direction_beneficiaire", None)
-        )
-        if bool(employe) == bool(direction):
+        employe = attrs.get("employe_beneficiaire", getattr(self.instance, "employe_beneficiaire", None))
+        direction = attrs.get("direction_beneficiaire", getattr(self.instance, "direction_beneficiaire", None))
+        site = attrs.get("site_beneficiaire", getattr(self.instance, "site_beneficiaire", None))
+        if bool(employe) == bool(direction) == bool(site):
             raise serializers.ValidationError(
-                "Choisir soit un employé, soit une direction bénéficiaire (l'un des deux)."
+                "Choisir soit un employé, soit une direction, soit un site bénéficiaire."
             )
 
-        detail_commande = attrs.get(
-            "detail_commande",
-            getattr(self.instance, "detail_commande", None)
-        )
+        detail_commande = attrs.get("detail_commande", getattr(self.instance, "detail_commande", None))
         if detail_commande and not detail_commande.article.is_immobilisation and employe:
             raise serializers.ValidationError(
-                "Une fourniture (non-immobilisation) ne peut être attribuée qu'à une direction."
+                "Une fourniture (non-immobilisation) ne peut être attribuée qu'à une direction et un site."
             )
         return attrs
 

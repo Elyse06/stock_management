@@ -6,7 +6,7 @@ import InfoIcon from "@mui/icons-material/Info";
 export function ImportSummary({ rapport }) {
   if (!rapport) return null;
 
-  const total = rapport.lignes_ok + rapport.lignes_erreur;
+  const total = rapport.lignes_ok + rapport.lignes_erreur + (rapport.lignes_a_traiter || 0);
 
   return (
     <Stack spacing={2}>
@@ -18,6 +18,12 @@ export function ImportSummary({ rapport }) {
           total={total}
           color="#1A7F37"
           icon={<CheckCircleIcon />}
+        />
+        <StatCard
+          label="À traiter"
+          value={rapport.lignes_a_traiter || 0}
+          total={total}
+          color="#B8860B"
         />
         <StatCard
           label="Erreurs"

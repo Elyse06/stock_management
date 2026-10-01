@@ -4,8 +4,6 @@ import {
   Box,
   Checkbox,
   FormControlLabel,
-  MenuItem,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -25,14 +23,18 @@ const FILTRES = {
   TOUS: "tous",
   OK: "ok",
   ERREURS: "erreurs",
+  A_TRAITER: "a_traiter",
 };
+
+function cleSuggestion(suggestion) {
+  return `${suggestion.type}::${suggestion.libelle}`;
+}
 
 export function ImportReportTable({
   rapport,
   editable = false,
-  directionsDisponibles = [],
-  resolutionsDirection = {},
-  onChangeResolutionDirection,
+  clesConfirmees = new Set(),
+  onBasculerConfirmationCle,
 }) {
   const [filtre, setFiltre] = useState(FILTRES.TOUS);
 
@@ -40,22 +42,27 @@ export function ImportReportTable({
     if (!rapport?.details) return [];
     if (filtre === FILTRES.OK) return rapport.details.filter((l) => l.statut === "OK");
     if (filtre === FILTRES.ERREURS) return rapport.details.filter((l) => l.statut === "ERREUR");
+    if (filtre === FILTRES.A_TRAITER) return rapport.details.filter((l) => l.statut === "A_TRAITER");
     return rapport.details;
   }, [rapport, filtre]);
 
   if (!rapport) return null;
 
-  const aDesLignesDirection = rapport.details?.some(
-    (l) => l.attribution?.type === "DIRECTION"
-  );
+  const lignesATraiter = rapport.details?.filter((l) => l.statut === "A_TRAITER") || [];
 
   return (
     <Box>
-      {editable && aDesLignesDirection && (
+      {editable && lignesATraiter.length > 0 && (
         <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
-          Certaines lignes sont attribuées à une direction. Confirmez une correspondance
-          proposée, ou choisissez une autre direction ; sans action de votre part, une
-          nouvelle direction sera créée automatiquement à la confirmation.
+          Cochez une suggestion pour l'appliquer à la confirmation. Les lignes non
+          cochées (ou sans correspondance trouvée) seront mises de côté, à saisir
+          manuellement après l'import.
+        </Alert>
+      )}
+      {!editable && lignesATraiter.length > 0 && (
+        <Alert severity="warning" variant="outlined" sx={{ mb: 1.5 }}>
+          <strong>{lignesATraiter.length} ligne(s)</strong> mise(s) de côté — aucune
+          correspondance confirmée pour leur affectation. À enregistrer manuellement.
         </Alert>
       )}
 
@@ -81,6 +88,9 @@ export function ImportReportTable({
           <ToggleButton value={FILTRES.OK}>
             <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} /> OK
           </ToggleButton>
+          <ToggleButton value={FILTRES.A_TRAITER}>
+            À traiter
+          </ToggleButton>
           <ToggleButton value={FILTRES.ERREURS}>
             <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} /> Erreurs
           </ToggleButton>
@@ -103,7 +113,7 @@ export function ImportReportTable({
               <HeaderCell width={100}>Statut</HeaderCell>
               <HeaderCell>Désignation</HeaderCell>
               <HeaderCell width={160}>Article</HeaderCell>
-              <HeaderCell>Attribué à</HeaderCell>
+              <HeaderCell width={260}>Affectation</HeaderCell>
               <HeaderCell>Remarque</HeaderCell>
             </TableRow>
           </TableHead>
@@ -139,12 +149,21 @@ export function ImportReportTable({
                     {ligne.article || "—"}
                   </DataCell>
                   <DataCell sx={{ minWidth: 240 }}>
-                    {editable && ligne.attribution?.type === "DIRECTION" ? (
-                      <ResolveurDirection
+                    {ligne.statut === "A_TRAITER" ? (
+                      <SuggestionAffectation
                         ligne={ligne}
-                        directionsDisponibles={directionsDisponibles}
-                        valeurChoisie={resolutionsDirection[ligne.ligne] || ""}
-                        onChange={(v) => onChangeResolutionDirection?.(ligne.ligne, v)}
+                        editable={editable}
+                        confirmee={
+                          !!ligne.suggestion &&
+                          clesConfirmees.has(cleSuggestion(ligne.suggestion))
+                        }
+                        onChange={(confirmee) =>
+                          ligne.suggestion &&
+                          onBasculerConfirmationCle?.(
+                            cleSuggestion(ligne.suggestion),
+                            confirmee
+                          )
+                        }
                       />
                     ) : (
                       ligne.attribue_a || "—"
@@ -168,54 +187,53 @@ export function ImportReportTable({
   );
 }
 
-// Contrôle affiché sur les lignes attribuées à une direction, pendant l'aperçu :
-// permet de confirmer une correspondance trouvée automatiquement, ou de
-// choisir une autre direction existante. Sans action, une nouvelle direction
-// est créée automatiquement à la confirmation (comportement par défaut).
-function ResolveurDirection({ ligne, directionsDisponibles, valeurChoisie, onChange }) {
-  const { attribution } = ligne;
-  const estCorrespondanceConfirmee =
-    !!attribution.necessite_confirmation &&
-    valeurChoisie === attribution.direction_suggeree_id;
+// Affiche, pour une ligne mise de côté ("A_TRAITER"), soit une case à cocher
+// permettant de confirmer la suggestion trouvée (Magasin/Direction/Agence/
+// Employé), soit un simple texte indiquant qu'aucune correspondance n'a été
+// trouvée. Une fois l'étape d'aperçu passée (editable=false), affiche juste
+// l'état final en lecture seule.
+function SuggestionAffectation({ ligne, editable, confirmee, onChange }) {
+  const { suggestion, affectation_texte } = ligne;
+
+  if (!suggestion) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+        Aucune correspondance pour « {affectation_texte} »
+      </Typography>
+    );
+  }
+
+  const libelleType = {
+    MAGASIN: "Magasin",
+    DIRECTION: "Direction",
+    SITE: "Agence",
+    EMPLOYE: "Employé",
+  }[suggestion.type] || suggestion.type;
+
+  if (!editable) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+        Non confirmée — {libelleType} : {suggestion.libelle}
+      </Typography>
+    );
+  }
 
   return (
-    <Stack spacing={0.5}>
-      {attribution.necessite_confirmation && (
-        <FormControlLabel
-          sx={{ m: 0 }}
-          control={
-            <Checkbox
-              size="small"
-              checked={estCorrespondanceConfirmee}
-              onChange={(e) =>
-                onChange(e.target.checked ? attribution.direction_suggeree_id : "")
-              }
-            />
-          }
-          label={
-            <Typography variant="caption">
-              Confirmer : {attribution.direction_suggeree_libelle}
-            </Typography>
-          }
+    <FormControlLabel
+      sx={{ m: 0 }}
+      control={
+        <Checkbox
+          size="small"
+          checked={confirmee}
+          onChange={(e) => onChange(e.target.checked)}
         />
-      )}
-      <Select
-        size="small"
-        displayEmpty
-        value={valeurChoisie}
-        onChange={(e) => onChange(e.target.value)}
-        sx={{ fontSize: 13 }}
-      >
-        <MenuItem value="">
-          <em>Nouvelle direction : « {attribution.detenteur_texte} »</em>
-        </MenuItem>
-        {directionsDisponibles.map((d) => (
-          <MenuItem key={d.id} value={d.id}>
-            {d.libelle}
-          </MenuItem>
-        ))}
-      </Select>
-    </Stack>
+      }
+      label={
+        <Typography variant="caption">
+          Confirmer — {libelleType} : {suggestion.libelle}
+        </Typography>
+      }
+    />
   );
 }
 

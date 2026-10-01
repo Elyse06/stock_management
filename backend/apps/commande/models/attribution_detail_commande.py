@@ -3,26 +3,22 @@ import uuid
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.employee.models import Direction, Employer
+from apps.employee.models import Direction, Employer, Site
 
 
 class AttributionDetailCommande(models.Model):
-    detail_commande = models.ForeignKey(
-        "DetailCommande", on_delete=models.CASCADE, related_name="attributions"
-    )
+    detail_commande = models.ForeignKey("DetailCommande", on_delete=models.CASCADE, related_name="attributions")
     employe_beneficiaire = models.ForeignKey(
-        Employer,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="attributions_articles",
+        Employer, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="attributions_articles",
     )
     direction_beneficiaire = models.ForeignKey(
-        Direction,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="attributions_articles",
+        Direction, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="attributions_articles",
+    )
+    site_beneficiaire = models.ForeignKey(
+        Site, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="attributions_articles",
     )
     quantite = models.DecimalField(max_digits=12, decimal_places=2)
 
@@ -56,8 +52,10 @@ class AttributionDetailCommande(models.Model):
         constraints = [  # noqa: RUF012
             models.CheckConstraint(
                 condition=(
-                    models.Q(employe_beneficiaire__isnull=False, direction_beneficiaire__isnull=True) |
-                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=False)
+                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=True,) |
+                    models.Q(employe_beneficiaire__isnull=False, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=True,) |
+                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=False, site_beneficiaire__isnull=True,) |
+                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=False,)
                 ),
                 name='attrib_exactly_one_beneficiary'
             ),
@@ -71,32 +69,42 @@ class AttributionDetailCommande(models.Model):
         ]
 
     def clean(self):
-        if bool(self.employe_beneficiaire) == bool(self.direction_beneficiaire):
+        if bool(self.employe_beneficiaire) == bool(self.direction_beneficiaire) == bool(self.site_beneficiaire):
             raise ValidationError(
-                "Choisir soit un employé, soit une direction (l'un des deux, pas les deux/aucun)."
+                "Choisir soit un employé, soit une direction, soit le site."
             )
 
     @property
     def beneficiaire(self):
-        return self.employe_beneficiaire or self.direction_beneficiaire
+        return self.employe_beneficiaire or self.direction_beneficiaire or self.site_beneficiaire
 
     def beneficiaire_nom(self):
         if self.employe_beneficiaire_id:
             return str(self.employe_beneficiaire.emp_nom)
         if self.direction_beneficiaire_id:
             return str(self.direction_beneficiaire.dir_libelle)
+        if self.site_beneficiaire_id:
+            return str(self.site_beneficiaire.site_nom)
         return ""
 
     def beneficiaire_type(self):
-        return "EMPLOYE" if self.employe_beneficiaire_id else "DIRECTION"
+        if self.employe_beneficiaire_id:
+            return "EMPLOYE"
+        if self.direction_beneficiaire_id:
+            return "DIRECTION"
+        if self.site_beneficiaire_id:
+            return "SITE"
+        return None
 
     def get_qr_payload(self):
         article = self.detail_commande.article
 
         if self.employe_beneficiaire:
             beneficiaire_payload, agence_payload = self._payload_pour_employe()
-        else:
+        elif self.direction_beneficiaire:
             beneficiaire_payload, agence_payload = self._payload_pour_direction()
+        else:
+            beneficiaire_payload, agence_payload = self._payload_pour_site()
 
         return {
             "code_unique": str(self.code_unique),
@@ -151,6 +159,24 @@ class AttributionDetailCommande(models.Model):
             "localite": site.localite if site else None,
             "direction": direction.dir_libelle if direction else None,
             "service": None,  # pas de service précis, c'est la direction entière qui détient
+        }
+        return beneficiaire_payload, agence_payload
+
+    def _payload_pour_site(self):
+        site = self.site_beneficiaire
+
+        beneficiaire_payload = {
+            "site_id": site.site_id if site else None,
+            "site_nom": site.site_nom if site else None,
+            "site_type": site.get_site_type_display() if site else None,
+            "localite": site.localite if site else None,
+        }
+        agence_payload = {
+            "site_type": site.get_site_type_display() if site else None,
+            "site_nom": site.site_nom if site else None,
+            "localite": site.localite if site else None,
+            "direction": None,
+            "service": None,
         }
         return beneficiaire_payload, agence_payload
 

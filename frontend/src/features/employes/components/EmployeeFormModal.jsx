@@ -11,6 +11,9 @@ import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { FormDialog } from "../../../components/common/FormDialog";
 
+const getRelationId = (value, key) =>
+  value && typeof value === "object" ? value[key] ?? value.pk ?? "" : value ?? "";
+
 export function EmployeeFormModal({
   isOpen,
   onClose,
@@ -28,6 +31,8 @@ export function EmployeeFormModal({
     emp_matricule: "",
     emp_fonction: "",
     emp_contact: "",
+    site_id: "",
+    direction_id: "",
     emp_serv_id: "",
   });
   const [saving, setSaving] = useState(false);
@@ -35,12 +40,27 @@ export function EmployeeFormModal({
   useEffect(() => {
     if (!isOpen) return;
     if (employeeToEdit) {
+      const serviceId = getRelationId(employeeToEdit.emp_serv_id, "serv_id");
+      const selectedService = services.find(
+        (service) => String(service.serv_id) === String(serviceId)
+      );
+      const directionId =
+        getRelationId(employeeToEdit.emp_dir_id, "dir_id") ||
+        getRelationId(selectedService?.serv_dir_id, "dir_id");
+      const selectedDirection = directions.find(
+        (direction) => String(direction.dir_id) === String(directionId)
+      );
+
       setForm({
         emp_nom: employeeToEdit.emp_nom || "",
         emp_matricule: employeeToEdit.emp_matricule || "",
         emp_fonction: employeeToEdit.emp_fonction || "",
         emp_contact: employeeToEdit.emp_contact || "",
-        emp_serv_id: employeeToEdit.emp_serv_id || "",
+        site_id:
+          getRelationId(employeeToEdit.emp_site_id, "site_id") ||
+          getRelationId(selectedDirection?.site, "site_id"),
+        direction_id: directionId,
+        emp_serv_id: serviceId,
       });
     } else {
       setForm({
@@ -48,10 +68,12 @@ export function EmployeeFormModal({
         emp_matricule: `M-${Math.floor(1000 + Math.random() * 9000)}`,
         emp_fonction: "",
         emp_contact: "",
-        emp_serv_id: services[0]?.serv_id || "",
+        site_id: "",
+        direction_id: "",
+        emp_serv_id: "",
       });
     }
-  }, [isOpen, employeeToEdit, services]);
+  }, [isOpen, employeeToEdit, directions, services]);
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -63,6 +85,8 @@ export function EmployeeFormModal({
       emp_matricule: "",
       emp_fonction: "",
       emp_contact: "",
+      site_id: "",
+      direction_id: "",
       emp_serv_id: "",
     });
     onClose();
@@ -78,11 +102,15 @@ export function EmployeeFormModal({
       notify.error("Le matricule est obligatoire.");
       return;
     }
-
     setSaving(true);
     try {
       const payload = {
-        ...form,
+        emp_nom: form.emp_nom.trim(),
+        emp_matricule: form.emp_matricule.trim(),
+        emp_fonction: form.emp_fonction.trim(),
+        emp_contact: form.emp_contact.trim(),
+        emp_site_id: form.site_id || null,
+        emp_dir_id: form.direction_id || null,
         emp_serv_id: form.emp_serv_id || null,
       };
 
@@ -111,9 +139,23 @@ export function EmployeeFormModal({
     }
   };
 
-  const selectedService = services.find((s) => s.serv_id === form.emp_serv_id);
-  const selectedDirection = selectedService ? directions.find((d) => d.dir_id === selectedService.serv_dir_id) : null;
-  const selectedSite = selectedDirection?.site;
+  const selectedService = services.find(
+    (service) => String(service.serv_id) === String(form.emp_serv_id)
+  );
+  const selectedDirection = directions.find(
+    (direction) => String(direction.dir_id) === String(form.direction_id)
+  );
+  const selectedSite = sites.find(
+    (site) => String(site.site_id) === String(form.site_id)
+  );
+  const directionsForSite = directions.filter(
+    (direction) =>
+      String(getRelationId(direction.site, "site_id")) === String(form.site_id)
+  );
+  const servicesForDirection = services.filter(
+    (service) =>
+      String(getRelationId(service.serv_dir_id, "dir_id")) === String(form.direction_id)
+  );
 
   return (
     <FormDialog
@@ -167,31 +209,39 @@ export function EmployeeFormModal({
           getOptionLabel={(option) => option.site_nom || ""}
           value={selectedSite || null}
           onChange={(_, newValue) => {
-            setForm((prev) => ({ ...prev, emp_serv_id: "" }));
+            setForm((prev) => ({
+              ...prev,
+              site_id: newValue?.site_id || "",
+              direction_id: "",
+              emp_serv_id: "",
+            }));
           }}
           renderInput={(params) => (
             <TextField {...params} label="Site" placeholder="Sélectionner un site..." />
           )}
-          disabled
           fullWidth
         />
 
         <Autocomplete
-          options={directions}
+          options={directionsForSite}
           getOptionLabel={(option) => option.dir_libelle || ""}
           value={selectedDirection || null}
           onChange={(_, newValue) => {
-            setForm((prev) => ({ ...prev, emp_serv_id: "" }));
+            setForm((prev) => ({
+              ...prev,
+              direction_id: newValue?.dir_id || "",
+              emp_serv_id: "",
+            }));
           }}
           renderInput={(params) => (
             <TextField {...params} label="Direction" placeholder="Sélectionner une direction..." />
           )}
-          disabled
+          disabled={!form.site_id}
           fullWidth
         />
 
         <Autocomplete
-          options={services}
+          options={servicesForDirection}
           getOptionLabel={(option) => option.serv_libelle || ""}
           value={selectedService || null}
           onChange={(_, newValue) => {
@@ -200,14 +250,17 @@ export function EmployeeFormModal({
           renderInput={(params) => (
             <TextField {...params} label="Service *" placeholder="Sélectionner un service..." />
           )}
+          disabled={!form.direction_id}
           fullWidth
         />
       </Box>
 
-      {selectedService && (
+      {selectedSite && (
         <Box sx={{ mt: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
           <Typography variant="body2" color="primary.main">
-            <strong>Rattachement :</strong> {selectedSite?.site_nom} → {selectedDirection?.dir_libelle} → {selectedService.serv_libelle}
+            <strong>Rattachement :</strong> {selectedSite.site_nom}
+            {selectedDirection && ` → ${selectedDirection.dir_libelle}`}
+            {selectedService && ` → ${selectedService.serv_libelle}`}
           </Typography>
         </Box>
       )}

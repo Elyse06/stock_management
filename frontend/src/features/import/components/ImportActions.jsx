@@ -9,7 +9,7 @@ export function ImportActions({
   ETAPES,
   loading,
   fichier,
-  lignesOk,
+  peutConfirmer,
   onPrevisualiser,
   onConfirmer,
   onRecommencer,
@@ -58,7 +58,7 @@ export function ImportActions({
               loading ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />
             }
             onClick={onConfirmer}
-            disabled={loading || lignesOk === 0}
+            disabled={loading || !peutConfirmer}
             sx={{
               bgcolor: "#1A7F37",
               "&:hover": { bgcolor: "#14602B" },

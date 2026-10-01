@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { FormDialog } from "../../../components/common/FormDialog";
 import { Chip } from "@mui/material";
 
-const EMPTY_FORM = { dir_id: "", dir_libelle: "", site: "", dir_description: "" };
+const EMPTY_FORM = { dir_libelle: "", site: "", dir_description: "" };
 
 export function DirectionsPage() {
   const notify = useNotification();
@@ -116,7 +116,6 @@ export function DirectionsPage() {
     if (dir) {
       setDirToEdit(dir);
       setForm({
-        dir_id: dir.dir_id || "",
         dir_libelle: dir.dir_libelle || "",
         site: dir.site || "",
         dir_description: dir.dir_description || "",
@@ -143,7 +142,6 @@ export function DirectionsPage() {
     setSaving(true);
     try {
       const payload = {
-        dir_id: (form.dir_id || form.dir_libelle.slice(0, 4).toUpperCase()).trim(),
         dir_libelle: form.dir_libelle.trim(),
         site: form.site ? Number(form.site) : null,
         dir_description: form.dir_description.trim(),
@@ -173,7 +171,7 @@ export function DirectionsPage() {
   const columns = [
     {
       field: "dir_libelle",
-      headerName: "Code",
+      headerName: "Direction",
       flex: 1,
       minWidth: 200,
     },
@@ -313,14 +311,10 @@ export function DirectionsPage() {
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField
-            label="Code"
+            label="Nom de la direction"
             value={form.dir_libelle}
             onChange={(e) => {
-              const val = e.target.value;
-              setForm({ ...form, dir_libelle: val });
-              if (!dirToEdit && !form.dir_id) {
-                setForm((prev) => ({ ...prev, dir_id: val.slice(0, 4).toUpperCase() }));
-              }
+              setForm({ ...form, dir_libelle: e.target.value });
             }}
             required
             autoFocus

@@ -1,15 +1,16 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets
+
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.serializers import AttributionDetailCommandeSerializer
 from apps.common.permissions import (
     HasAction,
 )
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
 
 
 class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
     queryset = AttributionDetailCommande.objects.select_related(
-        'employe_beneficiaire', 'direction_beneficiaire', 'detail_commande'
+        'employe_beneficiaire', 'direction_beneficiaire', 'site_beneficiaire', 'detail_commande'
     ).all()
     serializer_class = AttributionDetailCommandeSerializer
 
