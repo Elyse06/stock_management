@@ -2,22 +2,45 @@ import { Chip } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 
+const STYLES = {
+  OK: {
+    label: "OK",
+    icon: <CheckCircleIcon />,
+    bgcolor: "#E8F5E9",
+    color: "#1A7F37",
+    border: "#C8E6C9",
+  },
+  ERREUR: {
+    label: "Erreur",
+    icon: <ErrorIcon />,
+    bgcolor: "#FDECEA",
+    color: "#C0392B",
+    border: "#F5C6CB",
+  },
+  A_TRAITER: {
+    label: "À traiter",
+    bgcolor: "#FFF3E0",
+    color: "#B8860B",
+    border: "#FFE0B2",
+  },
+};
+
 export function StatusChip({ statut }) {
-  const estOk = statut === "OK";
+  const style = STYLES[statut] || STYLES.ERREUR;
   return (
     <Chip
-      label={estOk ? "OK" : "Erreur"}
+      label={style.label}
       size="small"
-      icon={estOk ? <CheckCircleIcon /> : <ErrorIcon />}
+      icon={style.icon}
       sx={{
         fontWeight: 600,
         fontSize: 12,
-        bgcolor: estOk ? "#E8F5E9" : "#FDECEA",
-        color: estOk ? "#1A7F37" : "#C0392B",
+        bgcolor: style.bgcolor,
+        color: style.color,
         "& .MuiChip-icon": {
-          color: estOk ? "#1A7F37" : "#C0392B",
+          color: style.color,
         },
-        border: `1px solid ${estOk ? "#C8E6C9" : "#F5C6CB"}`,
+        border: `1px solid ${style.border}`,
       }}
     />
   );

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.utils import generate_attribution_qr_payload
-from apps.employee.models import Direction, Employer
+from apps.employee.models import Direction, Employer, Site
 from apps.stock.models import DetailMouvement
 
 from .unite_article import UniteArticleSerializer
@@ -20,6 +20,9 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     direction_beneficiaire = serializers.PrimaryKeyRelatedField(
         queryset=Direction.objects.all(), required=False, allow_null=True
     )
+    site_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Site.objects.all(), required=False, allow_null=True
+    )
     fournisseur_nom = serializers.CharField(source="fournisseur.nom", read_only=True, default=None)
     qr_code_data = serializers.SerializerMethodField()
     unites_creees = UniteArticleSerializer(many=True, read_only=True)
@@ -32,6 +35,7 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'id', 'mouvement', 'article_designation', 'fournisseur_nom', 'qr_code_data',
             'unites_creees', 'unites_attribuees',
+            'employe_beneficiaire', 'direction_beneficiaire', 'site_beneficiaire',
             'employe_beneficiaire_nom', 'employe_beneficiaire_matricule',
             'employe_beneficiaire_fonction', 'beneficiaire_type',
         )
@@ -39,9 +43,10 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         has_emp = attrs.get('employe_beneficiaire') is not None
         has_dir = attrs.get('direction_beneficiaire') is not None
-        if has_emp and has_dir:
+        has_site = attrs.get('site_beneficiaire') is not None
+        if has_emp and has_dir and has_site:
             raise serializers.ValidationError(
-                "Un seul bénéficiaire autorisé : soit 'employe_beneficiaire', soit 'direction_beneficiaire'."
+                "Un seul bénéficiaire autorisé : soit 'employe_beneficiaire', soit 'direction_beneficiaire', soit 'site_beneficiaire'."
             )
         return attrs
 

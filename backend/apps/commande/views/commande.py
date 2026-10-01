@@ -1,3 +1,8 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from apps.commande.models import Commande
 from apps.commande.serializers import (
     CommandeSerializer,
@@ -8,10 +13,6 @@ from apps.common.permissions import (
     HasAction,
     get_request_employee,
 )
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
 
 
 class CommandeViewSet(viewsets.ModelViewSet):

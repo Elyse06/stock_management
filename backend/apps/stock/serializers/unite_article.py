@@ -1,6 +1,7 @@
-from apps.employee.models import Direction, Employer
-from apps.stock.models import UniteArticle
 from rest_framework import serializers
+
+from apps.employee.models import Direction, Employer, Site
+from apps.stock.models import UniteArticle
 
 
 class UniteArticleSerializer(serializers.ModelSerializer):
@@ -15,6 +16,9 @@ class UniteArticleSerializer(serializers.ModelSerializer):
     direction_beneficiaire = serializers.PrimaryKeyRelatedField(
         queryset=Direction.objects.all(), required=False, allow_null=True
     )
+    site_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Site.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = UniteArticle
@@ -22,7 +26,7 @@ class UniteArticleSerializer(serializers.ModelSerializer):
             'unite_id', 'article', 'article_code', 'article_designation',
             'numero_de_serie', 'statut', 'etat', 'date_creation',
             'mouvement_entree', 'mouvement_sortie',
-            'employe_beneficiaire', 'direction_beneficiaire',
+            'employe_beneficiaire', 'direction_beneficiaire', 'site_beneficiaire',
             'employe_attribue_nom', 'employe_attribue_matricule', 'beneficiaire_type',
         ]
         read_only_fields = [  # noqa: RUF012
@@ -33,7 +37,8 @@ class UniteArticleSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         has_emp = attrs.get('employe_beneficiaire') is not None
         has_dir = attrs.get('direction_beneficiaire') is not None
-        if has_emp and has_dir:
+        has_site = attrs.get('site_beneficiaire') is not None
+        if has_emp and has_dir and has_site:
             raise serializers.ValidationError("Un seul bénéficiaire autorisé.")
         
         article = attrs.get('article') or (self.instance.article if self.instance else None)

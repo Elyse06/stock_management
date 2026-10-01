@@ -44,17 +44,15 @@ class ImportImmobilisationsView(APIView):
         feuille = request.data.get("feuille", 0)
         ligne_entete_forcee = request.data.get("ligne_entete")
 
-        resolutions_direction_brut = request.data.get("resolutions_direction")
-        resolutions_direction = {}
-        if resolutions_direction_brut:
+        lignes_confirmees_brut = request.data.get("lignes_confirmees")
+        lignes_confirmees = set()
+        if lignes_confirmees_brut:
             try:
-                parsees = json.loads(resolutions_direction_brut)
-                resolutions_direction = {
-                    int(ligne): dir_id for ligne, dir_id in parsees.items() if dir_id
-                }
+                parsees = json.loads(lignes_confirmees_brut)
+                lignes_confirmees = {int(ligne) for ligne in parsees}
             except (ValueError, TypeError, AttributeError) as exc:
                 return Response(
-                    {"detail": f"Paramètre 'resolutions_direction' invalide : {exc}"},
+                    {"detail": f"Paramètre 'lignes_confirmees' invalide : {exc}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -93,7 +91,7 @@ class ImportImmobilisationsView(APIView):
             )
 
         rapport = importer_immobilisations(
-            df, dry_run=dry_run, resolutions_direction=resolutions_direction
+            df, dry_run=dry_run, lignes_confirmees=lignes_confirmees
         )
         rapport["ligne_entete_utilisee"] = ligne_entete + 1
 

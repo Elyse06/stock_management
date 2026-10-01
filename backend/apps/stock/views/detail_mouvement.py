@@ -8,7 +8,7 @@ from apps.stock.serializers import DetailMouvementSerializer
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
     queryset = DetailMouvement.objects.select_related(
-        'employe_beneficiaire', 'direction_beneficiaire', 'mouvement', 'article', 'fournisseur'
+        'employe_beneficiaire', 'direction_beneficiaire', 'site_beneficiaire', 'mouvement', 'article', 'fournisseur'
     ).all().prefetch_related("unites_creees", "unites_attribuees")
     serializer_class = DetailMouvementSerializer
     permission_classes = [HasActionByMethod.for_methods(  # noqa: RUF012

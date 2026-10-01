@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { FormDialog } from "../../../components/common/FormDialog";
 import { Chip } from "@mui/material";
 
-const EMPTY_FORM = { serv_id: "", serv_libelle: "", serv_dir_id: "", serv_info: "" };
+const EMPTY_FORM = { serv_libelle: "", serv_dir_id: "", serv_info: "" };
 
 export function ServicesPage() {
   const notify = useNotification();
@@ -116,7 +116,6 @@ export function ServicesPage() {
     if (serv) {
       setServToEdit(serv);
       setForm({
-        serv_id: serv.serv_id || "",
         serv_libelle: serv.serv_libelle || "",
         serv_dir_id: serv.serv_dir_id || "",
         serv_info: serv.serv_info || "",
@@ -147,7 +146,6 @@ export function ServicesPage() {
     setSaving(true);
     try {
       const payload = {
-        serv_id: (form.serv_id || form.serv_libelle.slice(0, 4).toUpperCase()).trim(),
         serv_libelle: form.serv_libelle.trim(),
         serv_dir_id: form.serv_dir_id,
         serv_info: form.serv_info.trim(),
@@ -177,7 +175,7 @@ export function ServicesPage() {
   const columns = [
     {
       field: "serv_libelle",
-      headerName: "Code",
+      headerName: "Service",
       width: 100,
       renderCell: (params) => (
         <Chip
@@ -311,14 +309,10 @@ export function ServicesPage() {
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField
-            label="Code"
+            label="Nom du service"
             value={form.serv_libelle}
             onChange={(e) => {
-              const val = e.target.value;
-              setForm({ ...form, serv_libelle: val });
-              if (!servToEdit && !form.serv_id) {
-                setForm((prev) => ({ ...prev, serv_id: val.slice(0, 4).toUpperCase() }));
-              }
+              setForm({ ...form, serv_libelle: e.target.value });
             }}
             required
             autoFocus

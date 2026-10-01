@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.catalogue.models import Article
-from apps.employee.models import Direction, Employer
+from apps.employee.models import Direction, Employer, Site
 
 from .detail_mouvement import DetailMouvement
 
@@ -41,6 +41,10 @@ class UniteArticle(models.Model):
         Direction, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="unites_attribuees",
     )
+    site_beneficiaire = models.ForeignKey(
+        Site, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="unites_attribuees",
+    )
 
     class Meta:
         db_table = "t_unite_article"
@@ -56,31 +60,39 @@ class UniteArticle(models.Model):
         identifiant = self.numero_de_serie or f"unité #{self.unite_id}"
         return f"{self.article.designation} - {identifiant} ({self.get_statut_display()})"
 
-        def clean(self):
-            if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
-                if not self.numero_de_serie:
-                    raise ValidationError({
-                        "numero_de_serie": "Requis pour un article suivi par numéro de série."
-                    })
-            elif self.numero_de_serie:
+    # NOTE : cette méthode était auparavant imbriquée (par erreur d'indentation)
+    # à l'intérieur de __str__, ce qui faisait qu'elle n'était jamais appelée
+    # par full_clean(). Corrigé ici pour que les règles ci-dessous soient
+    # réellement appliquées, et étendu pour couvrir le nouveau bénéficiaire
+    # "site".
+    def clean(self):
+        if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
+            if not self.numero_de_serie:
                 raise ValidationError({
-                    "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
+                    "numero_de_serie": "Requis pour un article suivi par numéro de série."
                 })
-            
-            has_emp = self.employe_beneficiaire_id is not None
-            has_dir = self.direction_beneficiaire_id is not None
+        elif self.numero_de_serie:
+            raise ValidationError({
+                "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
+            })
 
-            if self.statut == self.Statut.ATTRIBUE:
-                if has_emp == has_dir:
-                    raise ValidationError(
-                        "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
-                        "un employé OU une direction (pas les deux, ni aucun)."
-                    )
-            else:
-                if has_emp or has_dir:
-                    raise ValidationError(
-                        "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
-                    )
+        nb_beneficiaires = sum([
+            self.employe_beneficiaire_id is not None,
+            self.direction_beneficiaire_id is not None,
+            self.site_beneficiaire_id is not None,
+        ])
+
+        if self.statut == self.Statut.ATTRIBUE:
+            if nb_beneficiaires != 1:
+                raise ValidationError(
+                    "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
+                    "un employé, une direction OU un site (un seul, pas plusieurs, ni aucun)."
+                )
+        else:
+            if nb_beneficiaires > 0:
+                raise ValidationError(
+                    "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
+                )
 
     @property
     def employe_attribue(self):
@@ -94,6 +106,8 @@ class UniteArticle(models.Model):
             return self.employe_beneficiaire.emp_nom
         if self.direction_beneficiaire_id:
             return self.direction_beneficiaire.dir_libelle
+        if self.site_beneficiaire_id:
+            return self.site_beneficiaire.site_nom
         return ""
     
     @property
@@ -108,17 +122,25 @@ class UniteArticle(models.Model):
             return "EMPLOYE"
         if self.direction_beneficiaire_id:
             return "DIRECTION"
+        if self.site_beneficiaire_id:
+            return "SITE"
         return None
 
     def attribuer(self, beneficiaire, mouvement_sortie):
         if isinstance(beneficiaire, Employer):
             self.employe_beneficiaire = beneficiaire
             self.direction_beneficiaire = None
+            self.site_beneficiaire = None
         elif isinstance(beneficiaire, Direction):
             self.direction_beneficiaire = beneficiaire
             self.employe_beneficiaire = None
+            self.site_beneficiaire = None
+        elif isinstance(beneficiaire, Site):
+            self.site_beneficiaire = beneficiaire
+            self.employe_beneficiaire = None
+            self.direction_beneficiaire = None
         else:
-            raise ValidationError("beneficiaire doit être un Employer ou une Direction.")
+            raise ValidationError("beneficiaire doit être un Employer, une Direction ou un Site.")
  
         self.statut = self.Statut.ATTRIBUE
         if isinstance(mouvement_sortie, dict):
@@ -132,6 +154,7 @@ class UniteArticle(models.Model):
         self.statut = 'EN_STOCK'
         self.employe_beneficiaire = None
         self.direction_beneficiaire = None
+        self.site_beneficiaire = None
         self.mouvement_sortie = None
         self.full_clean()
         self.save()

@@ -4,12 +4,19 @@ import { apiClient } from "../../../api/client";
 const TAILLE_MAX = 10 * 1024 * 1024; // 10 Mo
 const ETAPES = { CHOIX: "choix", APERCU: "apercu", CONFIRME: "confirme" };
 
-async function envoyerFichier(fichier, dryRun, signal, resolutionsDirection) {
+// Identifie une correspondance de manière unique par son type + libellé
+// (ex: "DIRECTION::DSI"). Plusieurs lignes qui pointent vers la même
+// correspondance partagent la même clé, et donc la même confirmation.
+function cleSuggestion(suggestion) {
+  return `${suggestion.type}::${suggestion.libelle}`;
+}
+
+async function envoyerFichier(fichier, dryRun, signal, lignesConfirmees) {
   const formData = new FormData();
   formData.append("fichier", fichier);
   formData.append("dry_run", dryRun ? "true" : "false");
-  if (resolutionsDirection && Object.keys(resolutionsDirection).length > 0) {
-    formData.append("resolutions_direction", JSON.stringify(resolutionsDirection));
+  if (lignesConfirmees && lignesConfirmees.length > 0) {
+    formData.append("lignes_confirmees", JSON.stringify(lignesConfirmees));
   }
 
   const { data } = await apiClient.post(
@@ -26,7 +33,9 @@ export function useImportImmobilisations() {
   const [etape, setEtape] = useState(ETAPES.CHOIX);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState(null);
-  const [resolutionsDirection, setResolutionsDirection] = useState({});
+  // Clés ("TYPE::libellé") des correspondances confirmées. Une clé confirmée
+  // s'applique à TOUTES les lignes qui partagent cette même correspondance.
+  const [clesConfirmees, setClesConfirmees] = useState(new Set());
   const abortRef = useRef(null);
 
   const choisirFichier = useCallback((f) => {
@@ -35,7 +44,7 @@ export function useImportImmobilisations() {
       setRapport(null);
       setEtape(ETAPES.CHOIX);
       setErreur(null);
-      setResolutionsDirection({});
+      setClesConfirmees(new Set());
       return;
     }
     if (f.size > TAILLE_MAX) {
@@ -50,14 +59,19 @@ export function useImportImmobilisations() {
     setRapport(null);
     setEtape(ETAPES.CHOIX);
     setErreur(null);
-    setResolutionsDirection({});
+    setClesConfirmees(new Set());
   }, []);
 
-  const definirResolutionDirection = useCallback((ligne, directionId) => {
-    setResolutionsDirection((precedent) => ({
-      ...precedent,
-      [ligne]: directionId || "",
-    }));
+  const basculerConfirmationCle = useCallback((cle, confirmee) => {
+    setClesConfirmees((precedent) => {
+      const suivant = new Set(precedent);
+      if (confirmee) {
+        suivant.add(cle);
+      } else {
+        suivant.delete(cle);
+      }
+      return suivant;
+    });
   }, []);
 
   const previsualiser = useCallback(async () => {
@@ -73,6 +87,14 @@ export function useImportImmobilisations() {
       );
       setRapport(resultat);
       setEtape(ETAPES.APERCU);
+      // Toute correspondance trouvée est cochée par défaut : seules les
+      // lignes vraiment sans correspondance restent "à traiter".
+      const clesTrouvees = new Set(
+        (resultat.details || [])
+          .filter((l) => l.statut === "A_TRAITER" && l.suggestion)
+          .map((l) => cleSuggestion(l.suggestion))
+      );
+      setClesConfirmees(clesTrouvees);
     } catch (e) {
       if (e.name === "CanceledError" || e.code === "ERR_CANCELED") return;
       const message =
@@ -90,17 +112,22 @@ export function useImportImmobilisations() {
     setErreur(null);
     abortRef.current = new AbortController();
     try {
-      // Seules les lignes où l'utilisateur a explicitement choisi une
-      // direction existante sont envoyées. Une ligne absente (ou vide)
-      // entraîne la création automatique d'une nouvelle direction côté serveur.
-      const resolutionsAEnvoyer = Object.fromEntries(
-        Object.entries(resolutionsDirection).filter(([, valeur]) => valeur)
-      );
+      // On déplie les clés confirmées vers la liste de toutes les lignes
+      // concernées (plusieurs lignes peuvent partager la même clé).
+      const lignesAEnvoyer = (rapport?.details || [])
+        .filter(
+          (l) =>
+            l.statut === "A_TRAITER" &&
+            l.suggestion &&
+            clesConfirmees.has(cleSuggestion(l.suggestion))
+        )
+        .map((l) => l.ligne);
+
       const resultat = await envoyerFichier(
         fichier,
         false,
         abortRef.current.signal,
-        resolutionsAEnvoyer
+        lignesAEnvoyer
       );
       setRapport(resultat);
       setEtape(ETAPES.CONFIRME);
@@ -113,7 +140,7 @@ export function useImportImmobilisations() {
       setLoading(false);
       abortRef.current = null;
     }
-  }, [fichier, resolutionsDirection]);
+  }, [fichier, rapport, clesConfirmees]);
 
   const annuler = useCallback(() => {
     abortRef.current?.abort();
@@ -124,8 +151,13 @@ export function useImportImmobilisations() {
     setRapport(null);
     setEtape(ETAPES.CHOIX);
     setErreur(null);
-    setResolutionsDirection({});
+    setClesConfirmees(new Set());
   }, []);
+
+  // Le bouton "Confirmer l'import" doit pouvoir être cliqué dès qu'il y a
+  // quelque chose à importer : soit des lignes déjà OK (sans affectation),
+  // soit au moins une correspondance confirmée par l'utilisateur.
+  const peutConfirmer = (rapport?.lignes_ok ?? 0) > 0 || clesConfirmees.size > 0;
 
   return {
     fichier,
@@ -134,8 +166,9 @@ export function useImportImmobilisations() {
     loading,
     erreur,
     ETAPES,
-    resolutionsDirection,
-    definirResolutionDirection,
+    clesConfirmees,
+    basculerConfirmationCle,
+    peutConfirmer,
     choisirFichier,
     previsualiser,
     confirmer,

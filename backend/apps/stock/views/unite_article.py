@@ -14,7 +14,7 @@ from apps.stock.serializers import (
 
 class UniteArticleViewSet(viewsets.ModelViewSet):
     queryset = UniteArticle.objects.all().select_related(
-        "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire"
+        "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire", "site_beneficiaire",
     )
     serializer_class = UniteArticleSerializer
     permission_classes = [HasActionByMethod.for_methods(  # noqa: RUF012
