@@ -1,9 +1,8 @@
-from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.catalogue.models import Article, Fournisseur
-from apps.employee.models import Direction, Employer, Site
 
+from .affectation import Affectation
 from .mouvement import Mouvement
 
 
@@ -13,17 +12,9 @@ class DetailMouvement(models.Model):
     quantite = models.PositiveIntegerField()
     prix_achat = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
-    employe_beneficiaire = models.ForeignKey(
-        Employer, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="dotations_recues",
-    )
-    direction_beneficiaire = models.ForeignKey(
-        Direction, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="dotations_recues",
-    )
-    site_beneficiaire = models.ForeignKey(
-        Site, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="dotations_recues",
+    affectation = models.ForeignKey(
+        Affectation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="mouvements",
     )
     fournisseur = models.ForeignKey(
         Fournisseur, on_delete=models.SET_NULL, null=True, blank=True,
@@ -35,61 +26,32 @@ class DetailMouvement(models.Model):
         db_table = "t_detail_mouvement"
         verbose_name = "Détail mouvement"
         verbose_name_plural = "Détails mouvement"
-        constraints = [  # noqa: RUF012
-            models.CheckConstraint(
-                condition=(
-                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=True,) |
-                    models.Q(employe_beneficiaire__isnull=False, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=True,) |
-                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=False, site_beneficiaire__isnull=True,) |
-                    models.Q(employe_beneficiaire__isnull=True, direction_beneficiaire__isnull=True, site_beneficiaire__isnull=False,)
-                ),
-                name='detail_mouv_at_most_one_beneficiary'
-            )
-        ]
-
-    def clean(self):
-        nb_beneficiaires = sum([
-            bool(self.employe_beneficiaire_id),
-            bool(self.direction_beneficiaire_id),
-            bool(self.site_beneficiaire_id),
-        ])
-        if nb_beneficiaires > 1:
-            raise ValidationError(
-                "Un mouvement ne peut avoir qu'un seul type de bénéficiaire à la fois "
-                "(employé, direction ou site), pas plusieurs en même temps."
-            )
 
     def __str__(self):
         return f"{self.article.designation} x{self.quantite} (mvt #{self.mouvement_id})"
 
     @property
     def employe_beneficiaire_nom(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_nom
+        if self.affectation_id and self.affectation.beneficiaire_type == Affectation.BeneficiaireType.EMPLOYE:
+            return self.affectation.employe.emp_nom
         return ""
-    
+
     @property
     def employe_beneficiaire_matricule(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_matricule
+        if self.affectation_id and self.affectation.beneficiaire_type == Affectation.BeneficiaireType.EMPLOYE:
+            return self.affectation.employe.emp_matricule
         return ""
-    
+
     @property
     def employe_beneficiaire_fonction(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_fonction
+        if self.affectation_id and self.affectation.beneficiaire_type == Affectation.BeneficiaireType.EMPLOYE:
+            return self.affectation.employe.emp_fonction
         return ""
-    
+
     @property
     def beneficiaire_type(self):
-        if self.employe_beneficiaire_id:
-            return "EMPLOYE"
-        if self.direction_beneficiaire_id:
-            return "DIRECTION"
-        if self.site_beneficiaire_id:
-            return "SITE"
-        return None
-    
+        return self.affectation.beneficiaire_type if self.affectation_id else None
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
