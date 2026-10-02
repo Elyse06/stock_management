@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from apps.catalogue.models import Article
 from apps.catalogue.services.stock_filters import build_stock_filters
-from apps.employee.models import Direction
+from apps.employee.models import Direction, Site
 from apps.stock.models import DetailMouvement, Magasin, Mouvement
 
 
@@ -20,6 +20,7 @@ class HistoriqueLocalisationView(APIView):
     def get(self, request):
         magasin_id = request.query_params.get("magasin_id")
         direction_id = request.query_params.get("direction_id")
+        site_id = request.query_params.get("site_id")
         date_reference = request.query_params.get("date")
         
         if not date_reference:
@@ -28,24 +29,30 @@ class HistoriqueLocalisationView(APIView):
                 status=HTTP_400_BAD_REQUEST
             )
         
-        if bool(magasin_id) == bool(direction_id):
+        if sum(bool(value) for value in (magasin_id, direction_id, site_id)) != 1:
             return Response(
-                {"error": "Sélectionnez un magasin ou une direction."},
+                {"error": "Sélectionnez un magasin, une direction ou un site."},
                 status=HTTP_400_BAD_REQUEST
             )
 
         magasin = None
         direction = None
+        site = None
         if magasin_id:
             try:
                 magasin = Magasin.objects.get(magasin_id=magasin_id)
             except Magasin.DoesNotExist:
                 return Response({"error": "Magasin non trouvé."}, status=HTTP_404_NOT_FOUND)
-        else:
+        elif direction_id:
             try:
                 direction = Direction.objects.get(pk=direction_id)
             except Direction.DoesNotExist:
                 return Response({"error": "Direction non trouvée."}, status=HTTP_404_NOT_FOUND)
+        else:
+            try:
+                site = Site.objects.get(pk=site_id)
+            except Site.DoesNotExist:
+                return Response({"error": "Site non trouvé."}, status=HTTP_404_NOT_FOUND)
         
         articles = Article.objects.all()
         stocks = []
@@ -55,6 +62,7 @@ class HistoriqueLocalisationView(APIView):
                 article,
                 magasin=magasin,
                 direction=direction,
+                site=site,
                 date_reference=date_reference
             )
             
@@ -67,7 +75,9 @@ class HistoriqueLocalisationView(APIView):
         
         return Response(stocks)
     
-    def _calculer_stock_a_date(self, article, magasin=None, direction=None, date_reference=None):
+    def _calculer_stock_a_date(
+        self, article, magasin=None, direction=None, site=None, date_reference=None
+    ):
         date_ref = timezone.make_aware(
             datetime.combine(
                 datetime.strptime(date_reference, "%Y-%m-%d").date(),
@@ -87,6 +97,24 @@ class HistoriqueLocalisationView(APIView):
             ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
             retours = DetailMouvement.objects.filter(
                 beneficiaires_direction,
+                mouvement__type_mouvement=Mouvement.Type.RETOUR,
+                **date_filter,
+            ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
+            return sorties - retours
+        if site:
+            beneficiaires_site = (
+                Q(site_beneficiaire_id=site.pk)
+                | Q(direction_beneficiaire__site_id=site.pk)
+                | Q(employe_beneficiaire__emp_site_id=site.pk)
+            )
+            date_filter = {"mouvement__date__lte": date_ref, "article": article}
+            sorties = DetailMouvement.objects.filter(
+                beneficiaires_site,
+                mouvement__type_mouvement=Mouvement.Type.SORTIE,
+                **date_filter,
+            ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
+            retours = DetailMouvement.objects.filter(
+                beneficiaires_site,
                 mouvement__type_mouvement=Mouvement.Type.RETOUR,
                 **date_filter,
             ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]

@@ -20,50 +20,52 @@ import {
   Delete as DeleteIcon,
   Person as PersonIcon,
   Business as BusinessIcon,
+  LocationCity as LocationCityIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
+import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { useNotification } from "../../../components/common/NotificationProvider";
 import { StyledTable } from "../../../components/wizard/StyledTable";
 import { FormSection } from "../../../components/wizard/FormSection";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { StockStatusChip } from "../../../components/common/StockStatusChip";
 import {
-  EmployeLocation,
   getEmployeLocation,
 } from "../../../components/common/EmployeLocation";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-
-const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
-const DIRECTIONS_ENDPOINT = "/api/employee/direction/";
 
 export function ArticleLignesEditor({ lignes, setLignes, articles }) {
+  const notify = useNotification();
   const [articleCode, setArticleCode] = useState("");
   const [quantite, setQuantite] = useState("");
   const [typeBeneficiaire, setTypeBeneficiaire] = useState("EMPLOYE");
   const [beneficiaireId, setBeneficiaireId] = useState("");
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
+  const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      apiClient.get(EMPLOYEES_ENDPOINT, { params: { page_size: 500 } }),
-      apiClient.get(DIRECTIONS_ENDPOINT, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
+      apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
     ])
-      .then(([empRes, dirRes]) => {
+      .then(([empRes, dirRes, siteRes]) => {
         if (cancelled) return;
         setEmployees(empRes.data.results ?? empRes.data);
         setDirections(dirRes.data.results ?? dirRes.data);
+        setSites(siteRes.data.results ?? siteRes.data);
       })
-      .catch(() => {})
+      .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED))
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [notify]);
 
   const ajouterLigne = () => {
     if (!articleCode || !quantite || Number(quantite) <= 0) return;
@@ -105,6 +107,17 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         beneficiaireDirection = direction.dir_libelle;
         beneficiaireSite = direction.site_nom || null;
       }
+    } else if (typeBeneficiaire === "SITE" && beneficiaireId) {
+      const site = sites.find((s) => String(s.site_id) === String(beneficiaireId));
+      if (site) {
+        beneficiaireData = {
+          type: "SITE",
+          id: site.site_id,
+        };
+        beneficiaireNom = site.site_nom;
+        beneficiaireDirection = null;
+        beneficiaireSite = site.site_nom;
+      }
     }
 
     setLignes([
@@ -138,6 +151,18 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
     }
   };
 
+  const getIconeBeneficiaire = (type) => {
+    if (type === "EMPLOYE") return <PersonIcon />;
+    if (type === "SITE") return <LocationCityIcon />;
+    return <BusinessIcon />;
+  };
+
+  const getCouleurBeneficiaire = (type) => {
+    if (type === "EMPLOYE") return "primary";
+    if (type === "SITE") return "warning";
+    return "secondary";
+  };
+
   return (
     <Box>
       <StyledTable
@@ -152,7 +177,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                 <span>Bénéficiaire</span>
               </Box>
             ),
-            width: 200,
+            width: 220,
           },
           { label: "Statut", align: "center", width: 160 },
           { label: "", align: "center", width: 60 },
@@ -187,19 +212,9 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                   <Chip
                     label={ligne.beneficiaire_nom}
                     size="small"
-                    color={
-                      ligne.beneficiaire_type === "EMPLOYE"
-                        ? "primary"
-                        : "secondary"
-                    }
+                    color={getCouleurBeneficiaire(ligne.beneficiaire_type)}
                     variant="outlined"
-                    icon={
-                      ligne.beneficiaire_type === "EMPLOYE" ? (
-                        <PersonIcon />
-                      ) : (
-                        <BusinessIcon />
-                      )
-                    }
+                    icon={getIconeBeneficiaire(ligne.beneficiaire_type)}
                   />
                   {ligne.beneficiaire_direction && (
                     <Box
@@ -216,6 +231,21 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
                           ? `${ligne.beneficiaire_site} → `
                           : " "}
                         {ligne.beneficiaire_direction}
+                      </Typography>
+                    </Box>
+                  )}
+                  {ligne.beneficiaire_type === "SITE" && ligne.beneficiaire_site && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mt: 0.3,
+                      }}
+                    >
+                      <LocationCityIcon sx={{ fontSize: 12 }} color="warning" />
+                      <Typography variant="caption" color="text.secondary">
+                        Site : {ligne.beneficiaire_site}
                       </Typography>
                     </Box>
                   )}
@@ -281,7 +311,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
           placeholder="0"
         />
 
-        {/* 🆕 Toggle Type de bénéficiaire */}
+        {/* Toggle Type de bénéficiaire */}
         <ToggleButtonGroup
           value={typeBeneficiaire}
           exclusive
@@ -312,9 +342,13 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
             Direction
           </ToggleButton>
+          <ToggleButton value="SITE">
+            <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Site
+          </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* 🆕 Sélecteur conditionnel */}
+        {/* Sélecteur conditionnel */}
         {typeBeneficiaire === "EMPLOYE" ? (
           <Autocomplete
             size="small"
@@ -379,7 +413,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             }}
             noOptionsText="Aucun employé trouvé"
           />
-        ) : (
+        ) : typeBeneficiaire === "DIRECTION" ? (
           <Autocomplete
             size="small"
             options={directions}
@@ -422,6 +456,51 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             )}
             noOptionsText="Aucune direction trouvée"
           />
+        ) : (
+          // 🆕 Sélecteur de site
+          <Autocomplete
+            size="small"
+            options={sites}
+            loading={loading}
+            getOptionLabel={(option) =>
+              option?.site_nom
+                ? `${option.site_nom} (${option.site_type})`
+                : ""
+            }
+            isOptionEqualToValue={(option, value) =>
+              String(option?.site_id) === String(value?.site_id)
+            }
+            value={
+              sites.find((s) => String(s.site_id) === String(beneficiaireId)) ||
+              null
+            }
+            onChange={(_, newValue) => {
+              setBeneficiaireId(newValue?.site_id || "");
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Site (optionnel)"
+                placeholder="Rechercher un site..."
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={option.site_id}>
+                <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1 }}>
+                  <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      {option.site_nom}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.site_type} • {option.localite || "—"}
+                    </Typography>
+                  </Box>
+                </Box>
+              </li>
+            )}
+            noOptionsText="Aucun site trouvé"
+          />
         )}
 
         <Button
@@ -438,7 +517,10 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
               !employees.find((e) => String(e.emp_id) === String(beneficiaireId))) ||
             (typeBeneficiaire === "DIRECTION" &&
               beneficiaireId &&
-              !directions.find((d) => String(d.dir_id) === String(beneficiaireId)))
+              !directions.find((d) => String(d.dir_id) === String(beneficiaireId))) ||
+            (typeBeneficiaire === "SITE" &&
+              beneficiaireId &&
+              !sites.find((s) => String(s.site_id) === String(beneficiaireId)))
           }
           sx={{ minWidth: 120, height: 40 }}
         >

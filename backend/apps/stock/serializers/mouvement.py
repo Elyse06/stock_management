@@ -79,6 +79,7 @@ class MouvementSerializer(serializers.ModelSerializer):
                     beneficiaire = (
                         detail_mouvement.employe_beneficiaire
                         or detail_mouvement.direction_beneficiaire
+                        or detail_mouvement.site_beneficiaire
                     )
                     for numero in numeros_de_serie:
                         try:

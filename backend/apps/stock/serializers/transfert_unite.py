@@ -1,4 +1,4 @@
-from apps.employee.models import Direction, Employer
+from apps.employee.models import Direction, Employer, Site
 from apps.stock.models import Magasin, UniteArticle
 from apps.stock.services import transferer_unite
 from rest_framework import serializers
@@ -12,17 +12,21 @@ class TransfertUniteSerializer(serializers.Serializer):
     nouvelle_direction_beneficiaire = serializers.PrimaryKeyRelatedField(
         queryset=Direction.objects.all(), required=False, allow_null=True,
     )
+    nouveau_site_beneficiaire = serializers.PrimaryKeyRelatedField(
+        queryset=Site.objects.all(), required=False, allow_null=True,
+    )
     magasin_source = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all())
     motif = serializers.CharField(required=False, allow_blank=True, default="")
     
     def validate(self, attrs):
         emp = attrs.get('nouvel_employe_beneficiaire')
         dir = attrs.get('nouvelle_direction_beneficiaire')
+        site = attrs.get('nouveau_site_beneficiaire')
         
-        if bool(emp) == bool(dir):
+        if sum(beneficiaire is not None for beneficiaire in (emp, dir, site)) != 1:
             raise serializers.ValidationError(
-                "Choisir soit 'nouvel_employe_beneficiaire', "
-                "soit 'nouvelle_direction_beneficiaire' (l'un des deux)."
+                "Choisir soit un nouvel employé, soit une nouvelle direction, "
+                "soit un nouveau site (un seul bénéficiaire)."
             )
         
         try:
@@ -47,8 +51,12 @@ class TransfertUniteSerializer(serializers.Serializer):
                 )
             })
         
-        ancien = unite.employe_beneficiaire or unite.direction_beneficiaire
-        nouveau = emp or dir
+        ancien = (
+            unite.employe_beneficiaire
+            or unite.direction_beneficiaire
+            or unite.site_beneficiaire
+        )
+        nouveau = emp or dir or site
         if ancien == nouveau:
             raise serializers.ValidationError(
                 "Le nouveau bénéficiaire doit être différent de l'actuel."
@@ -65,6 +73,7 @@ class TransfertUniteSerializer(serializers.Serializer):
         nouveau_beneficiaire = (
             self.validated_data.get('nouvel_employe_beneficiaire')
             or self.validated_data.get('nouvelle_direction_beneficiaire')
+            or self.validated_data.get('nouveau_site_beneficiaire')
         )
         return transferer_unite(
             unite_id=self.validated_data['unite_id'],

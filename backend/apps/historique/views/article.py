@@ -27,7 +27,10 @@ class HistoriqueArticleView(APIView):
         mouvements = DetailMouvement.objects.filter(
             article=article
         ).select_related(
-            "mouvement"
+            "mouvement",
+            "employe_beneficiaire",
+            "direction_beneficiaire",
+            "site_beneficiaire",
         ).order_by("mouvement__date")
         
         if site_id:
@@ -103,6 +106,16 @@ class HistoriqueArticleView(APIView):
                 "stock_cumule": stock_cumule,
                 "origine": mouvement.origine,
                 "motif": mouvement.motif,
+                "beneficiaire_type": detail.beneficiaire_type,
+                "beneficiaire_nom": (
+                    detail.employe_beneficiaire_nom
+                    if detail.employe_beneficiaire_id
+                    else detail.direction_beneficiaire.dir_libelle
+                    if detail.direction_beneficiaire_id
+                    else detail.site_beneficiaire.site_nom
+                    if detail.site_beneficiaire_id
+                    else None
+                ),
             })
         
         return Response({

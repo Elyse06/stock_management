@@ -20,7 +20,10 @@ class HistoriqueGlobaleView(APIView):
         mouvements = Mouvement.objects.select_related(
             "magasin_source", "magasin_destination"
         ).prefetch_related(
-            "details__article"
+            "details__article",
+            "details__employe_beneficiaire",
+            "details__direction_beneficiaire",
+            "details__site_beneficiaire",
         ).order_by("-date")
         
         if date_debut:
@@ -61,9 +64,34 @@ class HistoriqueGlobaleView(APIView):
                 "magasin_destination_nom": mouvement.magasin_destination.magasin_nom if mouvement.magasin_destination else None,
                 "details": [
                     {
+                        "id": detail.pk,
                         "article_code": detail.article.code_article,
                         "article_designation": detail.article.designation,
                         "quantite": detail.quantite,
+                        "employe_beneficiaire": detail.employe_beneficiaire_id,
+                        "employe_beneficiaire_nom": detail.employe_beneficiaire_nom,
+                        "employe_beneficiaire_matricule": detail.employe_beneficiaire_matricule,
+                        "employe_beneficiaire_fonction": detail.employe_beneficiaire_fonction,
+                        "direction_beneficiaire": detail.direction_beneficiaire_id,
+                        "direction_beneficiaire_nom": (
+                            detail.direction_beneficiaire.dir_libelle
+                            if detail.direction_beneficiaire_id else None
+                        ),
+                        "site_beneficiaire": detail.site_beneficiaire_id,
+                        "site_beneficiaire_nom": (
+                            detail.site_beneficiaire.site_nom
+                            if detail.site_beneficiaire_id else None
+                        ),
+                        "beneficiaire_type": detail.beneficiaire_type,
+                        "beneficiaire_nom": (
+                            detail.employe_beneficiaire_nom
+                            if detail.employe_beneficiaire_id
+                            else detail.direction_beneficiaire.dir_libelle
+                            if detail.direction_beneficiaire_id
+                            else detail.site_beneficiaire.site_nom
+                            if detail.site_beneficiaire_id
+                            else None
+                        ),
                     }
                     for detail in mouvement.details.all()
                 ],

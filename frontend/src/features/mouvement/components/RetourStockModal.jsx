@@ -19,8 +19,11 @@ import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { EtatBadge } from "../../../components/common/EtatBadge";
-import { StatusChip } from "../../../components/common/StatusChip";
-import { Person as PersonIcon, Business as BusinessIcon } from "@mui/icons-material";
+import {
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  LocationCity as LocationCityIcon,
+} from "@mui/icons-material";
 
 export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
   const notify = useNotification();
@@ -37,7 +40,7 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
       .get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } })
       .then((res) => setMagasins(res.data.results ?? res.data))
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
-  }, [isOpen]);
+  }, [isOpen, notify]);
 
   const handleSubmit = async () => {
     if (!magasinDestination) {
@@ -120,6 +123,8 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
                 {beneficiaireType === "EMPLOYE" ? (
                   <PersonIcon fontSize="small" color="primary" />
+                ) : beneficiaireType === "SITE" ? (
+                  <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
                 ) : (
                   <BusinessIcon fontSize="small" color="secondary" />
                 )}

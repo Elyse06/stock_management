@@ -12,8 +12,22 @@ export function MouvementArticlesTable({ mouvement }) {
         { field: "prix_achat", headerName: "Prix d'achat (MGA)", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> }
       ]
       : []),
-    ...(mouvement.type_mouvement === "SORTIE"
-      ? [{ field: "employe_beneficiaire_nom", headerName: "Bénéficiaire", flex: 1, renderCell: (params) => <EmptyValue value={params.value} /> }]
+    ...(["SORTIE", "RETOUR"].includes(mouvement.type_mouvement)
+      ? [{
+        field: "beneficiaire_nom",
+        headerName: "Bénéficiaire",
+        flex: 1,
+        renderCell: (params) => (
+          <EmptyValue
+            value={
+              params.value ||
+              params.row.employe_beneficiaire_nom ||
+              params.row.direction_beneficiaire_nom ||
+              params.row.site_beneficiaire_nom
+            }
+          />
+        ),
+      }]
       : []),
   ];
 

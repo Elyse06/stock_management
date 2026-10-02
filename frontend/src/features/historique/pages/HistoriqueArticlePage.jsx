@@ -9,10 +9,8 @@ import {
   Chip,
 } from "@mui/material";
 import {
-  CalendarToday as CalendarIcon,
   Download as DownloadIcon,
   Inventory as InventoryIcon,
-  LocationOn as LocationOnIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS } from "../../../constants/api";
@@ -185,6 +183,7 @@ export function HistoriqueArticlePage() {
       align: "center",
       renderCell: ({ value }) => <Typography fontWeight={700} fontFamily="monospace" sx={{ color: value > 0 ? "success.main" : value < 0 ? "error.main" : "text.secondary" }}>{value > 0 ? `+${value}` : value}</Typography>,
     },
+    { field: "beneficiaire_nom", headerName: "Bénéficiaire", width: 200, renderCell: ({ value }) => <EmptyValue value={value} /> },
     { field: "stock_cumule", headerName: "Stock cumulé", width: 130, headerAlign: "center", align: "center", renderCell: ({ value }) => <Chip label={value} color="primary" size="small" /> },
     { field: "origine", headerName: "Origine", width: 180, renderCell: ({ value }) => <EmptyValue value={value} /> },
     { field: "motif", headerName: "Motif", width: 200, renderCell: ({ value }) => <EmptyValue value={value} /> },

@@ -1,6 +1,7 @@
-from apps.employee.models import Direction
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.employee.models import Direction
 
 from .magasin import Magasin
 

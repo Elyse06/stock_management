@@ -1,21 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Box, TextField, Button, Autocomplete, Tooltip, IconButton,
-  Typography, ToggleButtonGroup, ToggleButton, Chip, FormControl, Select, MenuItem,
+  Typography, ToggleButtonGroup, ToggleButton, FormControl, Select, MenuItem,
 } from "@mui/material";
 import {
   Add as AddIcon, Delete as DeleteIcon,
   Person as PersonIcon, Business as BusinessIcon,
   LocationCity as LocationCityIcon,
 } from "@mui/icons-material";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS } from "../../../constants/api";
 import { StyledTable } from "../../../components/wizard/StyledTable";
-import { FormSection } from "../../../components/wizard/FormSection";
 import { ProgressBar } from "../../../components/common/ProgressBar";
-import { EmployeLocation, getEmployeLocation } from "../../../components/common/EmployeLocation";
-
-const SITES_ENDPOINT = "/api/employee/sites/";
 
 export function AttributionEditor({
   quantiteTotale,
@@ -23,6 +17,7 @@ export function AttributionEditor({
   setAttributions,
   employees,
   directions = [],
+  sites = [],
   demandeurParDefaut,
   articleCourant,
 }) {
@@ -31,20 +26,7 @@ export function AttributionEditor({
   const [employeSelectionne, setEmployeSelectionne] = useState(null);
   const [directionSelectionnee, setDirectionSelectionnee] = useState(null);
   const [siteSelectionne, setSiteSelectionne] = useState(null);
-  const [sites, setSites] = useState([]);
-  const [sitesLoading, setSitesLoading] = useState(false);
   const [quantiteAttribution, setQuantiteAttribution] = useState("");
-
-  // Charger les sites
-  useEffect(() => {
-    let cancelled = false;
-    setSitesLoading(true);
-    apiClient.get(SITES_ENDPOINT, { params: { page_size: 100 } })
-      .then((res) => { if (!cancelled) setSites(res.data.results ?? res.data); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setSitesLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
 
   const sommeAttribuee = attributions.reduce(
     (sum, a) => sum + (Number(a.quantite) || 0),
@@ -86,7 +68,8 @@ export function AttributionEditor({
 
   const employesDisponibles = employees.filter((e) => {
     const dejaAttribue = attributions.some(
-      (a) => a.type === "EMPLOYE" && a.beneficiaire?.emp_id === e.emp_id
+      (a) => a.type === "EMPLOYE" &&
+        String(a.beneficiaire?.emp_id) === String(e.emp_id)
     );
     if (dejaAttribue) return false;
     if (directionDemandeur?.dir_libelle && e.direction_libelle) {
@@ -94,10 +77,6 @@ export function AttributionEditor({
     }
     return true;
   });
-
-  const sitesDejaAttribues = attributions
-    .filter((a) => a.type === "SITE")
-    .map((a) => a.beneficiaire?.site_id);
 
   const ajouterAttribution = () => {
     const qte = Number(quantiteAttribution);
@@ -133,7 +112,15 @@ export function AttributionEditor({
 
   const modifierQuantite = (index, nouvelleQuantite) => {
     const qte = Number(nouvelleQuantite);
-    if (!qte || qte <= 0) return;
+    const quantiteRestantePourLigne = Number(quantiteTotale) -
+      attributions.reduce(
+        (sum, attribution, attributionIndex) =>
+          attributionIndex === index
+            ? sum
+            : sum + (Number(attribution.quantite) || 0),
+        0
+      );
+    if (!qte || qte <= 0 || qte > quantiteRestantePourLigne) return;
     const updated = [...attributions];
     updated[index] = { ...updated[index], quantite: qte };
     setAttributions(updated);
@@ -148,15 +135,24 @@ export function AttributionEditor({
     }
   };
 
+  const handleSelectTypeChange = (event) => {
+    const newType = event.target.value;
+    if (newType === "EMPLOYE" && !isImmobilisation) return;
+    setTypeBeneficiaire(newType);
+    setEmployeSelectionne(null);
+    setSiteSelectionne(null);
+    setQuantiteAttribution("");
+  };
+
   const getBeneficiaireId = (beneficiaire) => String(
     beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? beneficiaire?.site_id ?? ""
   );
 
   const getBeneficiaireLabel = (beneficiaire) => {
-    if (beneficiaire?.emp_id) {
+    if (beneficiaire?.emp_id != null) {
       return `${beneficiaire.emp_nom}${beneficiaire.emp_matricule ? ` (${beneficiaire.emp_matricule})` : ""}`;
     }
-    if (beneficiaire?.site_id) {
+    if (beneficiaire?.site_id != null) {
       return `${beneficiaire.site_nom} (${beneficiaire.site_type || "Site"})`;
     }
     return beneficiaire?.dir_libelle || "";
@@ -164,7 +160,11 @@ export function AttributionEditor({
 
   const modifierBeneficiaire = (index, beneficiaire) => {
     if (!beneficiaire) return;
-    const type = beneficiaire.emp_id ? "EMPLOYE" : beneficiaire.site_id ? "SITE" : "DIRECTION";
+    const type = beneficiaire.emp_id != null
+      ? "EMPLOYE"
+      : beneficiaire.site_id != null
+        ? "SITE"
+        : "DIRECTION";
     const updated = [...attributions];
     updated[index] = { ...updated[index], type, beneficiaire };
     setAttributions(updated);
@@ -182,7 +182,7 @@ export function AttributionEditor({
         const dejaAttribue = attributions.some(
           (attribution, index) => index !== currentIndex &&
           attribution.type === "EMPLOYE" &&
-          attribution.beneficiaire?.emp_id === employee.emp_id
+          String(attribution.beneficiaire?.emp_id) === String(employee.emp_id)
         );
         if (dejaAttribue) return false;
         if (directionDemandeur?.dir_libelle && employee.direction_libelle) {
@@ -192,51 +192,33 @@ export function AttributionEditor({
       });
     }
     if (type === "SITE") {
-      return sites.filter((s) => !sitesDejaAttribues.includes(s.site_id));
+      const options = sites.filter((site) => !attributions.some(
+        (attribution, index) =>
+          index !== currentIndex &&
+          attribution.type === "SITE" &&
+          String(attribution.beneficiaire?.site_id) === String(site.site_id)
+      ));
+      const currentSite = attributions[currentIndex]?.beneficiaire;
+      if (
+        currentSite?.site_id != null &&
+        !options.some((site) => String(site.site_id) === String(currentSite.site_id))
+      ) {
+        return [...options, currentSite];
+      }
+      return options;
+    }
+    const currentDirection = attributions[currentIndex]?.beneficiaire;
+    if (
+      currentDirection?.dir_id != null &&
+      String(directionActive?.dir_id) !== String(currentDirection.dir_id)
+    ) {
+      return directionActive ? [directionActive, currentDirection] : [currentDirection];
     }
     return directionActive ? [directionActive] : [];
   };
 
   return (
     <Box>
-      <ProgressBar current={sommeAttribuee} total={quantiteTotale} label="Attribué" />
-
-      {/* Toggle Type de bénéficiaire */}
-      <Box sx={{ mb: 2 }}>
-        <ToggleButtonGroup
-          value={typeBeneficiaire}
-          exclusive
-          onChange={handleTypeChange}
-          size="small"
-          sx={{
-            "& .MuiToggleButton-root": {
-              px: 2,
-              py: 0.75,
-              border: "1px solid #E0E0E0",
-              "&.Mui-selected": {
-                bgcolor: "primary.light",
-                borderColor: "primary.main",
-                color: "text.primary",
-                "&:hover": { bgcolor: "primary.main", color: "white" },
-              },
-            },
-          }}
-        >
-          <ToggleButton value="EMPLOYE" disabled={!isImmobilisation}>
-            <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
-            Employé
-          </ToggleButton>
-          <ToggleButton value="DIRECTION">
-            <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
-            Direction
-          </ToggleButton>
-          <ToggleButton value="SITE">
-            <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
-            Site
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
       <StyledTable
         columns={[
           { label: "Type", width: 140 },
@@ -247,11 +229,6 @@ export function AttributionEditor({
         emptyMessage="Aucune attribution. Vous recevrez toute la quantité."
       >
         {attributions.map((attr, index) => {
-          const isEmploye = attr.type === "EMPLOYE";
-          const isDirection = attr.type === "DIRECTION";
-          const isSite = attr.type === "SITE";
-          const loc = isEmploye ? getEmployeLocation(attr.beneficiaire) : null;
-
           return (
             <tr key={index}>
               <td>
@@ -311,7 +288,7 @@ export function AttributionEditor({
         <tr>
           <td>
             <FormControl size="small" fullWidth>
-              <Select value={typeBeneficiaire} label="Type" onChange={handleTypeChange}>
+              <Select value={typeBeneficiaire} label="Type" onChange={handleSelectTypeChange}>
                 <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
                 <MenuItem value="DIRECTION">Direction</MenuItem>
                 <MenuItem value="SITE">Site</MenuItem>
@@ -338,10 +315,11 @@ export function AttributionEditor({
             ) : typeBeneficiaire === "SITE" ? (
               <Autocomplete
                 size="small"
-                options={sites.filter((s) => !sitesDejaAttribues.includes(s.site_id))}
-                loading={sitesLoading}
-                getOptionLabel={(option) => `${option.site_nom} (${option.site_type})`}
-                isOptionEqualToValue={(option, value) => option?.site_id === value?.site_id}
+                options={getBeneficiaireOptions("SITE")}
+                getOptionLabel={(option) => `${option.site_nom} (${option.site_type || "Site"})`}
+                isOptionEqualToValue={(option, value) =>
+                  String(option?.site_id) === String(value?.site_id)
+                }
                 value={siteSelectionne}
                 onChange={(_, newValue) => setSiteSelectionne(newValue)}
                 renderInput={(params) => (
