@@ -1,23 +1,12 @@
 import { useState, useEffect } from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Box,
-  Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Autocomplete,
-  CircularProgress,
-  ToggleButtonGroup,
-  ToggleButton,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box,
+  Typography, FormControl, InputLabel, Select, MenuItem, Autocomplete,
+  CircularProgress, ToggleButtonGroup, ToggleButton,
 } from "@mui/material";
-import { Person as PersonIcon, Business as BusinessIcon } from "@mui/icons-material";
+import {
+  Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon,
+} from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { useNotification } from "../../../components/common/NotificationProvider";
@@ -25,19 +14,17 @@ import { CodeChip } from "../../../components/common/CodeChip";
 import { EtatBadge } from "../../../components/common/EtatBadge";
 import { getEmployeLocation } from "../../../components/common/EmployeLocation";
 
-const EMPLOYEES_ENDPOINT = "/api/employee/employee/";
-const DIRECTIONS_ENDPOINT = "/api/employee/direction/";
-
 export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
   const notify = useNotification();
   const [magasins, setMagasins] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
+  const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const [typeBeneficiaire, setTypeBeneficiaire] = useState("EMPLOYE");
   const [nouvelEmploye, setNouvelEmploye] = useState(null);
   const [nouvelleDirection, setNouvelleDirection] = useState(null);
+  const [nouveauSite, setNouveauSite] = useState(null);
   const [magasinSource, setMagasinSource] = useState("");
   const [motif, setMotif] = useState("");
   const [saving, setSaving] = useState(false);
@@ -47,23 +34,26 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
     setLoading(true);
     setNouvelEmploye(null);
     setNouvelleDirection(null);
+    setNouveauSite(null);
     setMagasinSource("");
     setMotif("");
     setTypeBeneficiaire("EMPLOYE");
 
     Promise.all([
       apiClient.get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } }),
-      apiClient.get(EMPLOYEES_ENDPOINT, { params: { page_size: 500 } }),
-      apiClient.get(DIRECTIONS_ENDPOINT, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
+      apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
     ])
-      .then(([magRes, empRes, dirRes]) => {
+      .then(([magRes, empRes, dirRes, siteRes]) => {
         setMagasins(magRes.data.results ?? magRes.data);
         setEmployees(empRes.data.results ?? empRes.data);
         setDirections(dirRes.data.results ?? dirRes.data);
+        setSites(siteRes.data.results ?? siteRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED))
       .finally(() => setLoading(false));
-  }, [isOpen]);
+  }, [isOpen, notify]);
 
   const handleSubmit = async () => {
     if (!magasinSource) {
@@ -78,6 +68,10 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       notify.error("Veuillez sélectionner une direction.");
       return;
     }
+    if (typeBeneficiaire === "SITE" && !nouveauSite) {
+      notify.error("Veuillez sélectionner un site.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -89,9 +83,15 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       if (typeBeneficiaire === "EMPLOYE") {
         payload.nouvel_employe_beneficiaire = nouvelEmploye.emp_id;
         payload.nouvelle_direction_beneficiaire = null;
+        payload.nouveau_site_beneficiaire = null;
+      } else if (typeBeneficiaire === "SITE") {
+        payload.nouveau_site_beneficiaire = nouveauSite.site_id;
+        payload.nouvel_employe_beneficiaire = null;
+        payload.nouvelle_direction_beneficiaire = null;
       } else {
         payload.nouvelle_direction_beneficiaire = nouvelleDirection.dir_id;
         payload.nouvel_employe_beneficiaire = null;
+        payload.nouveau_site_beneficiaire = null;
       }
 
       await apiClient.post(
@@ -123,13 +123,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
 
   return (
     <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle
-        sx={{
-          bgcolor: "#FFF8E1",
-          borderBottom: "2px solid",
-          borderColor: "primary.main",
-        }}
-      >
+      <DialogTitle sx={{ bgcolor: "#FFF8E1", borderBottom: "2px solid", borderColor: "primary.main" }}>
         <Typography variant="h6">Transfert d'unité</Typography>
         <Typography variant="caption" color="text.secondary">
           Unité #{unite.unite_id}
@@ -145,9 +139,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
           <>
             {/* Infos unité actuelle */}
             <Box sx={{ mb: 3, p: 2, bgcolor: "#FAFAFA", borderRadius: 1, border: "1px solid #E0E0E0" }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Unité actuelle
-              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Unité actuelle</Typography>
               <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Article</Typography>
@@ -175,6 +167,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
                     {beneficiaireActuelType === "EMPLOYE" ? (
                       <PersonIcon fontSize="small" color="primary" />
+                    ) : beneficiaireActuelType === "SITE" ? (
+                      <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
                     ) : (
                       <BusinessIcon fontSize="small" color="secondary" />
                     )}
@@ -187,18 +181,11 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
             {/* Magasin source */}
             <FormControl fullWidth sx={{ mb: 2 }} required>
               <InputLabel>Magasin source</InputLabel>
-              <Select
-                value={magasinSource}
-                label="Magasin source"
-                onChange={(e) => setMagasinSource(e.target.value)}
-              >
-                <MenuItem value="" disabled>
-                  Sélectionner un magasin...
-                </MenuItem>
+              <Select value={magasinSource} label="Magasin source" onChange={(e) => setMagasinSource(e.target.value)}>
+                <MenuItem value="" disabled>Sélectionner un magasin...</MenuItem>
                 {magasins.map((m) => (
                   <MenuItem key={m.magasin_id} value={m.magasin_id}>
-                    {m.magasin_nom}
-                    {m.localite_nom ? ` (${m.localite_nom})` : ""}
+                    {m.magasin_nom}{m.localite_nom ? ` (${m.localite_nom})` : ""}
                   </MenuItem>
                 ))}
               </Select>
@@ -206,9 +193,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
 
             {/* Type de bénéficiaire */}
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Nouveau bénéficiaire
-              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Nouveau bénéficiaire</Typography>
               <ToggleButtonGroup
                 value={typeBeneficiaire}
                 exclusive
@@ -217,22 +202,17 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                     setTypeBeneficiaire(val);
                     setNouvelEmploye(null);
                     setNouvelleDirection(null);
+                    setNouveauSite(null);
                   }
                 }}
                 size="small"
                 sx={{
                   "& .MuiToggleButton-root": {
-                    px: 2,
-                    py: 0.75,
-                    border: "1px solid #E0E0E0",
+                    px: 2, py: 0.75, border: "1px solid #E0E0E0",
                     "&.Mui-selected": {
-                      bgcolor: "primary.light",
-                      borderColor: "primary.main",
+                      bgcolor: "primary.light", borderColor: "primary.main",
                       color: "text.primary",
-                      "&:hover": {
-                        bgcolor: "primary.main",
-                        color: "white",
-                      },
+                      "&:hover": { bgcolor: "primary.main", color: "white" },
                     },
                   },
                 }}
@@ -245,6 +225,10 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                   <BusinessIcon fontSize="small" sx={{ mr: 0.5 }} />
                   Direction
                 </ToggleButton>
+                <ToggleButton value="SITE">
+                  <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Site
+                </ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
@@ -252,42 +236,27 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
             {typeBeneficiaire === "EMPLOYE" ? (
               <Autocomplete
                 options={employees}
-                getOptionLabel={(option) =>
-                  option?.emp_nom
-                    ? `${option.emp_nom} (${option.emp_matricule})`
-                    : ""
-                }
-                isOptionEqualToValue={(option, value) =>
-                  option?.emp_id === value?.emp_id
-                }
+                getOptionLabel={(option) => option?.emp_nom ? `${option.emp_nom} (${option.emp_matricule})` : ""}
+                isOptionEqualToValue={(option, value) => option?.emp_id === value?.emp_id}
                 value={nouvelEmploye}
                 onChange={(_, newValue) => setNouvelEmploye(newValue)}
                 renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Sélectionner un employé"
-                    placeholder="Rechercher par nom, matricule..."
-                    required
-                  />
+                  <TextField {...params} label="Sélectionner un employé" placeholder="Rechercher par nom, matricule..." required />
                 )}
                 renderOption={(props, option) => {
                   const loc = getEmployeLocation(option);
                   return (
                     <li {...props} key={option.emp_id}>
                       <Box sx={{ width: "100%" }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {option.emp_nom}
-                        </Typography>
+                        <Typography variant="body2" fontWeight={500}>{option.emp_nom}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {option.emp_matricule}
-                          {option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
+                          {option.emp_matricule}{option.emp_fonction ? ` • ${option.emp_fonction}` : ""}
                         </Typography>
                         {loc && (
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
                             <BusinessIcon sx={{ fontSize: 12 }} />
                             <Typography variant="caption" color="text.secondary">
-                              {loc.site ? `${loc.site} → ` : ""}
-                              {loc.direction || "—"}
+                              {loc.site ? `${loc.site} → ` : ""}{loc.direction || "—"}
                             </Typography>
                           </Box>
                         )}
@@ -298,33 +267,52 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                 noOptionsText="Aucun employé trouvé"
                 sx={{ mb: 2 }}
               />
-            ) : (
+            ) : typeBeneficiaire === "SITE" ? (
               <Autocomplete
-                options={directions}
+                options={sites}
                 getOptionLabel={(option) =>
-                  option?.dir_libelle
-                    ? `${option.dir_libelle} (${option.site_nom})`
+                  option?.site_nom
+                    ? `${option.site_nom} (${option.site_type || "Site"})`
                     : ""
                 }
                 isOptionEqualToValue={(option, value) =>
-                  option?.dir_id === value?.dir_id
+                  String(option?.site_id) === String(value?.site_id)
                 }
+                value={nouveauSite}
+                onChange={(_, newValue) => setNouveauSite(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Sélectionner un site" placeholder="Rechercher un site..." required />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.site_id}>
+                    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1 }}>
+                      <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{option.site_nom}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.site_type} • {option.localite || "—"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText="Aucun site trouvé"
+                sx={{ mb: 2 }}
+              />
+            ) : (
+              <Autocomplete
+                options={directions}
+                getOptionLabel={(option) => option?.dir_libelle ? `${option.dir_libelle} (${option.site_nom})` : ""}
+                isOptionEqualToValue={(option, value) => option?.dir_id === value?.dir_id}
                 value={nouvelleDirection}
                 onChange={(_, newValue) => setNouvelleDirection(newValue)}
                 renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Sélectionner une direction"
-                    placeholder="Rechercher une direction..."
-                    required
-                  />
+                  <TextField {...params} label="Sélectionner une direction" placeholder="Rechercher une direction..." required />
                 )}
                 renderOption={(props, option) => (
                   <li {...props} key={option.dir_id}>
                     <Box sx={{ width: "100%" }}>
-                      <Typography variant="body2" fontWeight={500}>
-                        {option.dir_libelle}
-                      </Typography>
+                      <Typography variant="body2" fontWeight={500}>{option.dir_libelle}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {option.site_nom} • {option.site_type}
                       </Typography>
@@ -350,9 +338,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={saving}>
-          Annuler
-        </Button>
+        <Button onClick={onClose} disabled={saving}>Annuler</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
@@ -360,7 +346,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
             saving ||
             !magasinSource ||
             (typeBeneficiaire === "EMPLOYE" && !nouvelEmploye) ||
-            (typeBeneficiaire === "DIRECTION" && !nouvelleDirection)
+            (typeBeneficiaire === "DIRECTION" && !nouvelleDirection) ||
+            (typeBeneficiaire === "SITE" && !nouveauSite)
           }
           startIcon={saving ? <CircularProgress size={16} /> : null}
         >

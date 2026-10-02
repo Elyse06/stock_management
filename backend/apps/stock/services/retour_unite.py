@@ -10,7 +10,8 @@ from apps.stock.models import (
 def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
     try:
         unite = UniteArticle.objects.select_related(
-            'article', 'employe_beneficiaire', 'direction_beneficiaire'
+            'article', 'employe_beneficiaire', 'direction_beneficiaire',
+            'site_beneficiaire',
         ).get(unite_id=unite_id)
     except UniteArticle.DoesNotExist:
         raise serializers.ValidationError(f"Unité #{unite_id} introuvable.")
@@ -25,7 +26,11 @@ def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
             "Une unité marquée 'Perdu' ne peut pas être retournée au stock."
         )
     
-    beneficiaire_source = unite.employe_beneficiaire or unite.direction_beneficiaire
+    beneficiaire_source = (
+        unite.employe_beneficiaire
+        or unite.direction_beneficiaire
+        or unite.site_beneficiaire
+    )
     
     mouvement = Mouvement.objects.create(
         type_mouvement=Mouvement.Type.RETOUR,
@@ -44,6 +49,8 @@ def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
         detail_payload["employe_beneficiaire"] = unite.employe_beneficiaire
     elif unite.direction_beneficiaire:
         detail_payload["direction_beneficiaire"] = unite.direction_beneficiaire
+    elif unite.site_beneficiaire:
+        detail_payload["site_beneficiaire"] = unite.site_beneficiaire
     
     DetailMouvement.objects.create(**detail_payload)
     

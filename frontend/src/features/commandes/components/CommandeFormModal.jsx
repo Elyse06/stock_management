@@ -21,6 +21,7 @@ import {
   Inventory as InventoryIcon,
   ListAlt as ListAltIcon,
   Business as BusinessIcon,
+  LocationCity as LocationCityIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -64,16 +65,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     (e) => String(e.emp_utilisateur_id) === String(user?.utilisateur_id)
   );
 
-  const directionDemandeur = directions.find((d) => {
-    if (employeeDemandeur?.direction_libelle && d.dir_libelle) {
-      return d.dir_libelle.trim().toLowerCase() === employeeDemandeur.direction_libelle.trim().toLowerCase();
-    }
-    if (employeeDemandeur?.emp_serv_id?.serv_dir_id) {
-      return String(d.dir_id) === String(employeeDemandeur.emp_serv_id.serv_dir_id);
-    }
-    return false;
-  }) || (directions.length > 0 ? directions[0] : null);
-
   const ligneVide = () => ({
     article: "",
     article_designation: "",
@@ -98,7 +89,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         setSites(sitesRes.data.results ?? sitesRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
-  }, [isOpen]);
+  }, [isOpen, notify]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,7 +99,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
         const article = articles.find((a) => a.code_article === detail.article);
         const attributions = (detail.attributions || []).map((attr) => {
           if (attr.employe_beneficiaire) {
-            const employe = employees.find((e) => e.emp_id === attr.employe_beneficiaire);
+            const employe = employees.find((e) => String(e.emp_id) === String(attr.employe_beneficiaire));
             return {
               type: "EMPLOYE",
               beneficiaire_id: attr.employe_beneficiaire,
@@ -117,7 +108,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               quantite: Number(attr.quantite),
             };
           } else if (attr.direction_beneficiaire) {
-            const direction = directions.find((d) => d.dir_id === attr.direction_beneficiaire);
+            const direction = directions.find((d) => String(d.dir_id) === String(attr.direction_beneficiaire));
             return {
               type: "DIRECTION",
               beneficiaire_id: attr.direction_beneficiaire,
@@ -125,13 +116,16 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               beneficiaire: direction || { dir_id: attr.direction_beneficiaire, dir_libelle: attr.beneficiaire_nom },
               quantite: Number(attr.quantite),
             };
-          } else if (attr.site_beneficiaire) { // 🆕
-            const site = sites.find((s) => s.site_id === attr.site_beneficiaire);
+          } else if (attr.site_beneficiaire != null) {
+            const site = {
+              site_id: attr.site_beneficiaire,
+              site_nom: attr.beneficiaire_nom || "Site",
+            };
             return {
               type: "SITE",
               beneficiaire_id: attr.site_beneficiaire,
-              beneficiaire_nom: site?.site_nom || attr.beneficiaire_nom || "Site",
-              beneficiaire: site || { site_id: attr.site_beneficiaire, site_nom: attr.beneficiaire_nom },
+              beneficiaire_nom: site.site_nom,
+              beneficiaire: site,
               quantite: Number(attr.quantite),
             };
           }
@@ -192,11 +186,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
     }
   };
 
-  const handleAjouterAutreDepuisRecap = () => {
-    ajouterLigne();
-    setActiveStep(0);
-  };
-
   const handleSubmit = async () => {
     if (lignesValides.length === 0) {
       notify.error("Ajoutez au moins un article à la commande.");
@@ -225,11 +214,11 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               quantite_demandee: a.quantite,
             };
             if (a.type === "EMPLOYE") {
-              item.employe_beneficiaire = a.beneficiaire_id || a.beneficiaire?.emp_id;
+              item.employe_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.emp_id;
             } else if (a.type === "SITE") {
-              item.site_beneficiaire = a.beneficiaire_id || a.beneficiaire?.site_id;
+              item.site_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.site_id;
             } else {
-              item.direction_beneficiaire = a.beneficiaire_id || a.beneficiaire?.dir_id;
+              item.direction_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.dir_id;
             }
             return item;
           });
@@ -329,6 +318,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                         setAttributions={(attributions) => modifierLigne(index, { attributions })}
                         employees={employees}
                         directions={directions}
+                        sites={sites}
                         demandeurParDefaut={employeeDemandeur}
                         articleCourant={article || ligne}
                       />
@@ -403,12 +393,12 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                             const isEmploye = attr.type === "EMPLOYE";
                             const isSite = attr.type === "SITE";
                             const beneficiaireNom = isEmploye
-                              ? employees.find((e) => e.emp_id === attr.beneficiaire_id)?.emp_nom
+                              ? employees.find((e) => String(e.emp_id) === String(attr.beneficiaire_id))?.emp_nom
                                 || attr.beneficiaire?.emp_nom
                                 || attr.beneficiaire_nom
                                 || "Employé"
                               : isSite
-                              ? sites.find((s) => s.site_id === attr.beneficiaire_id)?.site_nom
+                              ? sites.find((s) => String(s.site_id) === String(attr.beneficiaire_id))?.site_nom
                                 || attr.beneficiaire?.site_nom
                                 || attr.beneficiaire_nom
                                 || "Site"
@@ -483,9 +473,6 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       return (
         <>
           <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" onClick={handleAjouterAutreDepuisRecap} startIcon={<AddIcon />}>
-            Ajouter un autre article
-          </Button>
           <WizardActions
             activeStep={activeStep}
             totalSteps={STEPS.length}
