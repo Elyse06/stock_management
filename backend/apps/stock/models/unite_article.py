@@ -2,8 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.catalogue.models import Article
-from apps.employee.models import Direction, Employer, Site
 
+from .affectation import Affectation
 from .detail_mouvement import DetailMouvement
 
 
@@ -33,16 +33,8 @@ class UniteArticle(models.Model):
         DetailMouvement, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="unites_attribuees",
     )
-    employe_beneficiaire = models.ForeignKey(
-        Employer, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="unites_attribuees",
-    )
-    direction_beneficiaire = models.ForeignKey(
-        Direction, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="unites_attribuees",
-    )
-    site_beneficiaire = models.ForeignKey(
-        Site, on_delete=models.SET_NULL, null=True, blank=True,
+    affectation = models.ForeignKey(
+        Affectation, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="unites_attribuees",
     )
 
@@ -60,11 +52,6 @@ class UniteArticle(models.Model):
         identifiant = self.numero_de_serie or f"unité #{self.unite_id}"
         return f"{self.article.designation} - {identifiant} ({self.get_statut_display()})"
 
-    # NOTE : cette méthode était auparavant imbriquée (par erreur d'indentation)
-    # à l'intérieur de __str__, ce qui faisait qu'elle n'était jamais appelée
-    # par full_clean(). Corrigé ici pour que les règles ci-dessous soient
-    # réellement appliquées, et étendu pour couvrir le nouveau bénéficiaire
-    # "site".
     def clean(self):
         if self.article_id and self.article.mode_suivi == self.article.ModeSuivi.NUMERO_SERIE:
             if not self.numero_de_serie:
@@ -76,72 +63,41 @@ class UniteArticle(models.Model):
                 "numero_de_serie": "Ne doit pas être renseigné pour un article suivi par quantité."
             })
 
-        nb_beneficiaires = sum([
-            self.employe_beneficiaire_id is not None,
-            self.direction_beneficiaire_id is not None,
-            self.site_beneficiaire_id is not None,
-        ])
-
         if self.statut == self.Statut.ATTRIBUE:
-            if nb_beneficiaires != 1:
+            if not self.affectation_id:
                 raise ValidationError(
-                    "Une unité ATTRIBUE doit avoir exactement un bénéficiaire : "
-                    "un employé, une direction OU un site (un seul, pas plusieurs, ni aucun)."
+                    "Une unité ATTRIBUE doit avoir une affectation."
                 )
         else:
-            if nb_beneficiaires > 0:
+            if self.affectation_id:
                 raise ValidationError(
-                    "Une unité EN_STOCK ne doit pas avoir de bénéficiaire."
+                    "Une unité EN_STOCK ne doit pas avoir d'affectation."
                 )
 
     @property
     def employe_attribue(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_id
+        if self.affectation_id and self.affectation.beneficiaire_type == Affectation.BeneficiaireType.EMPLOYE:
+            return self.affectation.employe.emp_id
         return None
-    
+
     @property
     def employe_attribue_nom(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_nom
-        if self.direction_beneficiaire_id:
-            return self.direction_beneficiaire.dir_libelle
-        if self.site_beneficiaire_id:
-            return self.site_beneficiaire.site_nom
-        return ""
-    
+        return self.affectation.nom if self.affectation_id else ""
+
     @property
     def employe_attribue_matricule(self):
-        if self.employe_beneficiaire_id:
-            return self.employe_beneficiaire.emp_matricule
+        if self.affectation_id and self.affectation.beneficiaire_type == Affectation.BeneficiaireType.EMPLOYE:
+            return self.affectation.employe.emp_matricule
         return ""
 
     @property
     def beneficiaire_type(self):
-        if self.employe_beneficiaire_id:
-            return "EMPLOYE"
-        if self.direction_beneficiaire_id:
-            return "DIRECTION"
-        if self.site_beneficiaire_id:
-            return "SITE"
-        return None
+        return self.affectation.beneficiaire_type if self.affectation_id else None
 
     def attribuer(self, beneficiaire, mouvement_sortie):
-        if isinstance(beneficiaire, Employer):
-            self.employe_beneficiaire = beneficiaire
-            self.direction_beneficiaire = None
-            self.site_beneficiaire = None
-        elif isinstance(beneficiaire, Direction):
-            self.direction_beneficiaire = beneficiaire
-            self.employe_beneficiaire = None
-            self.site_beneficiaire = None
-        elif isinstance(beneficiaire, Site):
-            self.site_beneficiaire = beneficiaire
-            self.employe_beneficiaire = None
-            self.direction_beneficiaire = None
-        else:
-            raise ValidationError("beneficiaire doit être un Employer, une Direction ou un Site.")
- 
+        """beneficiaire : un Employer, une Direction, une Salle ou un Site.
+        Résout (ou crée) l'Affectation partagée correspondante."""
+        self.affectation = Affectation.resoudre(beneficiaire)
         self.statut = self.Statut.ATTRIBUE
         if isinstance(mouvement_sortie, dict):
             pass
@@ -152,9 +108,7 @@ class UniteArticle(models.Model):
 
     def retourner_stock(self):
         self.statut = 'EN_STOCK'
-        self.employe_beneficiaire = None
-        self.direction_beneficiaire = None
-        self.site_beneficiaire = None
+        self.affectation = None
         self.mouvement_sortie = None
         self.full_clean()
         self.save()
