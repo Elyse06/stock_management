@@ -10,27 +10,43 @@ def _get_attributions_actives(article):
             quantite_validee__gt=0,
         )
         .select_related(
-            "employe_beneficiaire",
-            "employe_beneficiaire__emp_serv_id",
-            "employe_beneficiaire__emp_serv_id__serv_dir_id",
-            "employe_beneficiaire__emp_serv_id__serv_dir_id__site",
-            "direction_beneficiaire",
-            "direction_beneficiaire__site",
+            "affectation",
+            "affectation__employe",
+            "affectation__employe__emp_serv_id",
+            "affectation__employe__emp_serv_id__serv_dir_id",
+            "affectation__employe__emp_serv_id__serv_dir_id__site",
+            "affectation__direction",
+            "affectation__direction__site",
+            "affectation__salle",
+            "affectation__salle__localite",
+            "affectation__site",
         )
         .order_by("-date_acquisition")
     )
 
     resultats = []
     for attribution in attributions:
-        employe = attribution.employe_beneficiaire
-        direction = attribution.direction_beneficiaire
-        beneficiaire = employe or direction
-        site = employe.site if employe else direction.site if direction else None
+        affectation = attribution.affectation
+        employe = affectation.employe
+        direction = affectation.direction
+        salle = affectation.salle
+
+        # Avant : seuls Employé et Direction étaient gérés ici (Site était
+        # silencieusement ignoré, bien que le modèle l'autorise déjà).
+        # Généralisé aux 4 types via l'affectation partagée.
+        if employe:
+            site = employe.site
+        elif direction:
+            site = direction.site
+        elif salle:
+            site = salle.localite
+        else:
+            site = affectation.site
 
         resultats.append({
-            "beneficiaire_id": beneficiaire.pk if beneficiaire else None,
-            "beneficiaire_nom": beneficiaire.emp_nom if employe else direction.dir_libelle if direction else "—",
-            "beneficiaire_type": "EMPLOYE" if employe else "DIRECTION",
+            "beneficiaire_id": affectation.cible.pk if affectation.cible else None,
+            "beneficiaire_nom": affectation.nom,
+            "beneficiaire_type": affectation.beneficiaire_type,
             "matricule": employe.emp_matricule if employe else None,
             "fonction": employe.emp_fonction if employe else None,
             "site": site.site_nom if site else None,

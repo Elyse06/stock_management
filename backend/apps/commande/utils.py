@@ -28,8 +28,11 @@ def generate_attribution_qr_payload(attribution) -> str:
     if hasattr(attribution, "get_qr_payload"):
         return json.dumps(attribution.get_qr_payload(), default=str)
     
+    # Filet de sécurité si jamais get_qr_payload() n'existe pas sur l'objet
+    # passé : 'beneficiaire_id' pointe maintenant vers l'Affectation partagée
+    # (et non plus directement vers un employé).
     return json.dumps({
         "code_unique": str(attribution.code_unique),
         "quantite": float(attribution.quantite),
-        "beneficiaire_id": attribution.employe_beneficiaire_id,
+        "beneficiaire_id": getattr(attribution, "affectation_id", None),
     })

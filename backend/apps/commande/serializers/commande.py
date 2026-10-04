@@ -4,6 +4,7 @@ from rest_framework import serializers
 from apps.commande.models import AttributionDetailCommande, Commande, DetailCommande
 from apps.commande.utils import format_employee_data
 from apps.employee.models import Employer
+from apps.stock.models import Affectation
 
 from .detail_commande import DetailCommandeSerializer
 
@@ -51,9 +52,16 @@ class CommandeSerializer(serializers.ModelSerializer):
             attributions_data = detail_data.pop("attributions", [])
             detail = DetailCommande.objects.create(commande=commande, **detail_data)
             for attribution_data in attributions_data:
+                # Création directe (pas via AttributionDetailCommandeSerializer.
+                # create()) : il faut donc résoudre l'affectation nous-mêmes ici.
+                try:
+                    affectation = Affectation.extraire_et_resoudre(
+                        attribution_data, requis=True
+                    )
+                except ValueError as exc:
+                    raise serializers.ValidationError(str(exc)) from exc
                 AttributionDetailCommande.objects.create(
-                    detail_commande=detail, **attribution_data
+                    detail_commande=detail, affectation=affectation, **attribution_data
                 )
 
         return commande
-    

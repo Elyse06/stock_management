@@ -10,8 +10,8 @@ from apps.stock.models import (
 def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
     try:
         unite = UniteArticle.objects.select_related(
-            'article', 'employe_beneficiaire', 'direction_beneficiaire',
-            'site_beneficiaire',
+            'article', 'affectation', 'affectation__employe',
+            'affectation__direction', 'affectation__salle', 'affectation__site',
         ).get(unite_id=unite_id)
     except UniteArticle.DoesNotExist:
         raise serializers.ValidationError(f"Unité #{unite_id} introuvable.")
@@ -26,11 +26,7 @@ def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
             "Une unité marquée 'Perdu' ne peut pas être retournée au stock."
         )
     
-    beneficiaire_source = (
-        unite.employe_beneficiaire
-        or unite.direction_beneficiaire
-        or unite.site_beneficiaire
-    )
+    beneficiaire_source = unite.affectation.cible if unite.affectation_id else None
     
     mouvement = Mouvement.objects.create(
         type_mouvement=Mouvement.Type.RETOUR,
@@ -45,16 +41,18 @@ def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
         "article": unite.article,
         "quantite": 1,
     }
-    if unite.employe_beneficiaire:
-        detail_payload["employe_beneficiaire"] = unite.employe_beneficiaire
-    elif unite.direction_beneficiaire:
-        detail_payload["direction_beneficiaire"] = unite.direction_beneficiaire
-    elif unite.site_beneficiaire:
-        detail_payload["site_beneficiaire"] = unite.site_beneficiaire
+    if unite.affectation_id:
+        # Le détail de retour garde une trace de QUI détenait l'unité, à
+        # titre d'historique (l'unité elle-même perd son affectation juste
+        # après, via retourner_stock()).
+        detail_payload["affectation"] = unite.affectation
     
     DetailMouvement.objects.create(**detail_payload)
     
+    # retourner_stock() s'occupe déjà de remettre statut=EN_STOCK,
+    # affectation=None et mouvement_sortie=None, puis sauvegarde. (L'ancien
+    # code refaisait un `unite.mouvement_sortie = None` juste après, sans
+    # second .save() : c'était un no-op mort, retiré ici.)
     unite.retourner_stock()
-    unite.mouvement_sortie = None
     
     return mouvement

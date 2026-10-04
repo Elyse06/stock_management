@@ -14,7 +14,9 @@ from apps.stock.serializers import (
 
 class UniteArticleViewSet(viewsets.ModelViewSet):
     queryset = UniteArticle.objects.all().select_related(
-        "article", "mouvement_entree", "mouvement_sortie", "employe_beneficiaire", "direction_beneficiaire", "site_beneficiaire",
+        "article", "mouvement_entree", "mouvement_sortie",
+        "affectation", "affectation__employe", "affectation__direction",
+        "affectation__salle", "affectation__site",
     )
     serializer_class = UniteArticleSerializer
     permission_classes = [HasActionByMethod.for_methods(  # noqa: RUF012
@@ -24,7 +26,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["article", "statut", "etat", "employe_beneficiaire"]  # noqa: RUF012
+    filterset_fields = ["article", "statut", "etat", "affectation__employe"]  # noqa: RUF012
 
     @action(detail=True, methods=['post'], url_path='retourner-stock')
     def retourner_stock(self, request, pk=None):

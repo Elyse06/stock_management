@@ -3,8 +3,10 @@ from rest_framework import serializers
 
 from apps.employee.models import Direction, Employer, Site
 from apps.stock.models import (
+    Affectation,
     DetailMouvement,
     Mouvement,
+    Salle,
     UniteArticle,
 )
 
@@ -13,8 +15,8 @@ from apps.stock.models import (
 def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
     try:
         unite = UniteArticle.objects.select_related(
-            'article', 'employe_beneficiaire', 'direction_beneficiaire',
-            'site_beneficiaire',
+            'article', 'affectation', 'affectation__employe',
+            'affectation__direction', 'affectation__salle', 'affectation__site',
         ).get(unite_id=unite_id)
     except UniteArticle.DoesNotExist:
         raise serializers.ValidationError(f"Unité #{unite_id} introuvable.")
@@ -29,19 +31,15 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
             f"Impossible de transférer une unité dans l'état '{unite.get_etat_display()}'."
         )
     
-    ancien_beneficiaire = (
-        unite.employe_beneficiaire
-        or unite.direction_beneficiaire
-        or unite.site_beneficiaire
-    )
+    ancien_beneficiaire = unite.affectation.cible if unite.affectation_id else None
     if ancien_beneficiaire == nouveau_beneficiaire:
         raise serializers.ValidationError(
             "Le nouveau bénéficiaire doit être différent du bénéficiaire actuel."
         )
     
-    if not isinstance(nouveau_beneficiaire, (Employer, Direction, Site)):
+    if not isinstance(nouveau_beneficiaire, (Employer, Direction, Salle, Site)):
         raise serializers.ValidationError(
-            "Le bénéficiaire doit être un employé, une direction ou un site."
+            "Le bénéficiaire doit être un employé, une direction, une salle ou un site."
         )
     
     if not unite.article.is_immobilisation and isinstance(nouveau_beneficiaire, Employer):
@@ -57,24 +55,15 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
         magasin_destination=magasin_source,
     )
     
-    detail_retour_payload = {
-        "mouvement": mouvement_retour,
-        "article": unite.article,
-        "quantite": 1,
-    }
-    if unite.employe_beneficiaire:
-        detail_retour_payload["employe_beneficiaire"] = unite.employe_beneficiaire
-    elif unite.direction_beneficiaire:
-        detail_retour_payload["direction_beneficiaire"] = unite.direction_beneficiaire
-    elif unite.site_beneficiaire:
-        detail_retour_payload["site_beneficiaire"] = unite.site_beneficiaire
-    
-    DetailMouvement.objects.create(**detail_retour_payload)
+    DetailMouvement.objects.create(
+        mouvement=mouvement_retour,
+        article=unite.article,
+        quantite=1,
+        affectation=unite.affectation if unite.affectation_id else None,
+    )
     
     unite.statut = UniteArticle.Statut.EN_STOCK
-    unite.employe_beneficiaire = None
-    unite.direction_beneficiaire = None
-    unite.site_beneficiaire = None
+    unite.affectation = None
     unite.mouvement_sortie = None
     unite.save()
     
@@ -85,19 +74,12 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
         motif=motif or "Transfert - nouvelle attribution",
     )
     
-    detail_sortie_payload = {
-        "mouvement": mouvement_sortie,
-        "article": unite.article,
-        "quantite": 1,
-    }
-    if isinstance(nouveau_beneficiaire, Employer):
-        detail_sortie_payload["employe_beneficiaire"] = nouveau_beneficiaire
-    elif isinstance(nouveau_beneficiaire, Direction):
-        detail_sortie_payload["direction_beneficiaire"] = nouveau_beneficiaire
-    else:
-        detail_sortie_payload["site_beneficiaire"] = nouveau_beneficiaire
-    
-    detail_sortie = DetailMouvement.objects.create(**detail_sortie_payload)
+    detail_sortie = DetailMouvement.objects.create(
+        mouvement=mouvement_sortie,
+        article=unite.article,
+        quantite=1,
+        affectation=Affectation.resoudre(nouveau_beneficiaire),
+    )
     unite.attribuer(beneficiaire=nouveau_beneficiaire, mouvement_sortie=detail_sortie)
     
     return {

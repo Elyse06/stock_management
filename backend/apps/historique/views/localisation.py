@@ -86,8 +86,8 @@ class HistoriqueLocalisationView(APIView):
         )
         if direction:
             beneficiaires_direction = (
-                Q(direction_beneficiaire_id=direction.pk)
-                | Q(employe_beneficiaire__emp_serv_id__serv_dir_id=direction.pk)
+                Q(affectation__direction_id=direction.pk)
+                | Q(affectation__employe__emp_serv_id__serv_dir_id=direction.pk)
             )
             date_filter = {"mouvement__date__lte": date_ref, "article": article}
             sorties = DetailMouvement.objects.filter(
@@ -102,10 +102,19 @@ class HistoriqueLocalisationView(APIView):
             ).aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
             return sorties - retours
         if site:
+            # NOTE : la requête précédente utilisait
+            # 'employe_beneficiaire__emp_site_id', qui n'a jamais existé en
+            # tant que champ réel ('site' est une @property Python sur
+            # Employer, pas une colonne) — cette branche aurait levé une
+            # FieldError si jamais elle avait été exercée. Corrigé ici en
+            # suivant la vraie chaîne de FK (emp_serv_id -> serv_dir_id ->
+            # site). On y ajoute aussi la Salle (nouveau type), qui
+            # appartient toujours à un site.
             beneficiaires_site = (
-                Q(site_beneficiaire_id=site.pk)
-                | Q(direction_beneficiaire__site_id=site.pk)
-                | Q(employe_beneficiaire__emp_site_id=site.pk)
+                Q(affectation__site_id=site.pk)
+                | Q(affectation__direction__site_id=site.pk)
+                | Q(affectation__employe__emp_serv_id__serv_dir_id__site_id=site.pk)
+                | Q(affectation__salle__localite_id=site.pk)
             )
             date_filter = {"mouvement__date__lte": date_ref, "article": article}
             sorties = DetailMouvement.objects.filter(

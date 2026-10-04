@@ -21,9 +21,11 @@ class HistoriqueGlobaleView(APIView):
             "magasin_source", "magasin_destination"
         ).prefetch_related(
             "details__article",
-            "details__employe_beneficiaire",
-            "details__direction_beneficiaire",
-            "details__site_beneficiaire",
+            "details__affectation",
+            "details__affectation__employe",
+            "details__affectation__direction",
+            "details__affectation__salle",
+            "details__affectation__site",
         ).order_by("-date")
         
         if date_debut:
@@ -68,29 +70,40 @@ class HistoriqueGlobaleView(APIView):
                         "article_code": detail.article.code_article,
                         "article_designation": detail.article.designation,
                         "quantite": detail.quantite,
-                        "employe_beneficiaire": detail.employe_beneficiaire_id,
+                        # Clés conservées à l'identique pour ne pas casser le
+                        # front existant, mais sourcées depuis l'affectation
+                        # partagée. 'salle_beneficiaire*' est nouveau (4e type
+                        # qui n'existait pas avant).
+                        "employe_beneficiaire": (
+                            detail.affectation.employe_id if detail.affectation_id else None
+                        ),
                         "employe_beneficiaire_nom": detail.employe_beneficiaire_nom,
                         "employe_beneficiaire_matricule": detail.employe_beneficiaire_matricule,
                         "employe_beneficiaire_fonction": detail.employe_beneficiaire_fonction,
-                        "direction_beneficiaire": detail.direction_beneficiaire_id,
-                        "direction_beneficiaire_nom": (
-                            detail.direction_beneficiaire.dir_libelle
-                            if detail.direction_beneficiaire_id else None
+                        "direction_beneficiaire": (
+                            detail.affectation.direction_id if detail.affectation_id else None
                         ),
-                        "site_beneficiaire": detail.site_beneficiaire_id,
+                        "direction_beneficiaire_nom": (
+                            detail.affectation.direction.dir_libelle
+                            if detail.affectation_id and detail.affectation.direction_id else None
+                        ),
+                        "salle_beneficiaire": (
+                            detail.affectation.salle_id if detail.affectation_id else None
+                        ),
+                        "salle_beneficiaire_nom": (
+                            detail.affectation.salle.nom
+                            if detail.affectation_id and detail.affectation.salle_id else None
+                        ),
+                        "site_beneficiaire": (
+                            detail.affectation.site_id if detail.affectation_id else None
+                        ),
                         "site_beneficiaire_nom": (
-                            detail.site_beneficiaire.site_nom
-                            if detail.site_beneficiaire_id else None
+                            detail.affectation.site.site_nom
+                            if detail.affectation_id and detail.affectation.site_id else None
                         ),
                         "beneficiaire_type": detail.beneficiaire_type,
                         "beneficiaire_nom": (
-                            detail.employe_beneficiaire_nom
-                            if detail.employe_beneficiaire_id
-                            else detail.direction_beneficiaire.dir_libelle
-                            if detail.direction_beneficiaire_id
-                            else detail.site_beneficiaire.site_nom
-                            if detail.site_beneficiaire_id
-                            else None
+                            detail.affectation.nom if detail.affectation_id else None
                         ),
                     }
                     for detail in mouvement.details.all()

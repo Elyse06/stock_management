@@ -28,9 +28,11 @@ class HistoriqueArticleView(APIView):
             article=article
         ).select_related(
             "mouvement",
-            "employe_beneficiaire",
-            "direction_beneficiaire",
-            "site_beneficiaire",
+            "affectation",
+            "affectation__employe",
+            "affectation__direction",
+            "affectation__salle",
+            "affectation__site",
         ).order_by("mouvement__date")
         
         if site_id:
@@ -107,15 +109,11 @@ class HistoriqueArticleView(APIView):
                 "origine": mouvement.origine,
                 "motif": mouvement.motif,
                 "beneficiaire_type": detail.beneficiaire_type,
-                "beneficiaire_nom": (
-                    detail.employe_beneficiaire_nom
-                    if detail.employe_beneficiaire_id
-                    else detail.direction_beneficiaire.dir_libelle
-                    if detail.direction_beneficiaire_id
-                    else detail.site_beneficiaire.site_nom
-                    if detail.site_beneficiaire_id
-                    else None
-                ),
+                # Avant : la salle n'était pas un type géré (elle n'existait
+                # pas encore) ; l'accès direct à .direction_beneficiaire /
+                # .site_beneficiaire est remplacé par la propriété unique
+                # detail.affectation.nom, qui couvre les 4 types.
+                "beneficiaire_nom": detail.affectation.nom if detail.affectation_id else None,
             })
         
         return Response({

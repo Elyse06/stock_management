@@ -8,7 +8,9 @@ from apps.stock.serializers import DetailMouvementSerializer
 
 class DetailMouvementViewSet(viewsets.ModelViewSet):
     queryset = DetailMouvement.objects.select_related(
-        'employe_beneficiaire', 'direction_beneficiaire', 'site_beneficiaire', 'mouvement', 'article', 'fournisseur'
+        'affectation', 'affectation__employe', 'affectation__direction',
+        'affectation__salle', 'affectation__site',
+        'mouvement', 'article', 'fournisseur',
     ).all().prefetch_related("unites_creees", "unites_attribuees")
     serializer_class = DetailMouvementSerializer
     permission_classes = [HasActionByMethod.for_methods(  # noqa: RUF012
@@ -18,4 +20,4 @@ class DetailMouvementViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["mouvement", "article", "employe_beneficiaire", "fournisseur"]  # noqa: RUF012
+    filterset_fields = ["mouvement", "article", "affectation", "affectation__employe", "fournisseur"]  # noqa: RUF012

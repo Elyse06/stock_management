@@ -9,7 +9,14 @@ class MouvementViewSet(viewsets.ModelViewSet):
     queryset = (
         Mouvement.objects.all()
         .select_related("magasin_source", "magasin_destination")
-        .prefetch_related("details__article", "details__employe_beneficiaire")
+        .prefetch_related(
+            "details__article",
+            "details__affectation",
+            "details__affectation__employe",
+            "details__affectation__direction",
+            "details__affectation__salle",
+            "details__affectation__site",
+        )
     )
     serializer_class = MouvementSerializer
     permission_classes = [  # noqa: RUF012
