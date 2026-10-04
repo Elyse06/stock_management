@@ -41,7 +41,11 @@ class DashboardSortiesMoisView(APIView):
             mouvement__type_mouvement="SORTIE",
             mouvement__date__gte=debut_mois,
             mouvement__date__lt=fin_mois,
-        ).select_related("article", "mouvement", "mouvement__magasin_source", "employe_beneficiaire")
+        ).select_related(
+            "article", "mouvement", "mouvement__magasin_source",
+            "affectation", "affectation__employe", "affectation__direction",
+            "affectation__salle", "affectation__site",
+        )
 
         total = queryset.aggregate(total=Coalesce(Sum("quantite"), 0))["total"]
         paginated = custom_paginate(queryset.order_by("-mouvement__date"), request)
@@ -54,7 +58,8 @@ class DashboardSortiesMoisView(APIView):
                 "article_designation": d.article.designation,
                 "quantite": d.quantite,
                 "magasin_source": d.mouvement.magasin_source.magasin_nom if d.mouvement.magasin_source else None,
-                "beneficiaire": d.employe_beneficiaire.emp_nom if d.employe_beneficiaire else None,
+                # Avant : uniquement le nom de l'employé. Généralisé aux 4 types.
+                "beneficiaire": d.affectation.nom if d.affectation_id else None,
                 "origine": d.mouvement.origine,
                 "motif": d.mouvement.motif,
             }

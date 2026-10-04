@@ -31,8 +31,8 @@ def calculer_stock_theorique(article, magasin=None, direction=None):
 
     if direction:
         beneficiaire_direction = (
-            Q(direction_beneficiaire_id=direction.pk)
-            | Q(employe_beneficiaire__emp_serv_id__serv_dir_id=direction.pk)
+            Q(affectation__direction_id=direction.pk)
+            | Q(affectation__employe__emp_serv_id__serv_dir_id=direction.pk)
         )
         sorties = DetailMouvement.objects.filter(
             beneficiaire_direction,

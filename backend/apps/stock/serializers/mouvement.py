@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.catalogue.models import Article
 from apps.stock.models import (
+    Affectation,
     DetailMouvement,
     Mouvement,
     UniteArticle,
@@ -59,6 +60,13 @@ class MouvementSerializer(serializers.ModelSerializer):
         
         for detail in details_data:
             numeros_de_serie = detail.pop("numeros_de_serie", [])
+            try:
+                affectation = Affectation.extraire_et_resoudre(detail)
+            except ValueError as exc:
+                raise serializers.ValidationError(str(exc)) from exc
+            if affectation is not None:
+                detail["affectation"] = affectation
+
             detail_mouvement = DetailMouvement.objects.create(
                 mouvement=mouvement, **detail
             )
@@ -77,9 +85,8 @@ class MouvementSerializer(serializers.ModelSerializer):
                         
                 elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
                     beneficiaire = (
-                        detail_mouvement.employe_beneficiaire
-                        or detail_mouvement.direction_beneficiaire
-                        or detail_mouvement.site_beneficiaire
+                        detail_mouvement.affectation.cible
+                        if detail_mouvement.affectation_id else None
                     )
                     for numero in numeros_de_serie:
                         try:

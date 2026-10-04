@@ -28,7 +28,11 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_da
                 unites_par_detail[detail_id] = list(unites_ids)
 
     details_qs = commande.details.select_related("article").prefetch_related(
-        "attributions__employe_beneficiaire", "attributions__direction_beneficiaire"
+        "attributions__affectation",
+        "attributions__affectation__employe",
+        "attributions__affectation__direction",
+        "attributions__affectation__salle",
+        "attributions__affectation__site",
     )
     attributions_validees = [
         (detail, attribution)

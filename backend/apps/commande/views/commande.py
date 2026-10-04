@@ -30,7 +30,11 @@ class CommandeViewSet(viewsets.ModelViewSet):
         )
         .prefetch_related(
             "details__article",
-            "details__attributions__employe_beneficiaire",
+            "details__attributions__affectation",
+            "details__attributions__affectation__employe",
+            "details__attributions__affectation__direction",
+            "details__attributions__affectation__salle",
+            "details__attributions__affectation__site",
         )
     )
     serializer_class = CommandeSerializer

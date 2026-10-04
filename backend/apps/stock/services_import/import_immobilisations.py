@@ -7,13 +7,16 @@ from django.utils import timezone
 
 from apps.catalogue.models import Article, Categorie, Fournisseur
 from apps.employee.models import Direction, Employer, Site
-from apps.stock.models import DetailMouvement, Magasin, Mouvement, UniteArticle
+from apps.stock.models import Affectation, DetailMouvement, Magasin, Mouvement, Salle, UniteArticle
 
 VALEURS_NON_APPLICABLE = {"non applicable", "n/a", "na", "", "none", "nan"}
 
-# Colonnes du nouveau fichier "Registre des inventaires". Les colonnes
-# comptables (AMT ...), "N IMMO", "mois", "Anneée", "reference immo", "Etat"
-# et "N° fiche d'affectation" existent dans le fichier mais ne sont pas
+# Colonnes du fichier "Registre des inventaires". "Agence" est gardée dans
+# cette liste uniquement pour aider à repérer la ligne d'en-tête (voir
+# detecter_index_entete) : elle n'est plus utilisée pour déterminer un
+# magasin d'entrée (voir _trouver_magasin_siege). Les colonnes comptables
+# (AMT ...), "N IMMO", "mois", "Anneée", "reference immo", "Etat" et
+# "N° fiche d'affectation" existent dans le fichier mais ne sont pas
 # utilisées par cet import.
 COLONNES_ATTENDUES = [
     "Date D'acquisition",
@@ -77,21 +80,6 @@ def get_or_create_fournisseur(nom):
     return fournisseur
 
 
-def get_or_create_site(agence):
-    agence = "" if est_non_applicable(agence) else str(agence).strip()
-    agence = agence or "INCONNU"
-    site_type = "SIEGE" if agence.upper() == "SIEGE" else "AGENCE"
-    site, _ = Site.objects.get_or_create(
-        site_nom=agence, site_type=site_type, defaults={"localite": ""}
-    )
-    return site
-
-
-def get_or_create_magasin(site):
-    magasin, _ = Magasin.objects.get_or_create(magasin_nom=site.site_nom, localite=site)
-    return magasin
-
-
 def get_or_create_article(designation, categorie, mode_suivi):
     """Marque supprimée : l'article n'est plus rattaché à une marque."""
     designation = designation.strip()
@@ -108,30 +96,54 @@ def get_or_create_article(designation, categorie, mode_suivi):
     return article, True
 
 
-def resoudre_affectation(affectation_texte, magasins_existants, sites_existants):
+def _trouver_magasin_siege():
+    """Le magasin du Siège est la destination par défaut de TOUTE entrée en
+    stock (plus de magasin créé par Agence). Il est cherché par le type de
+    site de sa localité (SIEGE), jamais créé par cet import : il doit déjà
+    exister en base."""
+    magasins = list(Magasin.objects.filter(localite__site_type="SIEGE"))
+    if not magasins:
+        raise ValueError(
+            "Aucun magasin trouvé au Siège (site de type SIEGE). "
+            "Créez-en un avant de lancer l'import."
+        )
+    if len(magasins) > 1:
+        noms = ", ".join(m.magasin_nom for m in magasins)
+        raise ValueError(
+            "Plusieurs magasins existent au Siège, impossible de choisir "
+            f"automatiquement celui à utiliser pour l'entrée : {noms}. "
+            "Il ne doit en rester qu'un seul à cette localité pour que "
+            "l'import puisse déterminer la destination des entrées."
+        )
+    return magasins[0]
+
+
+def resoudre_affectation(affectation_texte):
     """Cherche une correspondance pour le texte de la colonne 'Affectation',
-    dans l'ordre : Magasin, Direction, Agence (Site), Employé. Ne crée rien :
-    recherche en lecture seule, utilisée pour proposer une suggestion que
-    l'utilisateur devra confirmer. Retourne (type, entité) ou (None, None).
+    dans l'ordre : Magasin, Salle, Direction, Agence (Site), Employé. Ne crée
+    rien : recherche en lecture seule, utilisée pour proposer une suggestion
+    que l'utilisateur devra confirmer. Retourne (type, entité) ou (None, None).
 
-    Magasin et Site sont cherchés dans un instantané pris AVANT le début de
-    l'import (magasins_existants / sites_existants), et non en direct sur la
-    base : sinon, un magasin ou un site auto-créé comme destination par
-    défaut pour une ligne (voir get_or_create_magasin/get_or_create_site)
-    pourrait être retrouvé — à tort — comme correspondance pour une ligne
-    suivante du même import.
+    Magasin reste vérifié en premier (si l'objet est physiquement rangé dans
+    un magasin précis déjà existant, pas de bénéficiaire : il reste en stock
+    dans ce magasin). Aucune des entités cherchées ici (Magasin, Salle,
+    Direction, Site, Employé) n'est jamais créée par cet import : les
+    recherches en direct sur la base sont donc sûres (pas de risque
+    d'auto-pollution d'une ligne à l'autre du même import).
     """
-    cle = affectation_texte.strip().lower()
-
-    magasin = magasins_existants.get(cle)
+    magasin = Magasin.objects.filter(magasin_nom__iexact=affectation_texte).first()
     if magasin:
         return "MAGASIN", magasin
+
+    salle = Salle.objects.filter(nom__iexact=affectation_texte).first()
+    if salle:
+        return "SALLE", salle
 
     direction = Direction.objects.filter(dir_libelle__iexact=affectation_texte).first()
     if direction:
         return "DIRECTION", direction
 
-    site = sites_existants.get(cle)
+    site = Site.objects.filter(site_nom__iexact=affectation_texte).first()
     if site:
         return "SITE", site
 
@@ -177,20 +189,14 @@ def colonnes_manquantes(df: pd.DataFrame):
     return [c for c in COLONNES_ATTENDUES if c not in df.columns]
 
 
-def _traiter_ligne(
-    row, origine_import, date_import, ligne_no, lignes_confirmees,
-    magasins_existants, sites_existants,
-):
+def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees, magasin_siege):
     nature = "" if est_non_applicable(row.get("nature")) else str(row.get("nature")).strip()
     if not nature:
         raise ValueError("Colonne 'nature' vide")
 
     categorie = get_or_create_categorie(row.get("famille"))
     article, cree = get_or_create_article(nature, categorie, Article.ModeSuivi.QUANTITE)
-
     fournisseur = get_or_create_fournisseur(row.get("Fournisseur"))
-    site_agence = get_or_create_site(row.get("Agence"))
-    magasin_agence = get_or_create_magasin(site_agence)
 
     resultat_base = {
         "article": article.code_article,
@@ -198,21 +204,18 @@ def _traiter_ligne(
         "designation": nature,
     }
 
-    # --- Résolution de l'affectation : Magasin / Direction / Site / Employé ---
+    # --- Résolution de l'affectation : Magasin / Salle / Direction / Site / Employé ---
     affectation = row.get("Affectation")
     affectation_texte = None if est_non_applicable(affectation) else str(affectation).strip()
 
     type_match, entite_match = (None, None)
     if affectation_texte:
-        type_match, entite_match = resoudre_affectation(
-            affectation_texte, magasins_existants, sites_existants
-        )
+        type_match, entite_match = resoudre_affectation(affectation_texte)
 
-    # Toute correspondance (y compris un Magasin) doit être confirmée
-    # explicitement par l'utilisateur avant d'être appliquée. Si l'affectation
-    # est renseignée mais qu'aucune correspondance n'a été trouvée, OU qu'une
-    # correspondance existe mais n'a pas été confirmée : la ligne est mise de
-    # côté, rien n'est écrit en base pour elle.
+    # Toute correspondance doit être confirmée explicitement par l'utilisateur
+    # avant d'être appliquée. Si l'affectation est renseignée mais qu'aucune
+    # correspondance n'a été trouvée, OU qu'une correspondance existe mais n'a
+    # pas été confirmée : la ligne est mise de côté, rien n'est écrit en base.
     if affectation_texte and (type_match is None or ligne_no not in lignes_confirmees):
         return {
             **resultat_base,
@@ -228,9 +231,10 @@ def _traiter_ligne(
         }
 
     # --- Entrée en stock (toujours, sauf ligne mise de côté ci-dessus) ---
-    magasin_destination = magasin_agence
-    if type_match == "MAGASIN":
-        magasin_destination = entite_match
+    # Par défaut, toute entrée se fait au magasin du Siège. Seule exception :
+    # une correspondance Magasin confirmée, qui devient alors la destination
+    # réelle (l'objet est rangé précisément là, pas au Siège).
+    magasin_destination = entite_match if type_match == "MAGASIN" else magasin_siege
 
     mvt_entree = Mouvement(
         date=date_import,
@@ -262,13 +266,16 @@ def _traiter_ligne(
         "attribution": None,
     }
 
-    # --- Attribution (sortie), uniquement pour Direction / Site / Employé ---
-    if type_match in ("DIRECTION", "SITE", "EMPLOYE"):
+    # --- Attribution (sortie), pour Salle / Direction / Site / Employé ---
+    # La sortie part toujours du magasin du Siège (c'est là que tout entre
+    # par défaut) : jamais du magasin spécifique d'un cas MAGASIN, puisque ce
+    # cas-là ne produit justement aucune sortie.
+    if type_match in ("SALLE", "DIRECTION", "SITE", "EMPLOYE"):
         mvt_sortie = Mouvement(
             date=date_import,
             type_mouvement=Mouvement.Type.SORTIE,
             origine=origine_import,
-            magasin_source=magasin_destination,
+            magasin_source=magasin_siege,
         )
         mvt_sortie.full_clean(exclude=["magasin_destination"])
         mvt_sortie.save()
@@ -277,13 +284,13 @@ def _traiter_ligne(
             mouvement=mvt_sortie,
             article=article,
             quantite=1,
-            employe_beneficiaire=entite_match if type_match == "EMPLOYE" else None,
-            direction_beneficiaire=entite_match if type_match == "DIRECTION" else None,
-            site_beneficiaire=entite_match if type_match == "SITE" else None,
+            affectation=Affectation.resoudre(entite_match),
         )
         unite.attribuer(beneficiaire=entite_match, mouvement_sortie=detail_sortie)
 
-        libelle_type = {"DIRECTION": "Direction", "SITE": "Agence", "EMPLOYE": "Employé"}[type_match]
+        libelle_type = {
+            "SALLE": "Salle", "DIRECTION": "Direction", "SITE": "Agence", "EMPLOYE": "Employé",
+        }[type_match]
         resultat["attribue_a"] = f"{libelle_type} : {entite_match}"
         resultat["attribution"] = {"type": type_match, "libelle": str(entite_match)}
 
@@ -291,15 +298,9 @@ def _traiter_ligne(
 
 
 def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_confirmees=None) -> dict:
-    """
-    lignes_confirmees : ensemble (set) optionnel de numéros de ligne Excel
-    pour lesquelles l'utilisateur a explicitement confirmé la suggestion
-    d'affectation proposée lors de l'aperçu. Toute ligne avec une affectation
-    renseignée mais absente de cet ensemble est mise de côté (a_traiter=True).
-    """
     df = normaliser_colonnes(df)
     manquantes = colonnes_manquantes(df)
-    lignes_confirmees = lignes_confirmees or set()
+    lignes_confirmees = lignes_confirmees or {}
 
     rapport = {
         "dry_run": dry_run,
@@ -313,17 +314,11 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
     origine_import = f"Import immobilisations {timezone.now():%Y-%m-%d}"
     date_import = timezone.now()
 
-    # Instantané pris AVANT tout traitement : sert de base pour la recherche
-    # de correspondances "Affectation" -> Magasin/Site, afin qu'un magasin ou
-    # site auto-créé pendant cet import (comme destination par défaut) ne
-    # puisse jamais être proposé comme correspondance pour une autre ligne du
-    # même import. Voir resoudre_affectation().
-    magasins_existants = {
-        m.magasin_nom.strip().lower(): m for m in Magasin.objects.all()
-    }
-    sites_existants = {
-        s.site_nom.strip().lower(): s for s in Site.objects.all()
-    }
+    # Peut lever ValueError si le magasin du Siège est introuvable ou
+    # ambigu : la vue est responsable d'attraper cette exception et de la
+    # transformer en réponse HTTP propre (ce n'est pas une erreur par ligne,
+    # mais un prérequis manquant pour tout l'import).
+    magasin_siege = _trouver_magasin_siege()
 
     try:
         with transaction.atomic():
@@ -332,7 +327,7 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
                 try:
                     resultat = _traiter_ligne(
                         row, origine_import, date_import, ligne_no, lignes_confirmees,
-                        magasins_existants, sites_existants,
+                        magasin_siege,
                     )
                     if resultat.get("a_traiter"):
                         rapport["lignes_a_traiter"] += 1

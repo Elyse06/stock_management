@@ -122,9 +122,6 @@ class Affectation(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
-    # --- Résolution partagée : à utiliser partout plutôt que de créer
-    # des Affectation à la main, pour garantir le "une seule ligne par cible" ---
-
     @classmethod
     def pour_employe(cls, employe):
         obj, _ = cls.objects.get_or_create(
@@ -155,8 +152,6 @@ class Affectation(models.Model):
 
     @classmethod
     def resoudre(cls, beneficiaire):
-        """Retourne l'Affectation partagée correspondant à l'objet donné
-        (Employer, Direction, Salle ou Site), en la créant si besoin."""
         if isinstance(beneficiaire, Employer):
             return cls.pour_employe(beneficiaire)
         if isinstance(beneficiaire, Direction):
@@ -168,3 +163,32 @@ class Affectation(models.Model):
         raise ValidationError(
             "beneficiaire doit être un Employer, une Direction, une Salle ou un Site."
         )
+
+    CHAMPS_BENEFICIAIRE = (
+        "employe_beneficiaire",
+        "direction_beneficiaire",
+        "salle_beneficiaire",
+        "site_beneficiaire",
+    )
+
+    @classmethod
+    def extraire_et_resoudre(cls, data, requis=False):
+        beneficiaire = None
+        nb_renseignees = 0
+        for champ in cls.CHAMPS_BENEFICIAIRE:
+            valeur = data.pop(champ, None)
+            if valeur is not None:
+                beneficiaire = valeur
+                nb_renseignees += 1
+
+        if nb_renseignees > 1:
+            raise ValueError(
+                "Un seul bénéficiaire autorisé : employé, direction, salle ou site."
+            )
+        if beneficiaire is None:
+            if requis:
+                raise ValueError(
+                    "Un bénéficiaire est requis : employé, direction, salle ou site."
+                )
+            return None
+        return cls.resoudre(beneficiaire)

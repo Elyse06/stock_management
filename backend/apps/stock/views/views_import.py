@@ -90,9 +90,18 @@ class ImportImmobilisationsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        rapport = importer_immobilisations(
-            df, dry_run=dry_run, lignes_confirmees=lignes_confirmees
-        )
+        try:
+            rapport = importer_immobilisations(
+                df, dry_run=dry_run, lignes_confirmees=lignes_confirmees
+            )
+        except ValueError as exc:
+            # Erreur de prérequis global (ex: magasin du Siège introuvable ou
+            # ambigu), distincte des erreurs par ligne gérées dans le rapport.
+            logger.error("Import immobilisations impossible : %s", exc)
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         rapport["ligne_entete_utilisee"] = ligne_entete + 1
 
         logger.info(
