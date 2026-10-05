@@ -21,4 +21,10 @@ class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
         return [HasAction.for_actions("COM_DEM")()]
 
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["detail_commande", "affectation__employe"]  # noqa: RUF012
+    filterset_fields = [  # noqa: RUF012
+        "detail_commande",
+        "affectation__employe",
+        "affectation__direction",
+        "affectation__salle",
+        "affectation__site",
+    ]

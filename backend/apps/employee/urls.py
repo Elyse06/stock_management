@@ -11,6 +11,6 @@ router.register(r'service', ServiceViewSet)
 router.register(r'direction', DirectionViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
     path("employee/import/", ImportEmployeesView.as_view(), name="import-employees"),
+    path('', include(router.urls)),
 ]

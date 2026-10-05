@@ -20,4 +20,13 @@ class DetailMouvementViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["mouvement", "article", "affectation", "affectation__employe", "fournisseur"]  # noqa: RUF012
+    filterset_fields = [  # noqa: RUF012
+        "mouvement",
+        "article",
+        "affectation",
+        "affectation__employe",
+        "affectation__direction",
+        "affectation__salle",
+        "affectation__site",
+        "fournisseur",
+    ]

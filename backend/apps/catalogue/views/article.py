@@ -42,7 +42,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
                 + Coalesce(Sum("details_mouvement__quantite", filter=stock_filters["ajustement_plus"]), 0)
                 - Coalesce(Sum("details_mouvement__quantite", filter=stock_filters["ajustement_moins"]), 0)
             )
-        )
+        ).order_by("code_article")
 
     @action(
         detail=True,

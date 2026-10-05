@@ -22,6 +22,7 @@ import {
   ListAlt as ListAltIcon,
   Business as BusinessIcon,
   LocationCity as LocationCityIcon,
+  MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -55,6 +56,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
   const [sites, setSites] = useState([]);
+  const [salles, setSalles] = useState([]);
   const [objet, setObjet] = useState("Utilisation simple");
   const [lignes, setLignes] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -81,12 +83,14 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
       apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SALLES, { params: { page_size: 500 } }),
     ])
-      .then(([articlesRes, employeesRes, directionsRes, sitesRes]) => {
+      .then(([articlesRes, employeesRes, directionsRes, sitesRes, sallesRes]) => {
         setArticles(articlesRes.data.results ?? articlesRes.data);
         setEmployees(employeesRes.data.results ?? employeesRes.data);
         setDirections(directionsRes.data.results ?? directionsRes.data);
         setSites(sitesRes.data.results ?? sitesRes.data);
+        setSalles(sallesRes.data.results ?? sallesRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
   }, [isOpen, notify]);
@@ -98,34 +102,57 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       const lignesTransformees = (commandeToEdit.details || []).map((detail) => {
         const article = articles.find((a) => a.code_article === detail.article);
         const attributions = (detail.attributions || []).map((attr) => {
-          if (attr.employe_beneficiaire) {
-            const employe = employees.find((e) => String(e.emp_id) === String(attr.employe_beneficiaire));
+          const employeId = attr.employe_beneficiaire ??
+            (attr.beneficiaire_type === "EMPLOYE" ? attr.beneficiaire_id : null);
+          const directionId = attr.direction_beneficiaire ??
+            (attr.beneficiaire_type === "DIRECTION" ? attr.beneficiaire_id : null);
+          const siteId = attr.site_beneficiaire ??
+            (attr.beneficiaire_type === "SITE" ? attr.beneficiaire_id : null);
+          const salleId = attr.salle_beneficiaire ??
+            (attr.beneficiaire_type === "SALLE" ? attr.beneficiaire_id : null);
+
+          if (employeId != null) {
+            const employe = employees.find((e) => String(e.emp_id) === String(employeId));
             return {
               type: "EMPLOYE",
-              beneficiaire_id: attr.employe_beneficiaire,
+              beneficiaire_id: employeId,
               beneficiaire_nom: employe?.emp_nom || attr.beneficiaire_nom || "Employé",
-              beneficiaire: employe || { emp_id: attr.employe_beneficiaire, emp_nom: attr.beneficiaire_nom },
+              beneficiaire: employe || { emp_id: employeId, emp_nom: attr.beneficiaire_nom },
               quantite: Number(attr.quantite),
             };
-          } else if (attr.direction_beneficiaire) {
-            const direction = directions.find((d) => String(d.dir_id) === String(attr.direction_beneficiaire));
+          } else if (directionId != null) {
+            const direction = directions.find((d) => String(d.dir_id) === String(directionId));
             return {
               type: "DIRECTION",
-              beneficiaire_id: attr.direction_beneficiaire,
+              beneficiaire_id: directionId,
               beneficiaire_nom: direction?.dir_libelle || attr.beneficiaire_nom || "Direction",
-              beneficiaire: direction || { dir_id: attr.direction_beneficiaire, dir_libelle: attr.beneficiaire_nom },
+              beneficiaire: direction || { dir_id: directionId, dir_libelle: attr.beneficiaire_nom },
               quantite: Number(attr.quantite),
             };
-          } else if (attr.site_beneficiaire != null) {
+          } else if (siteId != null) {
             const site = {
-              site_id: attr.site_beneficiaire,
+              site_id: siteId,
               site_nom: attr.beneficiaire_nom || "Site",
             };
             return {
               type: "SITE",
-              beneficiaire_id: attr.site_beneficiaire,
+              beneficiaire_id: siteId,
               beneficiaire_nom: site.site_nom,
               beneficiaire: site,
+              quantite: Number(attr.quantite),
+            };
+          } else if (salleId != null) {
+            const salle = salles.find(
+              (item) => String(item.salle_id) === String(salleId)
+            );
+            return {
+              type: "SALLE",
+              beneficiaire_id: salleId,
+              beneficiaire_nom: salle?.nom || attr.beneficiaire_nom || "Salle",
+              beneficiaire: salle || {
+                salle_id: salleId,
+                nom: attr.beneficiaire_nom,
+              },
               quantite: Number(attr.quantite),
             };
           }
@@ -146,7 +173,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       setLignes([ligneVide()]);
     }
     setActiveStep(0);
-  }, [isOpen, commandeToEdit, articles, employees, directions]);
+  }, [isOpen, commandeToEdit, articles, employees, directions, sites, salles]);
 
   const handleClose = () => {
     setObjet("Utilisation simple");
@@ -217,6 +244,8 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               item.employe_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.emp_id;
             } else if (a.type === "SITE") {
               item.site_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.site_id;
+            } else if (a.type === "SALLE") {
+              item.salle_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.salle_id;
             } else {
               item.direction_beneficiaire = a.beneficiaire_id ?? a.beneficiaire?.dir_id;
             }
@@ -319,6 +348,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                         employees={employees}
                         directions={directions}
                         sites={sites}
+                        salles={salles}
                         demandeurParDefaut={employeeDemandeur}
                         articleCourant={article || ligne}
                       />
@@ -392,6 +422,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                           {ligne.attributions.map((attr, idx) => {
                             const isEmploye = attr.type === "EMPLOYE";
                             const isSite = attr.type === "SITE";
+                            const isSalle = attr.type === "SALLE";
                             const beneficiaireNom = isEmploye
                               ? employees.find((e) => String(e.emp_id) === String(attr.beneficiaire_id))?.emp_nom
                                 || attr.beneficiaire?.emp_nom
@@ -402,11 +433,28 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                                 || attr.beneficiaire?.site_nom
                                 || attr.beneficiaire_nom
                                 || "Site"
-                              : attr.beneficiaire?.dir_libelle
+                              : isSalle
+                                ? salles.find((s) => String(s.salle_id) === String(attr.beneficiaire_id))?.nom
+                                  || attr.beneficiaire?.nom
+                                  || attr.beneficiaire_nom
+                                  || "Salle"
+                                : attr.beneficiaire?.dir_libelle
                                 || attr.beneficiaire_nom
                                 || "Direction";
-                            const Icon = isEmploye ? PersonIcon : isSite ? LocationCityIcon : BusinessIcon;
-                            const color = isEmploye ? "primary" : isSite ? "warning" : "secondary";
+                            const Icon = isEmploye
+                              ? PersonIcon
+                              : isSite
+                                ? LocationCityIcon
+                                : isSalle
+                                  ? MeetingRoomIcon
+                                  : BusinessIcon;
+                            const color = isEmploye
+                              ? "primary"
+                              : isSite
+                                ? "warning"
+                                : isSalle
+                                  ? "info"
+                                  : "secondary";
 
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>

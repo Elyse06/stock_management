@@ -60,6 +60,14 @@ class DetailMouvementSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Un seul bénéficiaire autorisé : employé, direction, salle ou site."
             )
+        article = attrs.get("article") or (
+            self.instance.article if self.instance else None
+        )
+        employe = attrs.get("employe_beneficiaire")
+        if article and not article.is_immobilisation and employe:
+            raise serializers.ValidationError(
+                "Une fourniture ne peut pas être attribuée à un employé."
+            )
         return attrs
 
     def _appliquer_affectation(self, validated_data):

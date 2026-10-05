@@ -40,13 +40,12 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        Matricule: "M-8101",
-        Nom: "RAZAFINDRABE Jean",
-        Fonction: "Responsable Agence",
-        Contact: "034 11 000 01",
-        Site: "Direction Générale Antaninarenina",
+        Mle: "8101",
+        "Nom et prénoms": "RAZAFINDRABE Jean",
         Direction: "Direction de l'Exploitation",
-        Service: "Courrier & Colis Express",
+        Fonction: "Responsable Agence",
+        "Lieu de Travail": "Antaninarenina",
+        Affectation: "SIEGE",
       },
     ];
     alert("Fonctionnalité de téléchargement du modèle à implémenter");
@@ -90,7 +89,14 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, mt: 2 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr 1fr", sm: "1fr 1fr 1fr 1fr" },
+                  gap: 2,
+                  mt: 2,
+                }}
+              >
                 <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#FFFFFF" }}>
                   <Typography variant="caption" color="text.secondary">Nouveaux</Typography>
                   <Typography variant="h5" fontWeight={700} color="#2E7D32">+{rapport.lignes_creees || 0}</Typography>
@@ -98,6 +104,10 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                 <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#FFFFFF" }}>
                   <Typography variant="caption" color="text.secondary">Mis à jour</Typography>
                   <Typography variant="h5" fontWeight={700} color="#0288D1">{rapport.lignes_maj || 0}</Typography>
+                </Paper>
+                <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#FFFFFF" }}>
+                  <Typography variant="caption" color="text.secondary">Ignorés</Typography>
+                  <Typography variant="h5" fontWeight={700} color="text.secondary">{rapport.lignes_ignorees || 0}</Typography>
                 </Paper>
                 <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#FFFFFF" }}>
                   <Typography variant="caption" color="text.secondary">Erreurs</Typography>
@@ -153,8 +163,8 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                         <TableRow>
                           <TableCell sx={{ fontWeight: 700 }}>Matricule</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Nom</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>Service</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Direction</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Site</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Statut</TableCell>
                         </TableRow>
                       </TableHead>
@@ -163,13 +173,17 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                           <TableRow key={i} hover>
                             <TableCell><Chip label={r.matricule || "Auto"} size="small" sx={{ fontWeight: 600, fontSize: 11 }} /></TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>{r.nom}</TableCell>
-                            <TableCell>{r.service || "-"}</TableCell>
                             <TableCell>{r.direction || "-"}</TableCell>
+                            <TableCell>{r.site || "-"}</TableCell>
                             <TableCell>
                               <Chip
                                 label={r.statut}
                                 size="small"
-                                color={r.statut === "ERREUR" ? "error" : "success"}
+                                color={
+                                  r.statut === "ERREUR" ? "error"
+                                  : r.statut === "IGNORÉ" ? "default"
+                                  : "success"
+                                }
                                 sx={{ fontSize: 11 }}
                               />
                             </TableCell>

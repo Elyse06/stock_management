@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { Box, Typography } from "@mui/material";
-import { Business as BusinessIcon, Store as StoreIcon } from "@mui/icons-material";
+import { Business as BusinessIcon, Store as StoreIcon, LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
+import { fetchAllPages } from "../../../api/fetchAllPages";
+import { API_ENDPOINTS } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
 import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
@@ -12,7 +13,6 @@ import { PageHeader } from "../../../components/common/PageHeader";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { ActionButtons } from "../../../components/common/ActionButtons";
-import { CodeChip } from "../../../components/common/CodeChip";
 import { SelectFilter } from "../../../components/common/SelectFilter";
 import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
 import { InventaireFormModal } from "../components/InventaireFormModal";
@@ -30,6 +30,8 @@ const TYPES_LIEU = [
   { value: "", label: "Tous lieux" },
   { value: "magasin", label: "Magasins" },
   { value: "direction", label: "Directions" },
+  { value: "site", label: "Sites" },
+  { value: "salle", label: "Salles" },
 ];
 
 export function InventairePage() {
@@ -59,6 +61,8 @@ export function InventairePage() {
       if (statutFiltre) params.statut = statutFiltre;
       if (lieuTypeFiltre === "magasin" && lieuIdFiltre) params.magasin = lieuIdFiltre;
       if (lieuTypeFiltre === "direction" && lieuIdFiltre) params.service = lieuIdFiltre;
+      if (lieuTypeFiltre === "site" && lieuIdFiltre) params.site = lieuIdFiltre;
+      if (lieuTypeFiltre === "salle" && lieuIdFiltre) params.salle = lieuIdFiltre;
 
       const { data } = await apiClient.get(API_ENDPOINTS.INVENTAIRES, { params });
       return {
@@ -71,19 +75,25 @@ export function InventairePage() {
 
   const { data: magasins = [] } = useQuery({
     queryKey: ["magasins", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
+    queryFn: () => fetchAllPages(API_ENDPOINTS.MAGASINS),
     staleTime: 1000 * 60 * 10,
   });
 
   const { data: directions = [] } = useQuery({
     queryKey: ["directions", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
+    queryFn: () => fetchAllPages(API_ENDPOINTS.DIRECTIONS),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: sites = [] } = useQuery({
+    queryKey: ["sites", "options"],
+    queryFn: () => fetchAllPages(API_ENDPOINTS.SITES),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: salles = [] } = useQuery({
+    queryKey: ["salles", "options"],
+    queryFn: () => fetchAllPages(API_ENDPOINTS.SALLES),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -132,8 +142,36 @@ export function InventairePage() {
         })),
       ];
     }
+    if (lieuTypeFiltre === "site") {
+      return [
+        ...base,
+        ...sites.map((site) => ({
+          value: site.site_id,
+          label: (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <LocationCityIcon fontSize="small" />
+              {site.site_nom}
+            </Box>
+          ),
+        })),
+      ];
+    }
+    if (lieuTypeFiltre === "salle") {
+      return [
+        ...base,
+        ...salles.map((salle) => ({
+          value: salle.salle_id,
+          label: (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <MeetingRoomIcon fontSize="small" />
+              {salle.nom}
+            </Box>
+          ),
+        })),
+      ];
+    }
     return base;
-  }, [lieuTypeFiltre, magasins, directions]);
+  }, [lieuTypeFiltre, magasins, directions, sites, salles]);
 
   const reinitialiserFiltres = () => {
     setStatutFiltre("");

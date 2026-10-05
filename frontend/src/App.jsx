@@ -10,6 +10,7 @@ import { CategoriesPage } from "./features/catalogue/pages/CategoriesPage";
 import { FournisseursPage } from "./features/catalogue/pages/FournisseursPage";
 
 import { MagasinsPage } from "./features/stock/pages/MagasinsPage";
+import { SallesPage } from "./features/stock/pages/SallesPage";
 import { MouvementsPage } from "./features/mouvement/pages/MouvementsPage";
 import { UnitesArticlePage } from "./features/mouvement/pages/UnitesArticlePage";
 import { InventairePage } from "./features/stock/pages/InventairePage";
@@ -74,6 +75,14 @@ function App() {
           element={
             <ProtectedRoute actions={["INV_GERE"]}>
               <MagasinsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/salles"
+          element={
+            <ProtectedRoute actions={["CAT_LIRE", "INV_GERE"]}>
+              <SallesPage />
             </ProtectedRoute>
           }
         />

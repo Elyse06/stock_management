@@ -11,7 +11,7 @@ from rest_framework.response import Response
 class InventaireSessionViewSet(viewsets.ModelViewSet):
     queryset = (
         InventaireSession.objects.all()
-        .select_related("magasin", "direction")
+        .select_related("magasin", "direction", "site", "salle")
         .prefetch_related("lignes__article")
     )
     serializer_class = InventaireSessionSerializer
@@ -22,7 +22,7 @@ class InventaireSessionViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["statut", "magasin", "direction"]  # noqa: RUF012
+    filterset_fields = ["statut", "magasin", "direction", "site", "salle"]  # noqa: RUF012
 
     def get_queryset(self):
         qs = super().get_queryset()

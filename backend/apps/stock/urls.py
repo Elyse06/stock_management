@@ -8,12 +8,14 @@ from .views import (
 	LigneInventaireViewSet,
 	MagasinViewSet,
 	MouvementViewSet,
+	SalleViewSet,
 	UniteArticleViewSet,
 )
 
 router = DefaultRouter()
 router.register("magasins", MagasinViewSet, basename="magasin")
 router.register("mouvements", MouvementViewSet, basename="mouvement")
+router.register("salles", SalleViewSet, basename="salle")
 router.register("details-mouvement", DetailMouvementViewSet, basename="detailmouvement")
 router.register("unites-article", UniteArticleViewSet, basename="unite-article")
 router.register("inventaires", InventaireSessionViewSet, basename="inventaire")

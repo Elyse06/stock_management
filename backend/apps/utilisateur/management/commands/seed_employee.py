@@ -203,8 +203,6 @@ class Command(BaseCommand):
     # =========================================================================
     def _seed_magasin(self):
         magasins_data = [
-            (10, "CONFERENCE", 10),
-            (11, "REFECTOIRE", 10),
             (30, "SIEGE", 10),
         ]
         for magasin_id, magasin_nom, localite_id in magasins_data:

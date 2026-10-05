@@ -1646,6 +1646,29 @@ paths:
       operationId: historique_localisation_retrieve
       tags:
       - historique
+      parameters:
+      - in: query
+        name: date
+        required: true
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: magasin_id
+        schema:
+          type: integer
+      - in: query
+        name: direction_id
+        schema:
+          type: string
+      - in: query
+        name: site_id
+        schema:
+          type: integer
+      - in: query
+        name: salle_id
+        schema:
+          type: integer
       responses:
         '200':
           description: No response body
@@ -1962,6 +1985,14 @@ paths:
           type: string
       - in: query
         name: magasin
+        schema:
+          type: integer
+      - in: query
+        name: site
+        schema:
+          type: integer
+      - in: query
+        name: salle
         schema:
           type: integer
       - name: page
@@ -2662,6 +2693,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UniteArticle'
+          description: ''
+  /api/stock/unites-article/resume-stock/:
+    get:
+      operationId: stock_unites_article_resume_stock_retrieve
+      tags:
+      - stock
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    article_code:
+                      type: string
+                    article_designation:
+                      type: string
+                    total:
+                      type: integer
+                    etats:
+                      type: object
+                      properties:
+                        BON:
+                          type: integer
+                        MOYEN:
+                          type: integer
+                        MAUVAIS:
+                          type: integer
+                        HORS_USAGE:
+                          type: integer
+                        PERDU:
+                          type: integer
+                      required:
+                      - BON
+                      - MOYEN
+                      - MAUVAIS
+                      - HORS_USAGE
+                      - PERDU
+                  required:
+                  - article_code
+                  - article_designation
+                  - total
+                  - etats
           description: ''
   /api/stock/unites-article/{unite_id}/:
     get:
@@ -3710,6 +3786,18 @@ components:
         service_libelle:
           type: string
           readOnly: true
+        site:
+          type: integer
+          nullable: true
+        site_nom:
+          type: string
+          readOnly: true
+        salle:
+          type: integer
+          nullable: true
+        salle_nom:
+          type: string
+          readOnly: true
         lieu_nom:
           type: string
           readOnly: true
@@ -4665,6 +4753,18 @@ components:
           writeOnly: true
           nullable: true
         service_libelle:
+          type: string
+          readOnly: true
+        site:
+          type: integer
+          nullable: true
+        site_nom:
+          type: string
+          readOnly: true
+        salle:
+          type: integer
+          nullable: true
+        salle_nom:
           type: string
           readOnly: true
         lieu_nom:

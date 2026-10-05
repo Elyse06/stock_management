@@ -26,7 +26,6 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Assignment as AssignmentIcon,
   Category as CategoryIcon,
-  LocalOffer as LocalOfferIcon,
   People as PeopleIcon,
   Store as StoreIcon,
   SwapHoriz as SwapHorizIcon,
@@ -42,6 +41,7 @@ import {
   Badge as BadgeIcon,
   AccountTree as AccountTreeIcon,
   Business as BusinessIcon,
+  MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 
 const MENU_STRUCTURE = [
@@ -134,6 +134,12 @@ const MENU_STRUCTURE = [
         label: "Magasins",
         icon: <StoreIcon fontSize="small" />,
         actions: ["INV_GERE"],
+      },
+      {
+        path: "/salles",
+        label: "Salles",
+        icon: <MeetingRoomIcon fontSize="small" />,
+        actions: ["CAT_LIRE", "INV_GERE"],
       },
       {
         path: "/inventaire/mouvements",

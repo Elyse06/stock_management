@@ -64,7 +64,7 @@ class TransfertUniteSerializer(serializers.Serializer):
         
         if not unite.article.is_immobilisation and emp:
             raise serializers.ValidationError(
-                "Une fourniture ne peut être transférée qu'à une direction."
+                "Une fourniture ne peut pas être transférée à un employé."
             )
         
         return attrs

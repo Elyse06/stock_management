@@ -9,6 +9,7 @@ from apps.stock.models import Affectation, Salle
 class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
     beneficiaire_nom = serializers.CharField(read_only=True)
     beneficiaire_type = serializers.CharField(read_only=True)
+    beneficiaire_id = serializers.SerializerMethodField()
 
     employe_beneficiaire = serializers.PrimaryKeyRelatedField(
         queryset=Employer.objects.all(), required=False, allow_null=True, write_only=True
@@ -31,7 +32,7 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
             "id", "detail_commande",
             "employe_beneficiaire", "direction_beneficiaire",
             "salle_beneficiaire", "site_beneficiaire",
-            "beneficiaire_nom", "beneficiaire_type",
+            "beneficiaire_nom", "beneficiaire_type", "beneficiaire_id",
             "quantite", "quantite_demandee", "quantite_validee",
             "statut", "motif_refus",
             "code_unique", "date_acquisition", "qr_code_data",
@@ -58,7 +59,7 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
         employe = attrs.get("employe_beneficiaire")
         if detail_commande and not detail_commande.article.is_immobilisation and employe:
             raise serializers.ValidationError(
-                "Une fourniture (non-immobilisation) ne peut être attribuée qu'à une direction et un site."
+                "Une fourniture ne peut pas être attribuée à un employé."
             )
         return attrs
 
@@ -89,3 +90,12 @@ class AttributionDetailCommandeSerializer(serializers.ModelSerializer):
 
     def get_qr_code_data(self, obj):
         return generate_attribution_qr_payload(obj)
+
+    def get_beneficiaire_id(self, obj):
+        affectation = obj.affectation
+        return {
+            Affectation.BeneficiaireType.EMPLOYE: affectation.employe_id,
+            Affectation.BeneficiaireType.DIRECTION: affectation.direction_id,
+            Affectation.BeneficiaireType.SALLE: affectation.salle_id,
+            Affectation.BeneficiaireType.SITE: affectation.site_id,
+        }[affectation.beneficiaire_type]

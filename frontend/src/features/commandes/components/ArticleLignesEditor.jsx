@@ -21,6 +21,7 @@ import {
   Person as PersonIcon,
   Business as BusinessIcon,
   LocationCity as LocationCityIcon,
+  MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -42,6 +43,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
   const [sites, setSites] = useState([]);
+  const [salles, setSalles] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -51,12 +53,14 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
       apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
       apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SALLES, { params: { page_size: 500 } }),
     ])
-      .then(([empRes, dirRes, siteRes]) => {
+      .then(([empRes, dirRes, siteRes, salleRes]) => {
         if (cancelled) return;
         setEmployees(empRes.data.results ?? empRes.data);
         setDirections(dirRes.data.results ?? dirRes.data);
         setSites(siteRes.data.results ?? siteRes.data);
+        setSalles(salleRes.data.results ?? salleRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED))
       .finally(() => {
@@ -118,6 +122,17 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
         beneficiaireDirection = null;
         beneficiaireSite = site.site_nom;
       }
+    } else if (typeBeneficiaire === "SALLE" && beneficiaireId) {
+      const salle = salles.find((s) => String(s.salle_id) === String(beneficiaireId));
+      if (salle) {
+        beneficiaireData = {
+          type: "SALLE",
+          id: salle.salle_id,
+        };
+        beneficiaireNom = salle.nom;
+        beneficiaireDirection = null;
+        beneficiaireSite = salle.localite_nom || null;
+      }
     }
 
     setLignes([
@@ -154,12 +169,14 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
   const getIconeBeneficiaire = (type) => {
     if (type === "EMPLOYE") return <PersonIcon />;
     if (type === "SITE") return <LocationCityIcon />;
+    if (type === "SALLE") return <MeetingRoomIcon />;
     return <BusinessIcon />;
   };
 
   const getCouleurBeneficiaire = (type) => {
     if (type === "EMPLOYE") return "primary";
     if (type === "SITE") return "warning";
+    if (type === "SALLE") return "info";
     return "secondary";
   };
 
@@ -346,6 +363,10 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
             Site
           </ToggleButton>
+          <ToggleButton value="SALLE">
+            <MeetingRoomIcon fontSize="small" sx={{ mr: 0.5 }} />
+            Salle
+          </ToggleButton>
         </ToggleButtonGroup>
 
         {/* Sélecteur conditionnel */}
@@ -456,8 +477,7 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             )}
             noOptionsText="Aucune direction trouvée"
           />
-        ) : (
-          // 🆕 Sélecteur de site
+        ) : typeBeneficiaire === "SITE" ? (
           <Autocomplete
             size="small"
             options={sites}
@@ -501,6 +521,31 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
             )}
             noOptionsText="Aucun site trouvé"
           />
+        ) : (
+          <Autocomplete
+            size="small"
+            options={salles}
+            loading={loading}
+            getOptionLabel={(option) =>
+              option?.nom
+                ? `${option.nom}${option.localite_nom ? ` (${option.localite_nom})` : ""}`
+                : ""
+            }
+            isOptionEqualToValue={(option, value) =>
+              String(option?.salle_id) === String(value?.salle_id)
+            }
+            value={
+              salles.find((s) => String(s.salle_id) === String(beneficiaireId)) ||
+              null
+            }
+            onChange={(_, newValue) => {
+              setBeneficiaireId(newValue?.salle_id || "");
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Salle (optionnel)" placeholder="Rechercher une salle..." />
+            )}
+            noOptionsText="Aucune salle trouvée"
+          />
         )}
 
         <Button
@@ -520,7 +565,10 @@ export function ArticleLignesEditor({ lignes, setLignes, articles }) {
               !directions.find((d) => String(d.dir_id) === String(beneficiaireId))) ||
             (typeBeneficiaire === "SITE" &&
               beneficiaireId &&
-              !sites.find((s) => String(s.site_id) === String(beneficiaireId)))
+              !sites.find((s) => String(s.site_id) === String(beneficiaireId))) ||
+            (typeBeneficiaire === "SALLE" &&
+              beneficiaireId &&
+              !salles.find((s) => String(s.salle_id) === String(beneficiaireId)))
           }
           sx={{ minWidth: 120, height: 40 }}
         >

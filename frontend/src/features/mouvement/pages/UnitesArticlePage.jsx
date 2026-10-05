@@ -1,6 +1,17 @@
 import { useState } from "react";
-import { Box, TextField, Typography } from "@mui/material";
-import { Search as SearchIcon, Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon } from "@mui/icons-material";
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { Search as SearchIcon, Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon } from "@mui/icons-material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS } from "../../../constants/api";
@@ -13,6 +24,14 @@ import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid"
 import { EtatBadge } from "../../../components/common/EtatBadge";
 import { RetourStockModal } from "../components/RetourStockModal";
 import { TransfertUniteModal } from "../components/TransfertUniteModal";
+
+const ETATS_RESUME = [
+  { value: "BON", label: "Bon" },
+  { value: "MOYEN", label: "Moyen" },
+  { value: "MAUVAIS", label: "Mauvais" },
+  { value: "HORS_USAGE", label: "Hors usage" },
+  { value: "PERDU", label: "Perdu" },
+];
 
 export function UnitesArticlePage() {
   const queryClient = useQueryClient();
@@ -54,7 +73,17 @@ export function UnitesArticlePage() {
     keepPreviousData: true,
   });
 
-  // ... (le reste du code pour resumeStock reste inchangé) ...
+  const {
+    data: resumeStock = [],
+    isLoading: isLoadingResume,
+    error: resumeError,
+  } = useQuery({
+    queryKey: ["unites-article-resume-stock"],
+    queryFn: async () => {
+      const { data: resume } = await apiClient.get(API_ENDPOINTS.RESUME_STOCK_UNITES);
+      return resume;
+    },
+  });
 
   const handleRetour = (unite) => {
     setUniteSelectionnee(unite);
@@ -74,6 +103,7 @@ export function UnitesArticlePage() {
 
   const onSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["unites-article"] });
+    queryClient.invalidateQueries({ queryKey: ["unites-article-resume-stock"] });
     closeModal();
   };
 
@@ -88,8 +118,20 @@ export function UnitesArticlePage() {
         const type = row.beneficiaire_type;
 
         //  Icône et couleur selon le type
-        const Icon = type === "EMPLOYE" ? PersonIcon : type === "SITE" ? LocationCityIcon : BusinessIcon;
-        const iconColor = type === "EMPLOYE" ? "#1976D2" : type === "SITE" ? "#E65100" : "#7B1FA2";
+        const Icon = type === "EMPLOYE"
+          ? PersonIcon
+          : type === "SITE"
+            ? LocationCityIcon
+            : type === "SALLE"
+              ? MeetingRoomIcon
+              : BusinessIcon;
+        const iconColor = type === "EMPLOYE"
+          ? "#1976D2"
+          : type === "SITE"
+            ? "#E65100"
+            : type === "SALLE"
+              ? "#0288D1"
+              : "#7B1FA2";
 
         return (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -180,7 +222,58 @@ export function UnitesArticlePage() {
             noRowsLabel="Aucune unité attribuée"
           />
         </Box>
-        {/* ... (le reste du code pour resumeStock reste inchangé) ... */}
+
+        <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+          <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography variant="h6">Résumé des unités en stock</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Répartition par état et par article
+            </Typography>
+          </Box>
+          {resumeError ? (
+            <Box sx={{ p: 2 }}>
+              <Typography color="error">Impossible de charger le résumé.</Typography>
+            </Box>
+          ) : (
+            <TableContainer sx={{ maxHeight: 600 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Article</TableCell>
+                    <TableCell align="right">Unités</TableCell>
+                    {ETATS_RESUME.map(({ value, label }) => (
+                      <TableCell key={value} align="right">{label}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {isLoadingResume ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">Chargement...</TableCell>
+                    </TableRow>
+                  ) : resumeStock.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">Aucune unité en stock</TableCell>
+                    </TableRow>
+                  ) : (
+                    resumeStock.map((resume) => (
+                      <TableRow key={resume.article_code} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600}>{resume.article_designation}</Typography>
+                          <Typography variant="caption" color="text.secondary">{resume.article_code}</Typography>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{resume.total}</TableCell>
+                        {ETATS_RESUME.map(({ value }) => (
+                          <TableCell key={value} align="right">{resume.etats[value]}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
       </Box>
 
       {uniteSelectionnee && (

@@ -4,6 +4,7 @@ from .ligne_inventaire import LigneInventaireSerializer
 from .magasin import MagasinSerializer
 from .mouvement import MouvementSerializer
 from .retour_unite import RetourUniteSerializer
+from .salle import SalleSerializer
 from .transfert_unite import TransfertUniteSerializer
 from .unite_article import UniteArticleSerializer
 
@@ -14,6 +15,7 @@ __all__ = [
     'MagasinSerializer',
     'MouvementSerializer',
     'RetourUniteSerializer',
+    'SalleSerializer',
     'TransfertUniteSerializer',
     'UniteArticleSerializer',
 ]

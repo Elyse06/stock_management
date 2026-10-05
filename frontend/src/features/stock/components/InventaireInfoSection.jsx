@@ -1,12 +1,23 @@
 import { Box, Typography, Grid } from "@mui/material";
-import { Store as StoreIcon, Business as BusinessIcon, CalendarToday as CalendarIcon, CheckCircle as CheckCircleIcon, Assignment as AssignmentIcon } from "@mui/icons-material";
+import { Store as StoreIcon, Business as BusinessIcon, CalendarToday as CalendarIcon, CheckCircle as CheckCircleIcon, Assignment as AssignmentIcon, MeetingRoom as MeetingRoomIcon, LocationCity as LocationCityIcon } from "@mui/icons-material";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { formatDateTime } from "../../../utils/formatters";
 
 export function InventaireInfoSection({ session }) {
-  const isMagasin = Boolean(session.magasin);
-  const LieuIcon = isMagasin ? StoreIcon : BusinessIcon;
-  const lieuType = isMagasin ? "Magasin" : "Direction";
+  const LieuIcon = session.magasin
+    ? StoreIcon
+    : session.salle
+      ? MeetingRoomIcon
+      : session.site
+        ? LocationCityIcon
+        : BusinessIcon;
+  const lieuType = session.magasin
+    ? "Magasin"
+    : session.salle
+      ? "Salle"
+      : session.site
+        ? "Site"
+        : "Direction";
 
   return (
     <Box sx={{ mb: 3 }}>

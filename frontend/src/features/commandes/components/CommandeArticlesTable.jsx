@@ -1,5 +1,5 @@
 import { Box, Typography, Chip, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
-import { Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon } from "@mui/icons-material";
+import { Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon } from "@mui/icons-material";
 import { CodeChip } from "../../../components/common/CodeChip";
 
 export function CommandeArticlesTable({ commande, articles }) {
@@ -83,8 +83,21 @@ export function CommandeArticlesTable({ commande, articles }) {
                         {detail.attributions.map((attr) => {
                           const isEmploye = attr.beneficiaire_type === "EMPLOYE";
                           const isSite = attr.beneficiaire_type === "SITE";
-                          const Icon = isEmploye ? PersonIcon : isSite ? LocationCityIcon : BusinessIcon;
-                          const color = isEmploye ? "primary" : isSite ? "warning" : "secondary";
+                          const isSalle = attr.beneficiaire_type === "SALLE";
+                          const Icon = isEmploye
+                            ? PersonIcon
+                            : isSite
+                              ? LocationCityIcon
+                              : isSalle
+                                ? MeetingRoomIcon
+                                : BusinessIcon;
+                          const color = isEmploye
+                            ? "primary"
+                            : isSite
+                              ? "warning"
+                              : isSalle
+                                ? "info"
+                                : "secondary";
 
                           return (
                             <Chip

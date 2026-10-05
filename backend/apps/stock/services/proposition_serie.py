@@ -3,7 +3,10 @@ from rest_framework import serializers
 from apps.stock.models import DetailMouvement, UniteArticle
 
 
-def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=None, mouvement_perte=None):
+def _materieliser_propositions_serie(
+    ligne, session, article, mouvement_gain=None, mouvement_perte=None,
+    affectation_lieu=None,
+):
     propositions = ligne.propositions_series or {}
     
     for ajout in propositions.get('ajouts', []):
@@ -13,14 +16,21 @@ def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=Non
                 mouvement=mouvement_gain,
                 article=article,
                 quantite=1,
+                affectation=affectation_lieu,
             )
 
         unite = UniteArticle.objects.create(
             article=article,
             numero_de_serie=ajout['numero_serie'],
-            statut=UniteArticle.Statut.EN_STOCK,
+            statut=(
+                UniteArticle.Statut.ATTRIBUE
+                if affectation_lieu
+                else UniteArticle.Statut.EN_STOCK
+            ),
             etat=ajout['etat'],
             mouvement_entree=detail_mouvement,
+            mouvement_sortie=detail_mouvement if affectation_lieu else None,
+            affectation=affectation_lieu,
         )
     
     for retrait in propositions.get('retraits', []):
@@ -33,8 +43,7 @@ def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=Non
             
             if retrait['etat'] == UniteArticle.Etat.PERDU:
                 unite.statut = UniteArticle.Statut.EN_STOCK
-                unite.employe_beneficiaire = None
-                unite.direction_beneficiaire = None
+                unite.affectation = None
 
                 detail_mouvement = None
                 if mouvement_perte:
@@ -42,6 +51,7 @@ def _materieliser_propositions_serie(ligne, session, article, mouvement_gain=Non
                         mouvement=mouvement_perte,
                         article=article,
                         quantite=1,
+                        affectation=affectation_lieu,
                     )
                 unite.mouvement_sortie = detail_mouvement
             
