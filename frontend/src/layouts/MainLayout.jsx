@@ -130,6 +130,24 @@ const MENU_STRUCTURE = [
     actions: [],
     children: [
       {
+        path: "/inventaire/mouvements",
+        label: "Mouvements",
+        icon: <SwapHorizIcon fontSize="small" />,
+        actions: ["MOV_LIRE"],
+      },
+      {
+        path: "/inventaire/sessions",
+        label: "Inventaires",
+        icon: <AssignmentIcon fontSize="small" />,
+        actions: ["INV_LIRE"],
+      },
+      {
+        path: "/inventaire/unites",
+        label: "Unités Attribués",
+        icon: <ListAltIcon fontSize="small" />,
+        actions: ["CAT_LIRE"],
+      },
+      {
         path: "/magasins",
         label: "Magasins",
         icon: <StoreIcon fontSize="small" />,
@@ -142,22 +160,10 @@ const MENU_STRUCTURE = [
         actions: ["CAT_LIRE", "INV_GERE"],
       },
       {
-        path: "/inventaire/mouvements",
-        label: "Mouvements",
-        icon: <SwapHorizIcon fontSize="small" />,
-        actions: ["MOV_LIRE"],
-      },
-      {
-        path: "/inventaire/unites",
-        label: "Unités Attribués",
-        icon: <ListAltIcon fontSize="small" />,
-        actions: ["CAT_LIRE"],
-      },
-      {
-        path: "/inventaire/sessions",
-        label: "Inventaires",
-        icon: <AssignmentIcon fontSize="small" />,
-        actions: ["INV_LIRE"],
+        path: "/import/immobilisations",
+        label: "Import immobilisations",
+        icon: <UploadFileIcon fontSize="small" />,
+        actions: ["CAT_GERE"],
       },
     ],
   },
@@ -166,12 +172,6 @@ const MENU_STRUCTURE = [
     label: "Commandes",
     icon: <ShoppingCartIcon fontSize="small" />,
     actions: ["COM_DEM", "COM_VAL"],
-  },
-  {
-    path: "/import/immobilisations",
-    label: "Import immobilisations",
-    icon: <UploadFileIcon fontSize="small" />,
-    actions: ["CAT_GERE"],
   },
   {
     key: "historique",
