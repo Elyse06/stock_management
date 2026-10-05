@@ -25,8 +25,11 @@ import {
   Inventory as InventoryIcon,
   ListAlt as ListAltIcon,
   SwapHoriz as SwapHorizIcon,
+  LocationCity as LocationCityIcon,
+  MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
+import { fetchAllPages } from "../../../api/fetchAllPages";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { WizardDialog } from "../../../components/wizard/WizardDialog";
@@ -36,6 +39,7 @@ import { InfoBox } from "../../../components/wizard/InfoBox";
 import { FormSection } from "../../../components/wizard/FormSection";
 import { Autocomplete } from "@mui/material";
 import { PropositionsSeriesEditor } from "./PropositionsSeriesEditor";
+import { useQuery } from "@tanstack/react-query";
 
 const STEPS = [
   { label: "Lieu", icon: <StoreIcon /> },
@@ -51,6 +55,8 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [lieuType, setLieuType] = useState("magasin");
   const [lieuId, setLieuId] = useState("");
+  const [scopeType, setScopeType] = useState("");
+  const [scopeId, setScopeId] = useState("");
   const [lignes, setLignes] = useState([]);
   const [currentArticle, setCurrentArticle] = useState(null);
   const [currentQuantite, setCurrentQuantite] = useState("");
@@ -61,37 +67,85 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
   const [loadingUnites, setLoadingUnites] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    apiClient
-      .get(API_ENDPOINTS.ARTICLES, { params: { page_size: 500 } })
-      .then((res) => setArticles(res.data.results ?? res.data))
-      .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
-  }, [isOpen]);
+  const { data: sites = [] } = useQuery({
+    queryKey: ["sites", "inventaire-options"],
+    queryFn: async () => {
+      return fetchAllPages(API_ENDPOINTS.SITES);
+    },
+    enabled: isOpen,
+  });
+  const { data: salles = [] } = useQuery({
+    queryKey: ["salles", "inventaire-options"],
+    queryFn: async () => {
+      return fetchAllPages(API_ENDPOINTS.SALLES);
+    },
+    enabled: isOpen,
+  });
+
+  const lieuxDisponibles = lieuType === "magasin" ? magasins : sites;
+  const lieuSelectionne = lieuxDisponibles.find((lieu) =>
+    String(lieuType === "magasin" ? lieu.magasin_id : lieu.site_id) === String(lieuId)
+  );
+  const siteSiegeSelectionne = lieuType === "site" && lieuSelectionne?.site_type === "SIEGE";
+  const scopesDisponibles = scopeType === "direction"
+    ? directions.filter((direction) => String(direction.site) === String(lieuId))
+    : salles.filter((salle) => String(salle.localite) === String(lieuId));
+  const scopeSelectionne = scopesDisponibles.find((scope) =>
+    String(scopeType === "direction" ? scope.dir_id : scope.salle_id) === String(scopeId)
+  );
+  const lieuComplet = Boolean(
+    lieuType === "magasin"
+      ? lieuId
+      : lieuSelectionne && (!siteSiegeSelectionne || scopeId)
+  );
+  const lieuNom = lieuType === "magasin"
+    ? lieuSelectionne?.magasin_nom
+    : siteSiegeSelectionne
+      ? scopeType === "direction" ? scopeSelectionne?.dir_libelle : scopeSelectionne?.nom
+      : lieuSelectionne?.site_nom;
 
   useEffect(() => {
-    if (!isOpen || !lieuId) {
+    if (!isOpen) return;
+    fetchAllPages(API_ENDPOINTS.ARTICLES)
+      .then(setArticles)
+      .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED));
+  }, [isOpen, notify]);
+
+  useEffect(() => {
+    if (!isOpen || !lieuComplet) {
       setStocksTheoriques({});
       return;
     }
-    if (lieuType === "magasin") {
-      const fetchStocks = async () => {
-        setLoadingStocks(true);
-        try {
-          const { data } = await apiClient.get(`${API_ENDPOINTS.MAGASINS}${lieuId}/stocks/`);
-          setStocksTheoriques(data);
-        } catch {
-          notify.error("Impossible de calculer les stocks théoriques.");
-          setStocksTheoriques({});
-        } finally {
-          setLoadingStocks(false);
-        }
-      };
-      fetchStocks();
-    } else {
-      setStocksTheoriques({});
-    }
-  }, [isOpen, lieuId, lieuType]);
+    const fetchStocks = async () => {
+      setLoadingStocks(true);
+      try {
+        const targetType = lieuType === "magasin"
+          ? "magasin"
+          : lieuSelectionne.site_type === "AGENCE"
+            ? "site"
+            : scopeType;
+        const targetId = targetType === "magasin" || targetType === "site" ? lieuId : scopeId;
+        const { data } = await apiClient.get(API_ENDPOINTS.HISTORIQUE_LOCALISATION, {
+          params: {
+            date: new Date().toISOString().slice(0, 10),
+            [`${targetType}_id`]: targetId,
+          },
+        });
+        setStocksTheoriques(
+          Object.fromEntries(data.map((stock) => [
+            stock.article_code,
+            { stock_theorique: stock.stock },
+          ]))
+        );
+      } catch {
+        notify.error("Impossible de calculer les stocks théoriques.");
+        setStocksTheoriques({});
+      } finally {
+        setLoadingStocks(false);
+      }
+    };
+    fetchStocks();
+  }, [isOpen, lieuComplet, lieuId, lieuType, lieuSelectionne, scopeType, scopeId, notify]);
 
   // 🆕 Charger les unités existantes si l'article est une immobilisation
   useEffect(() => {
@@ -100,19 +154,30 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       return;
     }
     setLoadingUnites(true);
-    apiClient
-      .get("/api/stock/unites-article/", {
-        params: { article: currentArticle.code_article, statut: "EN_STOCK", page_size: 500 },
-      })
-      .then((res) => setUnitesExistantes(res.data.results ?? res.data))
+    const params = {
+      article: currentArticle.code_article,
+      statut: lieuType === "magasin" ? "EN_STOCK" : "ATTRIBUE",
+      page_size: 500,
+    };
+    if (lieuType === "site" && lieuSelectionne?.site_type === "AGENCE") {
+      params.localisation_site_id = lieuId;
+    } else if (siteSiegeSelectionne && scopeType === "direction") {
+      params.localisation_direction_id = scopeId;
+    } else if (siteSiegeSelectionne && scopeType === "salle") {
+      params.localisation_salle_id = scopeId;
+    }
+    fetchAllPages(API_ENDPOINTS.UNITES_ARTICLE, params)
+      .then(setUnitesExistantes)
       .catch(() => notify.error("Impossible de charger les unités en stock."))
       .finally(() => setLoadingUnites(false));
-  }, [isOpen, currentArticle]);
+  }, [isOpen, currentArticle, lieuType, lieuId, lieuSelectionne, siteSiegeSelectionne, scopeType, scopeId, notify]);
 
   useEffect(() => {
     if (!isOpen) return;
     setLieuType("magasin");
     setLieuId("");
+    setScopeType("");
+    setScopeId("");
     setLignes([]);
     setStocksTheoriques({});
     setCurrentArticle(null);
@@ -141,20 +206,10 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
     onClose();
   };
 
-  const lieuxDisponibles = lieuType === "magasin" ? magasins : directions;
-  const lieuSelectionne = lieuxDisponibles.find((l) =>
-    String(lieuType === "magasin" ? l.magasin_id : l.dir_id) === String(lieuId)
-  );
-  const lieuNom = lieuSelectionne
-    ? lieuType === "magasin"
-      ? lieuSelectionne.magasin_nom
-      : lieuSelectionne.dir_libelle
-    : "";
-
   const getStockTheorique = (articleCode) => stocksTheoriques[articleCode]?.stock_theorique ?? 0;
 
   const handleNext = () => {
-    if (activeStep === 0 && !lieuId) {
+    if (activeStep === 0 && !lieuComplet) {
       notify.error("Veuillez sélectionner un lieu.");
       return;
     }
@@ -231,7 +286,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       notify.error("Ajoutez au moins un article à l'inventaire.");
       return;
     }
-    if (!lieuId) {
+    if (!lieuComplet) {
       notify.error("Veuillez sélectionner un lieu.");
       return;
     }
@@ -253,8 +308,12 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
       };
       if (lieuType === "magasin") {
         payload.magasin = Number(lieuId);
+      } else if (lieuSelectionne.site_type === "AGENCE") {
+        payload.site = Number(lieuId);
+      } else if (scopeType === "direction") {
+        payload.service = scopeId;
       } else {
-        payload.service = lieuId;
+        payload.salle = Number(scopeId);
       }
       await apiClient.post(API_ENDPOINTS.INVENTAIRES, payload);
       notify.success("Inventaire enregistré avec succès");
@@ -290,6 +349,10 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                 onChange={(e) => {
                   setLieuType(e.target.value);
                   setLieuId("");
+                  setScopeType("");
+                  setScopeId("");
+                  setLignes([]);
+                  resetCurrentArticle();
                 }}
               >
                 <FormControlLabel
@@ -303,44 +366,100 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
                   }
                 />
                 <FormControlLabel
-                  value="direction"
+                  value="site"
                   control={<Radio color="primary" />}
                   label={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                       <BusinessIcon fontSize="small" />
-                      <span>Direction</span>
+                      <span>Site</span>
                     </Box>
                   }
                 />
               </RadioGroup>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>{lieuType === "magasin" ? "Magasin" : "Direction"}</InputLabel>
+              <InputLabel>{lieuType === "magasin" ? "Magasin" : "Site"}</InputLabel>
               <Select
                 value={lieuId}
-                label={lieuType === "magasin" ? "Magasin" : "Direction"}
-                onChange={(e) => setLieuId(e.target.value)}
+                label={lieuType === "magasin" ? "Magasin" : "Site"}
+                onChange={(e) => {
+                  setLieuId(e.target.value);
+                  setScopeType("");
+                  setScopeId("");
+                  setLignes([]);
+                  resetCurrentArticle();
+                }}
               >
                 <MenuItem value="">
-                  Sélectionner un {lieuType === "magasin" ? "magasin" : "direction"}...
+                  Sélectionner un {lieuType === "magasin" ? "magasin" : "site"}...
                 </MenuItem>
                 {lieuxDisponibles.map((l) => (
                   <MenuItem
-                    key={lieuType === "magasin" ? l.magasin_id : l.dir_id}
-                    value={lieuType === "magasin" ? l.magasin_id : l.dir_id}
+                    key={lieuType === "magasin" ? l.magasin_id : l.site_id}
+                    value={lieuType === "magasin" ? l.magasin_id : l.site_id}
                   >
                     {lieuType === "magasin"
                       ? `${l.magasin_nom}${l.localite_nom ? ` (${l.localite_nom})` : ""}`
-                      : l.dir_libelle}
+                      : `${l.site_nom} (${l.site_type === "SIEGE" ? "Siège" : "Agence"})`}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            {lieuSelectionne && (
+            {siteSiegeSelectionne && (
+              <>
+                <FormControl component="fieldset" sx={{ mt: 2 }}>
+                  <FormLabel component="legend">Lieu précis au siège</FormLabel>
+                  <RadioGroup row value={scopeType} onChange={(event) => {
+                    setScopeType(event.target.value);
+                    setScopeId("");
+                    setLignes([]);
+                    resetCurrentArticle();
+                  }}>
+                    <FormControlLabel value="direction" control={<Radio color="primary" />} label="Direction" />
+                    <FormControlLabel
+                      value="salle"
+                      control={<Radio color="primary" />}
+                      label={<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}><MeetingRoomIcon fontSize="small" />Salle</Box>}
+                    />
+                  </RadioGroup>
+                </FormControl>
+                {scopeType && (
+                  <FormControl fullWidth sx={{ mt: 1 }}>
+                    <InputLabel>{scopeType === "direction" ? "Direction" : "Salle"}</InputLabel>
+                    <Select
+                      value={scopeId}
+                      label={scopeType === "direction" ? "Direction" : "Salle"}
+                      onChange={(event) => setScopeId(event.target.value)}
+                    >
+                      <MenuItem value="">
+                        Sélectionner {scopeType === "direction" ? "une direction" : "une salle"}...
+                      </MenuItem>
+                      {scopesDisponibles.map((scope) => (
+                        <MenuItem
+                          key={scopeType === "direction" ? scope.dir_id : scope.salle_id}
+                          value={scopeType === "direction" ? scope.dir_id : scope.salle_id}
+                        >
+                          {scopeType === "direction" ? scope.dir_libelle : scope.nom}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </>
+            )}
+            {lieuComplet && (
               <InfoBox
-                icon={lieuType === "magasin" ? <StoreIcon fontSize="small" /> : <BusinessIcon fontSize="small" />}
+                icon={lieuType === "magasin"
+                  ? <StoreIcon fontSize="small" />
+                  : scopeType === "salle"
+                    ? <MeetingRoomIcon fontSize="small" />
+                    : scopeType === "direction"
+                      ? <BusinessIcon fontSize="small" />
+                      : <LocationCityIcon fontSize="small" />}
                 title={lieuNom}
-                subtitle={lieuType === "magasin" ? "Magasin" : "Direction"}
+                subtitle={lieuType === "magasin"
+                  ? "Magasin"
+                  : scopeType || (lieuSelectionne?.site_type === "SIEGE" ? "Siège" : "Agence")}
               />
             )}
             {loadingStocks && (
@@ -699,11 +818,23 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
           <Box>
             <Typography variant="h3" sx={{ mb: 2 }}>Récapitulatif de l'inventaire</Typography>
             <InfoBox
-              icon={lieuType === "magasin" ? <StoreIcon fontSize="small" color="primary" /> : <BusinessIcon fontSize="small" color="primary" />}
+              icon={lieuType === "magasin"
+                ? <StoreIcon fontSize="small" color="primary" />
+                : scopeType === "salle"
+                  ? <MeetingRoomIcon fontSize="small" color="primary" />
+                  : scopeType === "direction"
+                    ? <BusinessIcon fontSize="small" color="primary" />
+                    : <LocationCityIcon fontSize="small" color="primary" />}
             >
               <Typography variant="body2">
                 <strong>Lieu : </strong> {lieuNom}
-                <Chip label={lieuType === "magasin" ? "Magasin" : "Direction"} size="small" sx={{ ml: 1, height: 20, fontSize: 11 }} />
+                <Chip
+                  label={lieuType === "magasin"
+                    ? "Magasin"
+                    : scopeType || (lieuSelectionne?.site_type === "SIEGE" ? "Siège" : "Agence")}
+                  size="small"
+                  sx={{ ml: 1, height: 20, fontSize: 11 }}
+                />
               </Typography>
             </InfoBox>
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1, mt: 2 }}>
@@ -826,7 +957,7 @@ export function InventaireFormModal({ isOpen, onClose, onSuccess, magasins, dire
           isLastStep={activeStep === STEPS.length - 1}
           loading={saving}
           submitLabel="Enregistrer l'inventaire"
-          disabled={lignes.length === 0 || !lieuId}
+          disabled={lignes.length === 0 || !lieuComplet}
         />
       }
     >

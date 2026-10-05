@@ -1,15 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Box, TextField, Button, Autocomplete, Tooltip, IconButton,
-  Typography, ToggleButtonGroup, ToggleButton, FormControl, Select, MenuItem,
+  Typography, FormControl, Select, MenuItem,
 } from "@mui/material";
 import {
   Add as AddIcon, Delete as DeleteIcon,
-  Person as PersonIcon, Business as BusinessIcon,
-  LocationCity as LocationCityIcon,
+  LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { StyledTable } from "../../../components/wizard/StyledTable";
-import { ProgressBar } from "../../../components/common/ProgressBar";
 
 export function AttributionEditor({
   quantiteTotale,
@@ -18,6 +16,7 @@ export function AttributionEditor({
   employees,
   directions = [],
   sites = [],
+  salles = [],
   demandeurParDefaut,
   articleCourant,
 }) {
@@ -26,6 +25,7 @@ export function AttributionEditor({
   const [employeSelectionne, setEmployeSelectionne] = useState(null);
   const [directionSelectionnee, setDirectionSelectionnee] = useState(null);
   const [siteSelectionne, setSiteSelectionne] = useState(null);
+  const [salleSelectionnee, setSalleSelectionnee] = useState(null);
   const [quantiteAttribution, setQuantiteAttribution] = useState("");
 
   const sommeAttribuee = attributions.reduce(
@@ -54,7 +54,10 @@ export function AttributionEditor({
   const directionActive = directionSelectionnee || directionDemandeur || (directions.length > 0 ? directions[0] : null);
 
   useEffect(() => {
-    if (!isImmobilisation && typeBeneficiaire !== "DIRECTION" && typeBeneficiaire !== "SITE") {
+    if (
+      !isImmobilisation &&
+      !["DIRECTION", "SITE", "SALLE"].includes(typeBeneficiaire)
+    ) {
       setTypeBeneficiaire("DIRECTION");
       setEmployeSelectionne(null);
     }
@@ -96,6 +99,13 @@ export function AttributionEditor({
         { type: "SITE", beneficiaire: siteSelectionne, quantite: qte },
       ]);
       setSiteSelectionne(null);
+    } else if (typeBeneficiaire === "SALLE") {
+      if (!salleSelectionnee) return;
+      setAttributions([
+        ...attributions,
+        { type: "SALLE", beneficiaire: salleSelectionnee, quantite: qte },
+      ]);
+      setSalleSelectionnee(null);
     } else {
       if (!directionActive) return;
       setAttributions([
@@ -126,26 +136,19 @@ export function AttributionEditor({
     setAttributions(updated);
   };
 
-  const handleTypeChange = (event, newType) => {
-    if (newType !== null) {
-      setTypeBeneficiaire(newType);
-      setEmployeSelectionne(null);
-      setSiteSelectionne(null);
-      setQuantiteAttribution("");
-    }
-  };
-
   const handleSelectTypeChange = (event) => {
     const newType = event.target.value;
     if (newType === "EMPLOYE" && !isImmobilisation) return;
     setTypeBeneficiaire(newType);
     setEmployeSelectionne(null);
     setSiteSelectionne(null);
+    setSalleSelectionnee(null);
     setQuantiteAttribution("");
   };
 
   const getBeneficiaireId = (beneficiaire) => String(
-    beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? beneficiaire?.site_id ?? ""
+    beneficiaire?.emp_id ?? beneficiaire?.dir_id ?? beneficiaire?.site_id ??
+    beneficiaire?.salle_id ?? ""
   );
 
   const getBeneficiaireLabel = (beneficiaire) => {
@@ -154,6 +157,9 @@ export function AttributionEditor({
     }
     if (beneficiaire?.site_id != null) {
       return `${beneficiaire.site_nom} (${beneficiaire.site_type || "Site"})`;
+    }
+    if (beneficiaire?.salle_id != null) {
+      return `${beneficiaire.nom}${beneficiaire.localite_nom ? ` (${beneficiaire.localite_nom})` : ""}`;
     }
     return beneficiaire?.dir_libelle || "";
   };
@@ -164,7 +170,9 @@ export function AttributionEditor({
       ? "EMPLOYE"
       : beneficiaire.site_id != null
         ? "SITE"
-        : "DIRECTION";
+        : beneficiaire.salle_id != null
+          ? "SALLE"
+          : "DIRECTION";
     const updated = [...attributions];
     updated[index] = { ...updated[index], type, beneficiaire };
     setAttributions(updated);
@@ -207,6 +215,22 @@ export function AttributionEditor({
       }
       return options;
     }
+    if (type === "SALLE") {
+      const options = salles.filter((salle) => !attributions.some(
+        (attribution, index) =>
+          index !== currentIndex &&
+          attribution.type === "SALLE" &&
+          String(attribution.beneficiaire?.salle_id) === String(salle.salle_id)
+      ));
+      const currentSalle = attributions[currentIndex]?.beneficiaire;
+      if (
+        currentSalle?.salle_id != null &&
+        !options.some((salle) => String(salle.salle_id) === String(currentSalle.salle_id))
+      ) {
+        return [...options, currentSalle];
+      }
+      return options;
+    }
     const currentDirection = attributions[currentIndex]?.beneficiaire;
     if (
       currentDirection?.dir_id != null &&
@@ -240,6 +264,7 @@ export function AttributionEditor({
                     <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
                     <MenuItem value="DIRECTION">Direction</MenuItem>
                     <MenuItem value="SITE">Site</MenuItem>
+                    <MenuItem value="SALLE">Salle</MenuItem>
                   </Select>
                 </FormControl>
               </td>
@@ -292,6 +317,7 @@ export function AttributionEditor({
                 <MenuItem value="EMPLOYE" disabled={!isImmobilisation}>Employé</MenuItem>
                 <MenuItem value="DIRECTION">Direction</MenuItem>
                 <MenuItem value="SITE">Site</MenuItem>
+                <MenuItem value="SALLE">Salle</MenuItem>
               </Select>
             </FormControl>
           </td>
@@ -340,6 +366,34 @@ export function AttributionEditor({
                 )}
                 noOptionsText="Aucun site trouvé"
               />
+            ) : typeBeneficiaire === "SALLE" ? (
+              <Autocomplete
+                size="small"
+                options={getBeneficiaireOptions("SALLE")}
+                getOptionLabel={getBeneficiaireLabel}
+                isOptionEqualToValue={(option, value) =>
+                  String(option?.salle_id) === String(value?.salle_id)
+                }
+                value={salleSelectionnee}
+                onChange={(_, newValue) => setSalleSelectionnee(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Salle" placeholder="Rechercher une salle..." />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.salle_id}>
+                    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1 }}>
+                      <MeetingRoomIcon fontSize="small" color="info" />
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{option.nom}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.localite_nom || "Siège"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText="Aucune salle trouvée"
+              />
             ) : (
               <TextField
                 size="small"
@@ -377,6 +431,8 @@ export function AttributionEditor({
                   ? !employeSelectionne
                   : typeBeneficiaire === "SITE"
                   ? !siteSelectionne
+                  : typeBeneficiaire === "SALLE"
+                    ? !salleSelectionnee
                   : !directionActive) ||
                 !quantiteAttribution ||
                 Number(quantiteAttribution) <= 0 ||

@@ -65,7 +65,11 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
                   <Typography variant="caption" color="text.secondary">
                     {a.beneficiaire_type === "DIRECTION"
                       ? "Direction"
-                      : [a.matricule, a.fonction].filter(Boolean).join(" • ") || "Employé"}
+                      : a.beneficiaire_type === "SALLE"
+                        ? "Salle"
+                        : a.beneficiaire_type === "SITE"
+                          ? "Site"
+                          : [a.matricule, a.fonction].filter(Boolean).join(" • ") || "Employé"}
                   </Typography>
                 </TableCell>
                 <TableCell>

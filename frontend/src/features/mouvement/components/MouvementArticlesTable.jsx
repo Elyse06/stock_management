@@ -23,7 +23,8 @@ export function MouvementArticlesTable({ mouvement }) {
               params.value ||
               params.row.employe_beneficiaire_nom ||
               params.row.direction_beneficiaire_nom ||
-              params.row.site_beneficiaire_nom
+              params.row.site_beneficiaire_nom ||
+              params.row.salle_beneficiaire_nom
             }
           />
         ),

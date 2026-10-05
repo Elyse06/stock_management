@@ -10,7 +10,7 @@ async function envoyerFichier(fichier, dryRun, overwrite, signal) {
   formData.append("dry_run", dryRun ? "true" : "false");
   formData.append("overwrite", overwrite ? "true" : "false");
   const { data } = await apiClient.post(
-    "/api/employee/import/",
+    "/api/employee/employee/import/",
     formData,
     { signal }
   );

@@ -1,7 +1,16 @@
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
+from django.urls import resolve
 
 from apps.employee.serializers import DirectionSerializer, EmployerSerializer, ServiceSerializer
 from apps.employee.models import Direction, Employer, Service, Site
+from apps.employee.views_import import ImportEmployeesView
+
+
+class EmployeeImportRouteTests(SimpleTestCase):
+	def test_import_route_is_not_captured_by_employee_detail_route(self):
+		match = resolve("/api/employee/employee/import/")
+
+		self.assertIs(match.func.view_class, ImportEmployeesView)
 
 
 class EmployerSerializerTests(TestCase):

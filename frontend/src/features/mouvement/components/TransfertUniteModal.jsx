@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import {
   Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon,
+  MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -20,11 +21,13 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
   const [sites, setSites] = useState([]);
+  const [salles, setSalles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [typeBeneficiaire, setTypeBeneficiaire] = useState("EMPLOYE");
   const [nouvelEmploye, setNouvelEmploye] = useState(null);
   const [nouvelleDirection, setNouvelleDirection] = useState(null);
   const [nouveauSite, setNouveauSite] = useState(null);
+  const [nouvelleSalle, setNouvelleSalle] = useState(null);
   const [magasinSource, setMagasinSource] = useState("");
   const [motif, setMotif] = useState("");
   const [saving, setSaving] = useState(false);
@@ -35,6 +38,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
     setNouvelEmploye(null);
     setNouvelleDirection(null);
     setNouveauSite(null);
+    setNouvelleSalle(null);
     setMagasinSource("");
     setMotif("");
     setTypeBeneficiaire("EMPLOYE");
@@ -44,12 +48,14 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       apiClient.get(API_ENDPOINTS.EMPLOYEES, { params: { page_size: 500 } }),
       apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } }),
       apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SALLES, { params: { page_size: 500 } }),
     ])
-      .then(([magRes, empRes, dirRes, siteRes]) => {
+      .then(([magRes, empRes, dirRes, siteRes, salleRes]) => {
         setMagasins(magRes.data.results ?? magRes.data);
         setEmployees(empRes.data.results ?? empRes.data);
         setDirections(dirRes.data.results ?? dirRes.data);
         setSites(siteRes.data.results ?? siteRes.data);
+        setSalles(salleRes.data.results ?? salleRes.data);
       })
       .catch(() => notify.error(ERROR_MESSAGES.LOAD_FAILED))
       .finally(() => setLoading(false));
@@ -72,6 +78,10 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       notify.error("Veuillez sélectionner un site.");
       return;
     }
+    if (typeBeneficiaire === "SALLE" && !nouvelleSalle) {
+      notify.error("Veuillez sélectionner une salle.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -88,6 +98,11 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
         payload.nouveau_site_beneficiaire = nouveauSite.site_id;
         payload.nouvel_employe_beneficiaire = null;
         payload.nouvelle_direction_beneficiaire = null;
+      } else if (typeBeneficiaire === "SALLE") {
+        payload.nouvelle_salle_beneficiaire = nouvelleSalle.salle_id;
+        payload.nouvel_employe_beneficiaire = null;
+        payload.nouvelle_direction_beneficiaire = null;
+        payload.nouveau_site_beneficiaire = null;
       } else {
         payload.nouvelle_direction_beneficiaire = nouvelleDirection.dir_id;
         payload.nouvel_employe_beneficiaire = null;
@@ -169,6 +184,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                       <PersonIcon fontSize="small" color="primary" />
                     ) : beneficiaireActuelType === "SITE" ? (
                       <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
+                    ) : beneficiaireActuelType === "SALLE" ? (
+                      <MeetingRoomIcon fontSize="small" color="info" />
                     ) : (
                       <BusinessIcon fontSize="small" color="secondary" />
                     )}
@@ -203,6 +220,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                     setNouvelEmploye(null);
                     setNouvelleDirection(null);
                     setNouveauSite(null);
+                    setNouvelleSalle(null);
                   }
                 }}
                 size="small"
@@ -228,6 +246,10 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                 <ToggleButton value="SITE">
                   <LocationCityIcon fontSize="small" sx={{ mr: 0.5 }} />
                   Site
+                </ToggleButton>
+                <ToggleButton value="SALLE">
+                  <MeetingRoomIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Salle
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
@@ -299,6 +321,38 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                 noOptionsText="Aucun site trouvé"
                 sx={{ mb: 2 }}
               />
+            ) : typeBeneficiaire === "SALLE" ? (
+              <Autocomplete
+                options={salles}
+                getOptionLabel={(option) =>
+                  option?.nom
+                    ? `${option.nom}${option.localite_nom ? ` (${option.localite_nom})` : ""}`
+                    : ""
+                }
+                isOptionEqualToValue={(option, value) =>
+                  String(option?.salle_id) === String(value?.salle_id)
+                }
+                value={nouvelleSalle}
+                onChange={(_, newValue) => setNouvelleSalle(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Sélectionner une salle" placeholder="Rechercher une salle..." required />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.salle_id}>
+                    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1 }}>
+                      <MeetingRoomIcon fontSize="small" color="info" />
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{option.nom}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.localite_nom || "Siège"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText="Aucune salle trouvée"
+                sx={{ mb: 2 }}
+              />
             ) : (
               <Autocomplete
                 options={directions}
@@ -347,7 +401,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
             !magasinSource ||
             (typeBeneficiaire === "EMPLOYE" && !nouvelEmploye) ||
             (typeBeneficiaire === "DIRECTION" && !nouvelleDirection) ||
-            (typeBeneficiaire === "SITE" && !nouveauSite)
+            (typeBeneficiaire === "SITE" && !nouveauSite) ||
+            (typeBeneficiaire === "SALLE" && !nouvelleSalle)
           }
           startIcon={saving ? <CircularProgress size={16} /> : null}
         >

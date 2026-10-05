@@ -12,9 +12,11 @@ export const API_ENDPOINTS = {
 
   // Stock
   MAGASINS: "/api/stock/magasins/",
+  SALLES: "/api/stock/salles/",
   MOUVEMENTS: "/api/stock/mouvements/",
   INVENTAIRES: "/api/stock/inventaires/",
   UNITES_ARTICLE: "/api/stock/unites-article/",
+  RESUME_STOCK_UNITES: "/api/stock/unites-article/resume-stock/",
 
   // Historique
   HISTORIQUE_GLOBALE: "/api/historique/globale/",
@@ -27,7 +29,7 @@ export const API_ENDPOINTS = {
   // Employee
   DIRECTIONS: "/api/employee/direction/",
   EMPLOYEES: "/api/employee/employee/",
-  EMPLOYEES_IMPORT: "/api/employee/import/",
+  EMPLOYEES_IMPORT: "/api/employee/employee/import/",
   SERVICES: "/api/employee/service/",
   SITES: "/api/employee/sites/",
 

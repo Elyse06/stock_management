@@ -25,10 +25,12 @@ export function HistoriqueLocalisationPage() {
   const [magasinId, setMagasinId] = useState("");
   const [directionId, setDirectionId] = useState("");
   const [siteId, setSiteId] = useState("");
+  const [salleId, setSalleId] = useState("");
   const [dateReference, setDateReference] = useState(getTodayDate);
   const [magasins, setMagasins] = useState([]);
   const [directions, setDirections] = useState([]);
   const [sites, setSites] = useState([]);
+  const [salles, setSalles] = useState([]);
   const [dateRecherchee, setDateRecherchee] = useState(null);
 
   useEffect(() => {
@@ -36,13 +38,15 @@ export function HistoriqueLocalisationPage() {
       apiClient.get(API_ENDPOINTS.MAGASINS, { params: { page_size: 100 } }),
       apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 200 } }),
       apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } }),
+      apiClient.get(API_ENDPOINTS.SALLES, { params: { page_size: 100 } }),
     ])
-      .then(([magasinsRes, directionsRes, sitesRes]) => {
+      .then(([magasinsRes, directionsRes, sitesRes, sallesRes]) => {
         setMagasins(magasinsRes.data.results ?? magasinsRes.data);
         setDirections(directionsRes.data.results ?? directionsRes.data);
         setSites(sitesRes.data.results ?? sitesRes.data);
+        setSalles(sallesRes.data.results ?? sallesRes.data);
       })
-      .catch(() => setError("Impossible de charger les magasins, directions et sites."));
+      .catch(() => setError("Impossible de charger les magasins, directions, sites et salles."));
   }, []);
 
   const charger = useCallback(async () => {
@@ -50,7 +54,12 @@ export function HistoriqueLocalisationPage() {
       ? magasinId
       : typeLocalisation === "direction"
         ? directionId
-        : siteId;
+        : typeLocalisation === "site"
+          ? siteId
+          : typeLocalisation === "salle"
+            ? salleId
+            : null;
+
     if (!localisationId || !dateReference) {
       setStocks([]);
       setDateRecherchee(null);
@@ -65,6 +74,7 @@ export function HistoriqueLocalisationPage() {
         magasin: "magasin_id",
         direction: "direction_id",
         site: "site_id",
+        salle: "salle_id",
       }[typeLocalisation];
       params[parametreLocalisation] = localisationId;
       const { data } = await apiClient.get(API_ENDPOINTS.HISTORIQUE_LOCALISATION, { params });
@@ -78,7 +88,7 @@ export function HistoriqueLocalisationPage() {
     } finally {
       setLoading(false);
     }
-  }, [typeLocalisation, magasinId, directionId, siteId, dateReference]);
+  }, [typeLocalisation, magasinId, directionId, siteId, salleId, dateReference]);
 
   useEffect(() => {
     charger();
@@ -89,6 +99,7 @@ export function HistoriqueLocalisationPage() {
     setMagasinId("");
     setDirectionId("");
     setSiteId("");
+    setSalleId("");
     setStocks([]);
     setDateRecherchee(null);
     setPaginationModel((previous) => ({ ...previous, page: 0 }));
@@ -99,6 +110,7 @@ export function HistoriqueLocalisationPage() {
     setMagasinId("");
     setDirectionId("");
     setSiteId("");
+    setSalleId("");
     setDateReference(getTodayDate());
     setStocks([]);
     setDateRecherchee(null);
@@ -114,8 +126,18 @@ export function HistoriqueLocalisationPage() {
     ? magasins.find((magasin) => String(magasin.magasin_id) === String(magasinId))?.magasin_nom
     : typeLocalisation === "direction"
       ? directions.find((direction) => String(direction.dir_id) === String(directionId))?.dir_libelle
-      : sites.find((site) => String(site.site_id) === String(siteId))?.site_nom;
-  const hasFilters = Boolean(magasinId || directionId || siteId || dateReference !== getTodayDate());
+      : typeLocalisation === "site"
+        ? sites.find((site) => String(site.site_id) === String(siteId))?.site_nom
+        : salles.find((salle) => String(salle.salle_id) === String(salleId))?.nom;
+  const localisationDescription = typeLocalisation === "magasin"
+    ? "stockés au"
+    : typeLocalisation === "direction"
+      ? "attribués à la"
+      : typeLocalisation === "salle"
+        ? "attribués à la salle"
+        : "attribués au";
+
+  const hasFilters = Boolean(magasinId || directionId || siteId || salleId || dateReference !== getTodayDate());
 
   return (
     <Box>
@@ -129,15 +151,17 @@ export function HistoriqueLocalisationPage() {
             { value: "magasin", label: "Magasin" },
             { value: "direction", label: "Direction" },
             { value: "site", label: "Site" },
+            { value: "salle", label: "Salle" },
           ]}
         />
         <SelectFilter
-          label={typeLocalisation === "magasin" ? "Magasin" : typeLocalisation === "direction" ? "Direction" : "Site"}
-          value={typeLocalisation === "magasin" ? magasinId : typeLocalisation === "direction" ? directionId : siteId}
+          label={typeLocalisation === "magasin" ? "Magasin" : typeLocalisation === "direction" ? "Direction" : typeLocalisation === "site" ? "Site" : "Salle"}
+          value={typeLocalisation === "magasin" ? magasinId : typeLocalisation === "direction" ? directionId : typeLocalisation === "site" ? siteId : salleId}
           onChange={(value) => {
             if (typeLocalisation === "magasin") setMagasinId(value);
             else if (typeLocalisation === "direction") setDirectionId(value);
-            else setSiteId(value);
+            else if (typeLocalisation === "site") setSiteId(value);
+            else setSalleId(value);
             setPaginationModel((previous) => ({ ...previous, page: 0 }));
           }}
           minWidth={250}
@@ -145,7 +169,9 @@ export function HistoriqueLocalisationPage() {
             ? [{ value: "", label: "Sélectionner un magasin..." }, ...magasins.map((magasin) => ({ value: magasin.magasin_id, label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite})` : ""}` }))]
             : typeLocalisation === "direction"
               ? [{ value: "", label: "Sélectionner une direction..." }, ...directions.map((direction) => ({ value: direction.dir_id, label: direction.dir_libelle }))]
-              : [{ value: "", label: "Sélectionner un site..." }, ...sites.map((site) => ({ value: site.site_id, label: `${site.site_nom}${site.localite ? ` (${site.localite})` : ""}` }))]}
+              : typeLocalisation === "site"
+                ? [{ value: "", label: "Sélectionner un site..." }, ...sites.map((site) => ({ value: site.site_id, label: `${site.site_nom}${site.localite ? ` (${site.localite})` : ""}` }))]
+                : [{ value: "", label: "Sélectionner une salle..." }, ...salles.map((salle) => ({ value: salle.salle_id, label: `${salle.nom}${salle.localite_nom ? ` (${salle.localite_nom})` : ""}` }))]}
         />
         <TextField
           label="Date de référence"
@@ -163,7 +189,7 @@ export function HistoriqueLocalisationPage() {
         <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825", display: "flex", alignItems: "center", gap: 1 }}>
           <SearchIcon color="primary" />
           <Typography variant="body2" fontWeight={500}>
-            Articles {typeLocalisation === "magasin" ? "stockés au" : typeLocalisation === "direction" ? "attribués à la" : "attribués au"} <strong>{localisationNom}</strong> à la date du <strong>{new Date(dateRecherchee).toLocaleDateString("fr-FR")}</strong>{stocks.length > 0 && ` — ${stocks.length} article(s) trouvé(s)`}
+            Articles {localisationDescription} <strong>{localisationNom}</strong> à la date du <strong>{new Date(dateRecherchee).toLocaleDateString("fr-FR")}</strong>{stocks.length > 0 && ` — ${stocks.length} article(s) trouvé(s)`}
           </Typography>
         </Box>
       )}

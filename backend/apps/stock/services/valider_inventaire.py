@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.catalogue.models import Article
 from apps.stock.models import (
+    Affectation,
     DetailMouvement,
     InventaireSession,
     LigneInventaire,
@@ -25,6 +26,13 @@ def valider_session_inventaire(session: InventaireSession):
     
     mouvement_gain = None
     mouvement_perte = None
+    affectation_lieu = None
+    if session.direction_id:
+        affectation_lieu = Affectation.pour_direction(session.direction)
+    elif session.site_id:
+        affectation_lieu = Affectation.pour_site(session.site)
+    elif session.salle_id:
+        affectation_lieu = Affectation.pour_salle(session.salle)
     
     lignes_ecart_positif = session.lignes.filter(ecart__gt=0)
     lignes_ecart_negatif = session.lignes.filter(ecart__lt=0)
@@ -60,6 +68,7 @@ def valider_session_inventaire(session: InventaireSession):
                 article=article,
                 mouvement_gain=mouvement_gain,
                 mouvement_perte=mouvement_perte,
+                affectation_lieu=affectation_lieu,
             )
         else:
             if ligne.propositions_series.get('changements_etat'):
@@ -75,6 +84,7 @@ def valider_session_inventaire(session: InventaireSession):
                     mouvement=mouvement_ref,
                     article=article,
                     quantite=abs(ecart),
+                    affectation=affectation_lieu,
                 )
         
         if ecart != 0:

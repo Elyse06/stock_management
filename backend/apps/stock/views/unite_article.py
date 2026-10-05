@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -26,7 +27,76 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         **{"*": ("INV_GERE",)},
     )]
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
-    filterset_fields = ["article", "statut", "etat", "affectation__employe"]  # noqa: RUF012
+    filterset_fields = [  # noqa: RUF012
+        "article",
+        "statut",
+        "etat",
+        "affectation__employe",
+        "affectation__direction",
+        "affectation__salle",
+        "affectation__site",
+    ]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get("localisation_site_id")
+        direction_id = self.request.query_params.get("localisation_direction_id")
+        salle_id = self.request.query_params.get("localisation_salle_id")
+
+        if site_id:
+            queryset = queryset.filter(
+                statut=UniteArticle.Statut.ATTRIBUE,
+            ).filter(
+                Q(affectation__site_id=site_id)
+                | Q(affectation__direction__site_id=site_id)
+                | Q(affectation__employe__emp_serv_id__serv_dir_id__site_id=site_id)
+                | Q(affectation__salle__localite_id=site_id)
+            )
+        elif direction_id:
+            queryset = queryset.filter(
+                statut=UniteArticle.Statut.ATTRIBUE,
+            ).filter(
+                Q(affectation__direction_id=direction_id)
+                | Q(affectation__employe__emp_serv_id__serv_dir_id=direction_id)
+            )
+        elif salle_id:
+            queryset = queryset.filter(
+                statut=UniteArticle.Statut.ATTRIBUE,
+                affectation__salle_id=salle_id,
+            )
+        return queryset
+
+    @action(detail=False, methods=["get"], url_path="resume-stock")
+    def resume_stock(self, request):
+        etats = UniteArticle.Etat
+        resume = (
+            UniteArticle.objects.filter(statut=UniteArticle.Statut.EN_STOCK)
+            .values("article__code_article", "article__designation")
+            .annotate(
+                total=Count("unite_id"),
+                bon=Count("unite_id", filter=Q(etat=etats.BON)),
+                moyen=Count("unite_id", filter=Q(etat=etats.MOYEN)),
+                mauvais=Count("unite_id", filter=Q(etat=etats.MAUVAIS)),
+                hors_usage=Count("unite_id", filter=Q(etat=etats.HORS_USAGE)),
+                perdu=Count("unite_id", filter=Q(etat=etats.PERDU)),
+            )
+            .order_by("article__designation", "article__code_article")
+        )
+        return Response([
+            {
+                "article_code": row["article__code_article"],
+                "article_designation": row["article__designation"],
+                "total": row["total"],
+                "etats": {
+                    "BON": row["bon"],
+                    "MOYEN": row["moyen"],
+                    "MAUVAIS": row["mauvais"],
+                    "HORS_USAGE": row["hors_usage"],
+                    "PERDU": row["perdu"],
+                },
+            }
+            for row in resume
+        ])
 
     @action(detail=True, methods=['post'], url_path='retourner-stock')
     def retourner_stock(self, request, pk=None):

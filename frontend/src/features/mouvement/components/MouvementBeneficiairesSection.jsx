@@ -3,6 +3,7 @@ import {
   Person as PersonIcon,
   Business as BusinessIcon,
   LocationCity as LocationCityIcon,
+  MeetingRoom as MeetingRoomIcon,
   QrCode as QrCodeIcon,
 } from "@mui/icons-material";
 import { QRCodeSVG } from "qrcode.react";
@@ -15,7 +16,9 @@ export function MouvementBeneficiairesSection({ details }) {
         ? detail.direction_beneficiaire_nom || detail.direction_beneficiaire
         : detail.beneficiaire_type === "SITE"
           ? detail.site_beneficiaire_nom || detail.site_beneficiaire
-          : false
+          : detail.beneficiaire_type === "SALLE"
+            ? detail.salle_beneficiaire_nom || detail.salle_beneficiaire
+            : false
   ) || [];
 
   if (beneficiaires.length === 0) {
@@ -41,20 +44,29 @@ export function MouvementBeneficiairesSection({ details }) {
           const isEmploye = detail.beneficiaire_type === "EMPLOYE";
           const isDirection = detail.beneficiaire_type === "DIRECTION";
           const isSite = detail.beneficiaire_type === "SITE";
+          const isSalle = detail.beneficiaire_type === "SALLE";
 
           const nom = isEmploye
             ? detail.employe_beneficiaire_nom
             : isDirection
               ? detail.direction_beneficiaire_nom || "Direction"
-              : detail.site_beneficiaire_nom || "Site";
+              : isSite
+                ? detail.site_beneficiaire_nom || "Site"
+                : detail.salle_beneficiaire_nom || "Salle";
 
           const matricule = isEmploye ? detail.employe_beneficiaire_matricule : null;
           const fonction = isEmploye ? detail.employe_beneficiaire_fonction : null;
 
-          const Icon = isEmploye ? PersonIcon : isSite ? LocationCityIcon : BusinessIcon;
-          const iconColor = isEmploye ? "#1976D2" : isSite ? "#E65100" : "#7B1FA2";
-          const chipColor = isEmploye ? "primary" : isSite ? "warning" : "secondary";
-          const chipLabel = isEmploye ? "Employé" : isSite ? "Site" : "Direction";
+          const Icon = isEmploye
+            ? PersonIcon
+            : isSite
+              ? LocationCityIcon
+              : isSalle
+                ? MeetingRoomIcon
+                : BusinessIcon;
+          const iconColor = isEmploye ? "#1976D2" : isSite ? "#E65100" : isSalle ? "#0288D1" : "#7B1FA2";
+          const chipColor = isEmploye ? "primary" : isSite ? "warning" : isSalle ? "info" : "secondary";
+          const chipLabel = isEmploye ? "Employé" : isSite ? "Site" : isSalle ? "Salle" : "Direction";
 
           return (
             <Grid item xs={12} sm={6} key={index}>
