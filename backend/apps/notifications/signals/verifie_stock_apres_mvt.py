@@ -2,9 +2,8 @@ from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from apps.notifications.tasks import notifier_stock_bas
 from apps.stock.models import DetailMouvement, Mouvement
-
-from .tasks import notifier_stock_bas
 
 
 @receiver(post_save, sender=DetailMouvement)
