@@ -14,9 +14,8 @@ def _get_attributions_actives(article):
             "affectation__employe",
             "affectation__employe__emp_serv_id",
             "affectation__employe__emp_serv_id__serv_dir_id",
-            "affectation__employe__emp_serv_id__serv_dir_id__site",
+            "affectation__employe__emp_site_id",
             "affectation__direction",
-            "affectation__direction__site",
             "affectation__salle",
             "affectation__salle__localite",
             "affectation__site",
@@ -37,7 +36,7 @@ def _get_attributions_actives(article):
         if employe:
             site = employe.site
         elif direction:
-            site = direction.site
+            site = None
         elif salle:
             site = salle.localite
         else:

@@ -47,15 +47,6 @@ class InventaireSession(models.Model):
                 "Un inventaire direct par site est réservé aux agences; "
                 "pour un siège, choisissez une direction ou une salle."
             )
-        if (
-            self.direction_id
-            and self.direction.site_id
-            and self.direction.site.site_type != "SIEGE"
-        ):
-            raise ValidationError(
-                "Une direction d'agence ne peut pas être inventoriée séparément."
-            )
-
     def __str__(self):
         if self.magasin:
             lieu = f"Magasin {self.magasin.magasin_nom}"

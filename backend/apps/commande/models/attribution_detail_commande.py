@@ -92,7 +92,7 @@ class AttributionDetailCommande(models.Model):
         employe = self.affectation.employe
         service = employe.emp_serv_id if employe else None
         direction = service.serv_dir_id if service else None
-        site = direction.site if direction else None
+        site = employe.emp_site_id if employe else None
 
         beneficiaire_payload = {
             "emp_id": employe.emp_id if employe else None,
@@ -111,7 +111,7 @@ class AttributionDetailCommande(models.Model):
 
     def _payload_pour_direction(self):
         direction = self.affectation.direction
-        site = direction.site if direction else None
+        site = None
 
         beneficiaire_payload = {
             "dir_id": direction.dir_id if direction else None,

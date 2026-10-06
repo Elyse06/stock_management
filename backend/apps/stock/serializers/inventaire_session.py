@@ -60,10 +60,6 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
                 "Un inventaire direct par site est réservé aux agences; "
                 "pour un siège, choisissez une direction ou une salle."
             )
-        if direction and direction.site_id and direction.site.site_type != "SIEGE":
-            raise serializers.ValidationError(
-                "Une direction d'agence ne peut pas être inventoriée séparément."
-            )
         return attrs
 
     

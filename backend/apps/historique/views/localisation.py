@@ -116,8 +116,7 @@ class HistoriqueLocalisationView(APIView):
             # appartient toujours à un site.
             beneficiaires_site = (
                 Q(affectation__site_id=site.pk)
-                | Q(affectation__direction__site_id=site.pk)
-                | Q(affectation__employe__emp_serv_id__serv_dir_id__site_id=site.pk)
+                | Q(affectation__employe__emp_site_id=site.pk)
                 | Q(affectation__salle__localite_id=site.pk)
             )
             return self._calculer_stock_beneficiaire(article, beneficiaires_site, date_ref)

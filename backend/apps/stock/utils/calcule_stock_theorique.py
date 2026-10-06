@@ -39,8 +39,7 @@ def calculer_stock_theorique(article, magasin=None, direction=None, site=None, s
     if site:
         beneficiaires_site = (
             Q(affectation__site_id=site.pk)
-            | Q(affectation__direction__site_id=site.pk)
-            | Q(affectation__employe__emp_serv_id__serv_dir_id__site_id=site.pk)
+            | Q(affectation__employe__emp_site_id=site.pk)
             | Q(affectation__salle__localite_id=site.pk)
         )
         return _calculer_stock_beneficiaire(article, beneficiaires_site)

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.employee",
     "apps.historique",
     "apps.dashboard",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [

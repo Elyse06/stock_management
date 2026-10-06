@@ -48,8 +48,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
                 statut=UniteArticle.Statut.ATTRIBUE,
             ).filter(
                 Q(affectation__site_id=site_id)
-                | Q(affectation__direction__site_id=site_id)
-                | Q(affectation__employe__emp_serv_id__serv_dir_id__site_id=site_id)
+                | Q(affectation__employe__emp_site_id=site_id)
                 | Q(affectation__salle__localite_id=site_id)
             )
         elif direction_id:

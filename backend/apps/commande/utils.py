@@ -7,7 +7,7 @@ def format_employee_data(employee):
 
     service = getattr(employee, "emp_serv_id", None)
     direction = service.serv_dir_id if service else None
-    site = direction.site if direction else None
+    site = employee.emp_site_id
 
     return {
         "emp_id": employee.emp_id,
