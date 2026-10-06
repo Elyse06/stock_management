@@ -262,12 +262,9 @@ class EmployerOrganizationTests(TestCase):
 		self.assertIsNone(employer.emp_serv_id)
 		self.assertEqual(employer.site, site)
 
-	def test_service_assignment_synchronizes_direction_and_site(self):
-		site = Site.objects.create(
-			site_nom="Agence", site_type="AGENCE", localite="Nord"
-		)
+	def test_service_assignment_synchronizes_direction_without_site_relation(self):
 		direction = Direction.objects.create(
-			dir_libelle="Direction", dir_description="", site=site
+			dir_libelle="Direction", dir_description=""
 		)
 		service = Service.objects.create(
 			serv_libelle="Service", serv_info="", serv_dir_id=direction
@@ -281,4 +278,4 @@ class EmployerOrganizationTests(TestCase):
 		)
 
 		self.assertEqual(employer.emp_dir_id, direction)
-		self.assertEqual(employer.emp_site_id, site)
+		self.assertIsNone(employer.emp_site_id)

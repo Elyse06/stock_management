@@ -114,11 +114,9 @@ class Employer(models.Model):
             self.emp_id = self.generer_emp_id_unique(self.emp_matricule)
         if self.emp_serv_id_id:
             self.emp_dir_id = self.emp_serv_id.serv_dir_id
-        if self.emp_dir_id_id:
-            self.emp_site_id = self.emp_dir_id.site
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
-            kwargs["update_fields"] = set(update_fields) | {"emp_dir_id", "emp_site_id"}
+            kwargs["update_fields"] = set(update_fields) | {"emp_dir_id"}
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -132,4 +130,4 @@ class Employer(models.Model):
 
     @property
     def site(self):
-        return self.emp_site_id or (self.direction.site if self.direction else None)
+        return self.emp_site_id
