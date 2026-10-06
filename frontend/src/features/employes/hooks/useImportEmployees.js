@@ -68,7 +68,7 @@ export function useImportEmployees() {
   }, [fichier, overwrite]);
 
   const confirmer = useCallback(async () => {
-    if (!fichier) return;
+    if (!fichier) return false;
     setLoading(true);
     setErreur(null);
     abortRef.current = new AbortController();
@@ -76,10 +76,12 @@ export function useImportEmployees() {
       const resultat = await envoyerFichier(fichier, false, overwrite, abortRef.current.signal);
       setRapport(resultat);
       setEtape(ETAPES.CONFIRME);
+      return true;
     } catch (e) {
-      if (e.name === "CanceledError" || e.code === "ERR_CANCELED") return;
+      if (e.name === "CanceledError" || e.code === "ERR_CANCELED") return false;
       const message = e.response?.data?.detail || e.message || "Impossible de confirmer l'import.";
       setErreur(message);
+      return false;
     } finally {
       setLoading(false);
       abortRef.current = null;

@@ -54,9 +54,9 @@ export function EmployeesPage() {
         page_size: paginationModel.pageSize,
       };
       if (search) params.search = search;
-      if (siteFiltre) params.site = siteFiltre;
-      if (directionFiltre) params.direction = directionFiltre;
-      if (serviceFiltre) params.service = serviceFiltre;
+      if (siteFiltre) params.emp_site_id = siteFiltre;
+      if (directionFiltre) params.emp_dir_id = directionFiltre;
+      if (serviceFiltre) params.emp_serv_id = serviceFiltre;
 
       const { data } = await apiClient.get(API_ENDPOINTS.EMPLOYEES, { params });
       return {
@@ -100,6 +100,9 @@ export function EmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["directions"] });
+      queryClient.invalidateQueries({ queryKey: ["sites"] });
     },
   });
 
@@ -309,7 +312,12 @@ export function EmployeesPage() {
           setIsFormModalOpen(false);
           setEmployeeToEdit(null);
         }}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["employees"] })}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["employees"] });
+          queryClient.invalidateQueries({ queryKey: ["services"] });
+          queryClient.invalidateQueries({ queryKey: ["directions"] });
+          queryClient.invalidateQueries({ queryKey: ["sites"] });
+        }}
         employeeToEdit={employeeToEdit}
         sites={sites}
         directions={directions}
@@ -334,7 +342,12 @@ export function EmployeesPage() {
       <EmployeeImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["employees"] })}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["employees"] });
+          queryClient.invalidateQueries({ queryKey: ["services"] });
+          queryClient.invalidateQueries({ queryKey: ["directions"] });
+          queryClient.invalidateQueries({ queryKey: ["sites"] });
+        }}
       />
 
       <ConfirmDialog

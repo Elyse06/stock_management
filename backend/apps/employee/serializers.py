@@ -4,13 +4,16 @@ from .models import Direction, Employer, Service, Site
 
 
 class SiteSerializer(serializers.ModelSerializer):
+    directions_count = serializers.IntegerField(read_only=True)
+    employees_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Site
         fields = '__all__'
 
 class DirectionSerializer(serializers.ModelSerializer):
-    site_type = serializers.CharField(source='site.site_type', read_only=True)
-    site_nom = serializers.CharField(source='site.site_nom', read_only=True)
+    services_count = serializers.IntegerField(read_only=True)
+    employees_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Direction
@@ -19,6 +22,7 @@ class DirectionSerializer(serializers.ModelSerializer):
 
 class ServiceSerializer(serializers.ModelSerializer):
     direction_libelle = serializers.CharField(source='serv_dir_id.dir_libelle', read_only=True)
+    employees_count = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Service
