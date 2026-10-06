@@ -1,9 +1,10 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
-from apps.stock.models import Mouvement, DetailMouvement, Magasin
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from apps.catalogue.models import Article
-from .tasks import notifier_stock_bas
+from apps.notifications.tasks import notifier_stock_bas
+from apps.stock.models import DetailMouvement, Magasin, Mouvement
 
 
 class TestAlerteStockView(APIView):
