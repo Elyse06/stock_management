@@ -46,7 +46,7 @@ export function ServicesPage() {
         page_size: paginationModel.pageSize,
       };
       if (search) params.search = search;
-      if (directionFiltre) params.direction = directionFiltre;
+      if (directionFiltre) params.serv_dir_id = directionFiltre;
 
       const { data } = await apiClient.get(API_ENDPOINTS.SERVICES, { params });
       return {
@@ -73,6 +73,7 @@ export function ServicesPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["directions"] });
       notify.success(`Service « ${data.serv_libelle} » créé avec succès.`);
       handleCloseModal();
     },
@@ -89,6 +90,7 @@ export function ServicesPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["directions"] });
       notify.success(`Service « ${data.serv_libelle} » mis à jour avec succès.`);
       handleCloseModal();
     },
@@ -104,6 +106,7 @@ export function ServicesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["directions"] });
       notify.success("Service supprimé.");
     },
     onError: (err) => {

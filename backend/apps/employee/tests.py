@@ -1,8 +1,15 @@
 from django.test import SimpleTestCase, TestCase
 from django.urls import resolve
+from rest_framework.test import APIRequestFactory
 
 from apps.employee.serializers import DirectionSerializer, EmployerSerializer, ServiceSerializer
 from apps.employee.models import Direction, Employer, Service, Site
+from apps.employee.views import (
+	DirectionViewSet,
+	EmployerViewSet,
+	ServiceViewSet,
+	SiteViewSet,
+)
 from apps.employee.views_import import ImportEmployeesView
 
 
@@ -29,6 +36,184 @@ class EmployerSerializerTests(TestCase):
 		employee = serializer.save()
 
 		self.assertEqual(employee.emp_id, "E12345")
+
+
+class EmployerFilterTests(TestCase):
+	def test_list_filters_by_organization_and_searches(self):
+		site = Site.objects.create(
+			site_nom="Siège", site_type="SIEGE", localite="Centre"
+		)
+		other_site = Site.objects.create(
+			site_nom="Agence", site_type="AGENCE", localite="Nord"
+		)
+		direction = Direction.objects.create(
+			dir_libelle="Direction", dir_description=""
+		)
+		other_direction = Direction.objects.create(
+			dir_libelle="Autre direction", dir_description=""
+		)
+		service = Service.objects.create(
+			serv_libelle="Service", serv_info="", serv_dir_id=direction
+		)
+		other_service = Service.objects.create(
+			serv_libelle="Autre service", serv_info="", serv_dir_id=other_direction
+		)
+		employee = Employer.objects.create(
+			emp_id="E00001",
+			emp_nom="Employé recherché",
+			emp_matricule="MAT-001",
+			emp_fonction="Agent",
+			emp_contact="",
+		)
+		Employer.objects.create(
+			emp_id="E00002",
+			emp_nom="Autre employé",
+			emp_matricule="MAT-002",
+			emp_fonction="Agent",
+			emp_contact="",
+		)
+		Employer.objects.filter(pk=employee.pk).update(
+			emp_site_id=site.pk,
+			emp_dir_id=direction.pk,
+			emp_serv_id=service.pk,
+		)
+		Employer.objects.filter(pk="E00002").update(
+			emp_site_id=other_site.pk,
+			emp_dir_id=other_direction.pk,
+			emp_serv_id=other_service.pk,
+		)
+
+		request = APIRequestFactory().get(
+			"/api/employee/employee/",
+			{
+				"search": "recherché",
+				"emp_site_id": site.pk,
+				"emp_dir_id": direction.pk,
+				"emp_serv_id": service.pk,
+			},
+		)
+		response = EmployerViewSet.as_view(
+			{"get": "list"}, permission_classes=[]
+		)(request)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["count"], 1)
+		self.assertEqual(response.data["results"][0]["emp_id"], employee.pk)
+
+
+class ServiceAndDirectionCountTests(TestCase):
+	def test_service_filter_and_employee_count(self):
+		direction = Direction.objects.create(
+			dir_libelle="Direction A", dir_description=""
+		)
+		other_direction = Direction.objects.create(
+			dir_libelle="Direction B", dir_description=""
+		)
+		service = Service.objects.create(
+			serv_libelle="Service A", serv_info="", serv_dir_id=direction
+		)
+		Service.objects.create(
+			serv_libelle="Service B", serv_info="", serv_dir_id=other_direction
+		)
+		employee = Employer.objects.create(
+			emp_id="E00003",
+			emp_nom="Employé A",
+			emp_matricule="MAT-003",
+			emp_fonction="Agent",
+			emp_contact="",
+		)
+		Employer.objects.filter(pk=employee.pk).update(
+			emp_dir_id=direction.pk,
+			emp_serv_id=service.pk,
+		)
+
+		request = APIRequestFactory().get(
+			"/api/employee/service/",
+			{"serv_dir_id": direction.pk},
+		)
+		response = ServiceViewSet.as_view(
+			{"get": "list"}, permission_classes=[]
+		)(request)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["count"], 1)
+		self.assertEqual(response.data["results"][0]["serv_id"], service.pk)
+		self.assertEqual(response.data["results"][0]["employees_count"], 1)
+
+	def test_direction_search_returns_service_and_employee_counts(self):
+		direction = Direction.objects.create(
+			dir_libelle="Direction recherchée", dir_description=""
+		)
+		service = Service.objects.create(
+			serv_libelle="Service A", serv_info="", serv_dir_id=direction
+		)
+		employee = Employer.objects.create(
+			emp_id="E00004",
+			emp_nom="Employé A",
+			emp_matricule="MAT-004",
+			emp_fonction="Agent",
+			emp_contact="",
+		)
+		Employer.objects.filter(pk=employee.pk).update(
+			emp_dir_id=direction.pk,
+			emp_serv_id=service.pk,
+		)
+
+		request = APIRequestFactory().get(
+			"/api/employee/direction/",
+			{"search": "recherchée"},
+		)
+		response = DirectionViewSet.as_view(
+			{"get": "list"}, permission_classes=[]
+		)(request)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["count"], 1)
+		self.assertEqual(response.data["results"][0]["dir_id"], direction.pk)
+		self.assertEqual(response.data["results"][0]["services_count"], 1)
+		self.assertEqual(response.data["results"][0]["employees_count"], 1)
+
+
+class SiteFilterAndCountTests(TestCase):
+	def test_site_filter_search_and_counts(self):
+		site = Site.objects.create(
+			site_nom="Agence Nord", site_type="AGENCE", localite="Nord"
+		)
+		other_site = Site.objects.create(
+			site_nom="Siège", site_type="SIEGE", localite="Centre"
+		)
+		direction = Direction.objects.create(
+			dir_libelle="Direction Nord", dir_description=""
+		)
+		service = Service.objects.create(
+			serv_libelle="Service Nord", serv_info="", serv_dir_id=direction
+		)
+		employee = Employer.objects.create(
+			emp_id="E00005",
+			emp_nom="Employé Nord",
+			emp_matricule="MAT-005",
+			emp_fonction="Agent",
+			emp_contact="",
+		)
+		Employer.objects.filter(pk=employee.pk).update(
+			emp_site_id=site.pk,
+			emp_dir_id=direction.pk,
+			emp_serv_id=service.pk,
+		)
+
+		request = APIRequestFactory().get(
+			"/api/employee/sites/",
+			{"site_type": "AGENCE", "search": "Nord"},
+		)
+		response = SiteViewSet.as_view(
+			{"get": "list"}, permission_classes=[]
+		)(request)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["count"], 1)
+		self.assertEqual(response.data["results"][0]["site_id"], site.pk)
+		self.assertEqual(response.data["results"][0]["employees_count"], 1)
+		self.assertEqual(response.data["results"][0]["directions_count"], 1)
 
 
 class DirectionAndServiceIdTests(TestCase):

@@ -37,6 +37,10 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
     if (selectedFile) choisirFichier(selectedFile);
   };
 
+  const handleConfirmImport = async () => {
+    if (await confirmer()) onSuccess?.();
+  };
+
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -230,7 +234,7 @@ export function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                 variant="contained"
                 disabled={loading || (rapport?.lignes_erreur > 0 && rapport.lignes_ok === 0)}
                 startIcon={<CheckCircleIcon />}
-                onClick={confirmer}
+                onClick={handleConfirmImport}
                 sx={{ bgcolor: "primary.main", color: "#000000", fontWeight: 700, px: 3, "&:hover": { bgcolor: "primary.dark" } }}
               >
                 {loading ? "Importation..." : `Confirmer l'import (${rapport?.lignes_ok || 0})`}

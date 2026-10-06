@@ -40,14 +40,6 @@ class Direction(models.Model):
     dir_libelle = models.CharField(max_length = 50)
     dir_description = models.CharField(max_length = 255)
 
-    site = models.ForeignKey(
-        Site, 
-        on_delete=models.CASCADE, 
-        related_name='directions',
-        null=True, 
-        blank=True
-    )
-
     class Meta:
         db_table = 't_direction'
 
@@ -91,32 +83,17 @@ class Employer(models.Model):
     )
     emp_dir_id = models.ForeignKey(
         Direction,
-        models.SET_NULL,
-        db_column="emp_dir_id",
-        related_name="employees",
-        null=True,
-        blank=True,
+        models.SET_NULL, db_column="emp_dir_id", related_name="employees", null=True, blank=True,
     )
     emp_site_id = models.ForeignKey(
         Site,
-        models.SET_NULL,
-        db_column="emp_site_id",
-        related_name="employees",
-        null=True,
-        blank=True,
+        models.SET_NULL, db_column="emp_site_id", related_name="employees", null=True, blank=True,
     )
     emp_utilisateur_id = models.ForeignKey(
-        Utilisateur,
-        models.CASCADE,
-        db_column="emp_utilisateur_id",
-        null=True,
-        blank=True,
+        Utilisateur, models.CASCADE, db_column="emp_utilisateur_id", null=True, blank=True,
     )
     emp_chef_hierarchique = models.ForeignKey(
-        "self",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
     )
 
     class Meta:

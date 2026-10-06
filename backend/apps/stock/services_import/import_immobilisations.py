@@ -2,22 +2,22 @@ import re
 import unicodedata
 
 import pandas as pd  # type: ignore
-from django.db import transaction
-from django.utils import timezone
+from django.db import transaction  # type: ignore
+from django.utils import timezone  # type: ignore
 
 from apps.catalogue.models import Article, Categorie, Fournisseur
 from apps.employee.models import Direction, Employer, Site
-from apps.stock.models import Affectation, DetailMouvement, Magasin, Mouvement, Salle, UniteArticle
+from apps.stock.models import (
+    Affectation,
+    DetailMouvement,
+    Magasin,
+    Mouvement,
+    Salle,
+    UniteArticle,
+)
 
 VALEURS_NON_APPLICABLE = {"non applicable", "n/a", "na", "", "none", "nan"}
 
-# Colonnes du fichier "Registre des inventaires". "Agence" est gardée dans
-# cette liste uniquement pour aider à repérer la ligne d'en-tête (voir
-# detecter_index_entete) : elle n'est plus utilisée pour déterminer un
-# magasin d'entrée (voir _trouver_magasin_siege). Les colonnes comptables
-# (AMT ...), "N IMMO", "mois", "Anneée", "reference immo", "Etat" et
-# "N° fiche d'affectation" existent dans le fichier mais ne sont pas
-# utilisées par cet import.
 COLONNES_ATTENDUES = [
     "Date D'acquisition",
     "nature",
@@ -97,14 +97,10 @@ def get_or_create_article(designation, categorie, mode_suivi):
 
 
 def _trouver_magasin_siege():
-    """Le magasin du Siège est la destination par défaut de TOUTE entrée en
-    stock (plus de magasin créé par Agence). Il est cherché par le type de
-    site de sa localité (SIEGE), jamais créé par cet import : il doit déjà
-    exister en base."""
     magasins = list(Magasin.objects.filter(localite__site_type="SIEGE"))
     if not magasins:
         raise ValueError(
-            "Aucun magasin trouvé au Siège (site de type SIEGE). "
+            "Aucun magasin trouvé au Siège. "
             "Créez-en un avant de lancer l'import."
         )
     if len(magasins) > 1:
@@ -118,38 +114,47 @@ def _trouver_magasin_siege():
     return magasins[0]
 
 
+def normaliser_texte(texte: str) -> str:
+    if not texte:
+        return ""
+
+    nfkd_form = unicodedata.normalize('NFKD', str(texte))
+    sans_accent = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    nettoye = re.sub(r'[^a-zA-Z0-9\s]', ' ', sans_accent)
+    return " ".join(nettoye.split()).upper()
+
+
 def resoudre_affectation(affectation_texte):
-    """Cherche une correspondance pour le texte de la colonne 'Affectation',
-    dans l'ordre : Magasin, Salle, Direction, Agence (Site), Employé. Ne crée
-    rien : recherche en lecture seule, utilisée pour proposer une suggestion
-    que l'utilisateur devra confirmer. Retourne (type, entité) ou (None, None).
+    if not affectation_texte or est_non_applicable(affectation_texte):
+        return None, None
 
-    Magasin reste vérifié en premier (si l'objet est physiquement rangé dans
-    un magasin précis déjà existant, pas de bénéficiaire : il reste en stock
-    dans ce magasin). Aucune des entités cherchées ici (Magasin, Salle,
-    Direction, Site, Employé) n'est jamais créée par cet import : les
-    recherches en direct sur la base sont donc sûres (pas de risque
-    d'auto-pollution d'une ligne à l'autre du même import).
-    """
-    magasin = Magasin.objects.filter(magasin_nom__iexact=affectation_texte).first()
-    if magasin:
-        return "MAGASIN", magasin
+    texte_brut = str(affectation_texte).strip()
+    texte_norm = normaliser_texte(texte_brut)
 
-    salle = Salle.objects.filter(nom__iexact=affectation_texte).first()
-    if salle:
-        return "SALLE", salle
+    for magasin in Magasin.objects.all():
+        if normaliser_texte(magasin.magasin_nom) == texte_norm or texte_norm in normaliser_texte(magasin.magasin_nom):
+            return "MAGASIN", magasin
 
-    direction = Direction.objects.filter(dir_libelle__iexact=affectation_texte).first()
-    if direction:
-        return "DIRECTION", direction
+    for salle in Salle.objects.all():
+        if normaliser_texte(salle.nom) == texte_norm or texte_norm in normaliser_texte(salle.nom):
+            return "SALLE", salle
 
-    site = Site.objects.filter(site_nom__iexact=affectation_texte).first()
-    if site:
-        return "SITE", site
+    for direction in Direction.objects.all():
+        if (normaliser_texte(direction.dir_libelle) == texte_norm or 
+            normaliser_texte(direction.dir_description) == texte_norm or 
+            texte_norm in normaliser_texte(direction.dir_description)):
+            return "DIRECTION", direction
 
-    employe = Employer.objects.filter(emp_nom__iexact=affectation_texte).first()
-    if employe:
-        return "EMPLOYE", employe
+    for site in Site.objects.all():
+        site_nom_norm = normaliser_texte(site.site_nom)
+        if (site_nom_norm == texte_norm or 
+            texte_norm in site_nom_norm or 
+            site_nom_norm in texte_norm):
+            return "SITE", site
+
+    for employe in Employer.objects.all():
+        if normaliser_texte(employe.emp_nom) == texte_norm or texte_norm in normaliser_texte(employe.emp_nom):
+            return "EMPLOYE", employe
 
     return None, None
 
@@ -204,7 +209,6 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
         "designation": nature,
     }
 
-    # --- Résolution de l'affectation : Magasin / Salle / Direction / Site / Employé ---
     affectation = row.get("Affectation")
     affectation_texte = None if est_non_applicable(affectation) else str(affectation).strip()
 
@@ -212,10 +216,6 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
     if affectation_texte:
         type_match, entite_match = resoudre_affectation(affectation_texte)
 
-    # Toute correspondance doit être confirmée explicitement par l'utilisateur
-    # avant d'être appliquée. Si l'affectation est renseignée mais qu'aucune
-    # correspondance n'a été trouvée, OU qu'une correspondance existe mais n'a
-    # pas été confirmée : la ligne est mise de côté, rien n'est écrit en base.
     if affectation_texte and (type_match is None or ligne_no not in lignes_confirmees):
         return {
             **resultat_base,
@@ -230,10 +230,6 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
             "attribution": None,
         }
 
-    # --- Entrée en stock (toujours, sauf ligne mise de côté ci-dessus) ---
-    # Par défaut, toute entrée se fait au magasin du Siège. Seule exception :
-    # une correspondance Magasin confirmée, qui devient alors la destination
-    # réelle (l'objet est rangé précisément là, pas au Siège).
     magasin_destination = entite_match if type_match == "MAGASIN" else magasin_siege
 
     mvt_entree = Mouvement(
@@ -266,10 +262,6 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
         "attribution": None,
     }
 
-    # --- Attribution (sortie), pour Salle / Direction / Site / Employé ---
-    # La sortie part toujours du magasin du Siège (c'est là que tout entre
-    # par défaut) : jamais du magasin spécifique d'un cas MAGASIN, puisque ce
-    # cas-là ne produit justement aucune sortie.
     if type_match in ("SALLE", "DIRECTION", "SITE", "EMPLOYE"):
         mvt_sortie = Mouvement(
             date=date_import,
@@ -314,10 +306,6 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
     origine_import = f"Import immobilisations {timezone.now():%Y-%m-%d}"
     date_import = timezone.now()
 
-    # Peut lever ValueError si le magasin du Siège est introuvable ou
-    # ambigu : la vue est responsable d'attraper cette exception et de la
-    # transformer en réponse HTTP propre (ce n'est pas une erreur par ligne,
-    # mais un prérequis manquant pour tout l'import).
     magasin_siege = _trouver_magasin_siege()
 
     try:

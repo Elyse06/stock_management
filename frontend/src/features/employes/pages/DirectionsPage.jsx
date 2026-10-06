@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { FormDialog } from "../../../components/common/FormDialog";
 import { Chip } from "@mui/material";
 
-const EMPTY_FORM = { dir_libelle: "", site: "", dir_description: "" };
+const EMPTY_FORM = { dir_libelle: "", dir_description: "" };
 
 export function DirectionsPage() {
   const notify = useNotification();
@@ -27,7 +27,6 @@ export function DirectionsPage() {
   const { canManageCatalogue } = usePermission();
 
   const [search, setSearch] = useState("");
-  const [siteFiltre, setSiteFiltre] = useState("");
   const [dirToEdit, setDirToEdit] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -38,7 +37,6 @@ export function DirectionsPage() {
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
       search,
-      site: siteFiltre,
     }],
     queryFn: async () => {
       const params = {
@@ -46,7 +44,6 @@ export function DirectionsPage() {
         page_size: paginationModel.pageSize,
       };
       if (search) params.search = search;
-      if (siteFiltre) params.site = siteFiltre;
 
       const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS, { params });
       return {
@@ -55,15 +52,6 @@ export function DirectionsPage() {
       };
     },
     keepPreviousData: true,
-  });
-
-  const { data: sites = [] } = useQuery({
-    queryKey: ["sites", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
-    staleTime: 1000 * 60 * 10,
   });
 
   const createMutation = useMutation({
@@ -89,6 +77,7 @@ export function DirectionsPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["directions"] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       notify.success(`Direction « ${data.dir_libelle} » mise à jour avec succès.`);
       handleCloseModal();
     },
@@ -104,6 +93,8 @@ export function DirectionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["directions"] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
       notify.success("Direction supprimée.");
     },
     onError: (err) => {
@@ -117,19 +108,17 @@ export function DirectionsPage() {
       setDirToEdit(dir);
       setForm({
         dir_libelle: dir.dir_libelle || "",
-        site: dir.site || "",
         dir_description: dir.dir_description || "",
       });
     } else {
       setDirToEdit(null);
-      setForm({ ...EMPTY_FORM, site: sites[0]?.site_id || "" });
+      setForm({ ...EMPTY_FORM });
     }
     setIsFormModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsFormModalOpen(false);
-    setDirToEdit(null);
     setForm(EMPTY_FORM);
   };
 
@@ -143,7 +132,6 @@ export function DirectionsPage() {
     try {
       const payload = {
         dir_libelle: form.dir_libelle.trim(),
-        site: form.site ? Number(form.site) : null,
         dir_description: form.dir_description.trim(),
       };
       if (dirToEdit) {
@@ -174,11 +162,6 @@ export function DirectionsPage() {
       headerName: "Direction",
       flex: 1,
       minWidth: 200,
-    },
-    {
-      field: "site_nom",
-      headerName: "Site / Établissement",
-      width: 180,
     },
     {
       field: "dir_description",
@@ -241,11 +224,6 @@ export function DirectionsPage() {
     },
   ];
 
-  const siteOptions = [
-    { value: "", label: "Tous les sites" },
-    ...sites.map((s) => ({ value: s.site_id, label: s.site_nom })),
-  ];
-
   return (
     <Box>
       <PageHeader
@@ -254,13 +232,12 @@ export function DirectionsPage() {
         canAction={canManageCatalogue}
         onReset={() => {
           setSearch("");
-          setSiteFiltre("");
           resetPage();
         }}
-        hasFilters={Boolean(search || siteFiltre)}
+        hasFilters={Boolean(search)}
       >
         <TextField
-          placeholder="Rechercher par nom de direction, code ou site..."
+          placeholder="Rechercher par nom de direction"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -275,16 +252,6 @@ export function DirectionsPage() {
               ),
             },
           }}
-        />
-        <SelectFilter
-          label="Site"
-          value={siteFiltre}
-          onChange={(value) => {
-            setSiteFiltre(value);
-            resetPage();
-          }}
-          options={siteOptions}
-          minWidth={180}
         />
       </PageHeader>
       <ErrorAlert error={error?.message} />
@@ -319,16 +286,6 @@ export function DirectionsPage() {
             required
             autoFocus
             fullWidth
-          />
-          <SelectFilter
-            label="Site / Établissement principal"
-            value={form.site}
-            onChange={(value) => setForm({ ...form, site: value })}
-            options={[
-              { value: "", label: "-- Sélectionner --" },
-              ...sites.map((s) => ({ value: s.site_id, label: `${s.site_nom} (${s.site_type})` })),
-            ]}
-            required
           />
           <TextField
             label="Description"
