@@ -35,9 +35,9 @@ export function FormDialog({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            bgcolor: "#FFF8E1",
+            bgcolor: "tint.main",
             borderBottom: "2px solid",
-            borderColor: "primary.main",
+            borderColor: "secondary.main",
           }}
         >
           <Typography variant="h3">{title}</Typography>

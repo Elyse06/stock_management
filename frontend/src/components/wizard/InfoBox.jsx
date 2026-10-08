@@ -6,9 +6,10 @@ export function InfoBox({ title, subtitle, icon, children }) {
       sx={{
         mt: 2,
         p: 2,
-        bgcolor: "#FFF8E1",
+        bgcolor: "tint.main",
         borderRadius: 1,
-        border: "1px solid #F9A825",
+        border: "1px solid",
+        borderColor: "primary.light",
         display: "flex",
         alignItems: "center",
         gap: 1,

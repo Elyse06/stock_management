@@ -13,10 +13,11 @@ export function StyledTable({ columns, children, emptyMessage, size = "small" })
           px: 1.5,
         },
         "& .MuiTableHead-root .MuiTableCell-root": {
-          bgcolor: "#FFF8E1",
+          bgcolor: "tint.main",
           fontWeight: 600,
           fontSize: 13,
-          borderBottom: "2px solid #F9A825",
+          borderBottom: "2px solid",
+          borderColor: "secondary.main",
         },
       }}
     >

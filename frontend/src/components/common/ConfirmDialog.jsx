@@ -10,7 +10,7 @@ import {
 export function ConfirmDialog({ open, title, message, onConfirm, onCancel }) {
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: "#FFF8E1", borderBottom: "2px solid", borderColor: "primary.main" }}>
+      <DialogTitle sx={{ bgcolor: "tint.main", borderBottom: "2px solid", borderColor: "secondary.main" }}>
         {title}
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>

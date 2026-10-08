@@ -48,7 +48,7 @@ export function ActionButtons({
       )}
       {onAction2 && (
         <Tooltip title={action2Label}>
-          <IconButton size="small" color="secondary" onClick={onAction2}>
+          <IconButton size="small" color="warning" onClick={onAction2}>
             {action2Icon}
           </IconButton>
         </Tooltip>

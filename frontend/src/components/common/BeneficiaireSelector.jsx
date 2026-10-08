@@ -85,9 +85,10 @@ export function BeneficiaireSelector({
               py: 0.75,
               border: "1px solid #E0E0E0",
               "&.Mui-selected": {
-                bgcolor: "primary.light",
+                bgcolor: "tint.main",
                 borderColor: "primary.main",
-                color: "text.primary",
+                color: "primary.main",
+                fontWeight: 600,
                 "&:hover": {
                   bgcolor: "primary.main",
                   color: "white",

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import logo from "../../assets/tahiry-logo.png";
 
 import {
   Box,
@@ -42,12 +43,12 @@ export function LoginPage() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "#FFFFFF",
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
       }}
     >
       <Card
@@ -56,32 +57,26 @@ export function LoginPage() {
           width: "100%",
           boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
           border: "1px solid #E0E0E0",
+          borderTop: "4px solid",
+          borderTopColor: "secondary.main",
         }}
       >
-        <CardContent sx={{ p: 4 }}>
+        <CardContent sx={{ p: { xs: 3, sm: 4 }, "&:last-child": { pb: { xs: 3, sm: 4 } } }}>
           {/* Header de la carte */}
-          <Box sx={{ textAlign: "center", mb: 4 }}>
+          <Box sx={{ textAlign: "center", mb: { xs: 3, sm: 4 } }}>
             <Box
+              component="img"
+              src={logo}
+              alt="Tahiry"
               sx={{
-                width: 56,
-                height: 56,
-                bgcolor: "primary.main",
-                borderRadius: 2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 24,
+                display: "block",
+                width: { xs: 150, sm: 190 },
+                maxWidth: "100%",
+                height: "auto",
                 mx: "auto",
                 mb: 2,
               }}
-            >
-              P
-            </Box>
-            <Typography variant="h5" fontWeight={600} gutterBottom>
-              Paositra
-            </Typography>
+            />
             <Typography variant="body2" color="text.secondary">
               Gestion de Stock - Connexion
             </Typography>
