@@ -27,7 +27,9 @@ createRoot(document.getElementById("root")).render(
             </AuthProvider>
           </NotificationProvider>
         </ThemeProvider>
+        {/** 
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        */}
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>

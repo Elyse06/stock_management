@@ -22,6 +22,7 @@ import { HistoriqueGlobalePage } from "./features/historique/pages/HistoriqueGlo
 import { HistoriqueLocalisationPage } from "./features/historique/pages/HistoriqueLocalisationPage";
 import { HistoriqueArticlePage } from "./features/historique/pages/HistoriqueArticlePage";
 import { ImportImmobilisationsPage } from "./features/import/pages/ImportImmobilisationsPage";
+import { FournitureImportPage } from "./features/import/pages/ImportFourniturePage";
 
 import { UtilisateursPage } from "./features/user/page/UtilisateursPage";
 
@@ -140,6 +141,15 @@ function App() {
           element={
             <ProtectedRoute actions={["CAT_GERE"]}>
               <ImportImmobilisationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/import/fournitures"
+          element={
+            <ProtectedRoute actions={["CAT_GERE"]}>
+              <FournitureImportPage />
             </ProtectedRoute>
           }
         />

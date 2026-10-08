@@ -1,3 +1,4 @@
+import random
 import re
 import unicodedata
 
@@ -40,14 +41,18 @@ def slugify_code_article(designation: str) -> str:
     return base[:20]
 
 
-def generer_code_article_unique(designation: str) -> str:
-    base = slugify_code_article(designation)
-    code = base
-    suffixe = 1
-    while Article.objects.filter(code_article=code).exists():
-        suffixe += 1
-        code = f"{base[:17]}-{suffixe}"
-    return code
+def generer_code_article_unique(categorie=None) -> str:
+    if categorie and getattr(categorie, 'cat_libelle', None):
+        nettoye = re.sub(r"[^A-Z]", "", str(categorie.cat_libelle).upper())
+        prefix = nettoye[:3] if nettoye else "ART"
+    else:
+        prefix = "ART"
+    
+    while True:
+        random_suffix = random.randint(1000, 9999)
+        code = f"{prefix}-{random_suffix}"
+        if not Article.objects.filter(code_article=code).exists():
+            return code
 
 
 def est_non_applicable(valeur) -> bool:
@@ -81,13 +86,12 @@ def get_or_create_fournisseur(nom):
 
 
 def get_or_create_article(designation, categorie, mode_suivi):
-    """Marque supprimée : l'article n'est plus rattaché à une marque."""
     designation = designation.strip()
     article = Article.objects.filter(designation__iexact=designation).first()
     if article:
         return article, False
     article = Article.objects.create(
-        code_article=generer_code_article_unique(designation),
+        code_article=generer_code_article_unique(categorie),
         designation=designation[:50],
         categorie=categorie,
         mode_suivi=mode_suivi,
@@ -194,20 +198,80 @@ def colonnes_manquantes(df: pd.DataFrame):
     return [c for c in COLONNES_ATTENDUES if c not in df.columns]
 
 
-def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees, magasin_siege):
+class MouvementsImport:
+    """Regroupe tout l'import en UN mouvement d'ENTRÉE (au magasin du Siège) et
+    UN mouvement de SORTIE (depuis le Siège), dont chaque ligne du fichier
+    n'est qu'un DetailMouvement.
+
+    Un Mouvement n'ayant qu'un seul magasin_destination, les rares lignes dont
+    l'Affectation correspond à un Magasin précis ne peuvent pas partager le
+    mouvement d'entrée du Siège : elles obtiennent un mouvement d'entrée par
+    magasin concerné (en pratique, un seul mouvement d'entrée dans la
+    grande majorité des imports).
+
+    Les mouvements sont créés à la demande, AVANT le savepoint de la ligne
+    qui les utilise : une ligne en erreur ne doit pas annuler la création
+    d'un mouvement partagé par les lignes suivantes.
+    """
+
+    def __init__(self, origine, date, magasin_siege):
+        self.origine = origine
+        self.date = date
+        self.magasin_siege = magasin_siege
+        self._entrees = {}  # magasin_id -> Mouvement
+        self._sortie = None
+
+    def entree(self, magasin):
+        mvt = self._entrees.get(magasin.pk)
+        if mvt is None:
+            mvt = Mouvement(
+                date=self.date,
+                type_mouvement=Mouvement.Type.ENTREE,
+                origine=self.origine,
+                magasin_destination=magasin,
+            )
+            mvt.full_clean(exclude=["magasin_source"])
+            mvt.save()
+            self._entrees[magasin.pk] = mvt
+        return mvt
+
+    def sortie(self):
+        if self._sortie is None:
+            mvt = Mouvement(
+                date=self.date,
+                type_mouvement=Mouvement.Type.SORTIE,
+                origine=self.origine,
+                magasin_source=self.magasin_siege,
+            )
+            mvt.full_clean(exclude=["magasin_destination"])
+            mvt.save()
+            self._sortie = mvt
+        return self._sortie
+
+    def finaliser(self):
+        """Supprime les mouvements restés sans aucun détail (ex: toutes les
+        lignes concernées étaient en erreur) et retourne ce qui subsiste."""
+        candidats = list(self._entrees.values())
+        if self._sortie is not None:
+            candidats.append(self._sortie)
+        vides = {m.pk for m in candidats if not m.details.exists()}
+        if vides:
+            Mouvement.objects.filter(pk__in=vides).delete()
+        return {
+            "entree_ids": [m.pk for m in self._entrees.values() if m.pk not in vides],
+            "sortie_id": (
+                self._sortie.pk
+                if self._sortie is not None and self._sortie.pk not in vides
+                else None
+            ),
+        }
+
+
+def _traiter_ligne(row, ligne_no, lignes_confirmees, mouvements):
+    # --- 1. Analyse (lecture seule : rien n'est écrit tant qu'on n'a pas décidé) ---
     nature = "" if est_non_applicable(row.get("nature")) else str(row.get("nature")).strip()
     if not nature:
         raise ValueError("Colonne 'nature' vide")
-
-    categorie = get_or_create_categorie(row.get("famille"))
-    article, cree = get_or_create_article(nature, categorie, Article.ModeSuivi.QUANTITE)
-    fournisseur = get_or_create_fournisseur(row.get("Fournisseur"))
-
-    resultat_base = {
-        "article": article.code_article,
-        "article_cree": cree,
-        "designation": nature,
-    }
 
     affectation = row.get("Affectation")
     affectation_texte = None if est_non_applicable(affectation) else str(affectation).strip()
@@ -216,9 +280,14 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
     if affectation_texte:
         type_match, entite_match = resoudre_affectation(affectation_texte)
 
+    # Correspondance absente ou non confirmée : la ligne est mise de côté,
+    # rien n'est écrit en base pour elle (pas même l'article).
     if affectation_texte and (type_match is None or ligne_no not in lignes_confirmees):
+        existant = Article.objects.filter(designation__iexact=nature).first()
         return {
-            **resultat_base,
+            "article": existant.code_article if existant else None,
+            "article_cree": False,
+            "designation": nature,
             "a_traiter": True,
             "affectation_texte": affectation_texte,
             "suggestion": (
@@ -230,61 +299,55 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
             "attribution": None,
         }
 
-    magasin_destination = entite_match if type_match == "MAGASIN" else magasin_siege
+    # --- 2. Mouvements globaux (créés hors savepoint, voir MouvementsImport) ---
+    magasin_destination = entite_match if type_match == "MAGASIN" else mouvements.magasin_siege
+    attribue = type_match in ("SALLE", "DIRECTION", "SITE", "EMPLOYE")
+    mvt_entree = mouvements.entree(magasin_destination)
+    mvt_sortie = mouvements.sortie() if attribue else None
 
-    mvt_entree = Mouvement(
-        date=date_import,
-        type_mouvement=Mouvement.Type.ENTREE,
-        origine=origine_import,
-        magasin_destination=magasin_destination,
-    )
-    mvt_entree.full_clean(exclude=["magasin_source"])
-    mvt_entree.save()
+    # --- 3. Écriture de la ligne, isolée dans un savepoint : si elle échoue,
+    # rien de ce qu'elle a déjà écrit ne subsiste (article, détails, unité...) ---
+    with transaction.atomic():
+        categorie = get_or_create_categorie(row.get("famille"))
+        article, cree = get_or_create_article(nature, categorie, Article.ModeSuivi.QUANTITE)
+        fournisseur = get_or_create_fournisseur(row.get("Fournisseur"))
 
-    detail_entree = DetailMouvement.objects.create(
-        mouvement=mvt_entree,
-        article=article,
-        quantite=1,
-        fournisseur=fournisseur,
-    )
-
-    unite = UniteArticle.objects.create(
-        article=article,
-        statut=UniteArticle.Statut.EN_STOCK,
-        mouvement_entree=detail_entree,
-    )
-
-    resultat = {
-        **resultat_base,
-        "a_traiter": False,
-        "avertissement": None,
-        "attribue_a": None,
-        "attribution": None,
-    }
-
-    if type_match in ("SALLE", "DIRECTION", "SITE", "EMPLOYE"):
-        mvt_sortie = Mouvement(
-            date=date_import,
-            type_mouvement=Mouvement.Type.SORTIE,
-            origine=origine_import,
-            magasin_source=magasin_siege,
-        )
-        mvt_sortie.full_clean(exclude=["magasin_destination"])
-        mvt_sortie.save()
-
-        detail_sortie = DetailMouvement.objects.create(
-            mouvement=mvt_sortie,
+        detail_entree = DetailMouvement.objects.create(
+            mouvement=mvt_entree,
             article=article,
             quantite=1,
-            affectation=Affectation.resoudre(entite_match),
+            fournisseur=fournisseur,
         )
-        unite.attribuer(beneficiaire=entite_match, mouvement_sortie=detail_sortie)
+        unite = UniteArticle.objects.create(
+            article=article,
+            statut=UniteArticle.Statut.EN_STOCK,
+            mouvement_entree=detail_entree,
+        )
 
-        libelle_type = {
-            "SALLE": "Salle", "DIRECTION": "Direction", "SITE": "Agence", "EMPLOYE": "Employé",
-        }[type_match]
-        resultat["attribue_a"] = f"{libelle_type} : {entite_match}"
-        resultat["attribution"] = {"type": type_match, "libelle": str(entite_match)}
+        resultat = {
+            "article": article.code_article,
+            "article_cree": cree,
+            "designation": nature,
+            "a_traiter": False,
+            "avertissement": None,
+            "attribue_a": None,
+            "attribution": None,
+        }
+
+        if attribue:
+            detail_sortie = DetailMouvement.objects.create(
+                mouvement=mvt_sortie,
+                article=article,
+                quantite=1,
+                affectation=Affectation.resoudre(entite_match),
+            )
+            unite.attribuer(beneficiaire=entite_match, mouvement_sortie=detail_sortie)
+
+            libelle_type = {
+                "SALLE": "Salle", "DIRECTION": "Direction", "SITE": "Agence", "EMPLOYE": "Employé",
+            }[type_match]
+            resultat["attribue_a"] = f"{libelle_type} : {entite_match}"
+            resultat["attribution"] = {"type": type_match, "libelle": str(entite_match)}
 
     return resultat
 
@@ -292,7 +355,7 @@ def _traiter_ligne(row, origine_import, date_import, ligne_no, lignes_confirmees
 def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_confirmees=None) -> dict:
     df = normaliser_colonnes(df)
     manquantes = colonnes_manquantes(df)
-    lignes_confirmees = lignes_confirmees or {}
+    lignes_confirmees = lignes_confirmees or set()
 
     rapport = {
         "dry_run": dry_run,
@@ -300,6 +363,7 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
         "lignes_ok": 0,
         "lignes_erreur": 0,
         "lignes_a_traiter": 0,
+        "mouvements": {"nb_entrees": 0, "nb_sorties": 0, "entree_ids": [], "sortie_id": None},
         "details": [],
     }
 
@@ -307,16 +371,14 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
     date_import = timezone.now()
 
     magasin_siege = _trouver_magasin_siege()
+    mouvements = MouvementsImport(origine_import, date_import, magasin_siege)
 
     try:
         with transaction.atomic():
             for idx, row in df.iterrows():
                 ligne_no = idx + 2
                 try:
-                    resultat = _traiter_ligne(
-                        row, origine_import, date_import, ligne_no, lignes_confirmees,
-                        magasin_siege,
-                    )
+                    resultat = _traiter_ligne(row, ligne_no, lignes_confirmees, mouvements)
                     if resultat.get("a_traiter"):
                         rapport["lignes_a_traiter"] += 1
                         rapport["details"].append(
@@ -330,6 +392,16 @@ def importer_immobilisations(df: pd.DataFrame, dry_run: bool = True, lignes_conf
                     rapport["details"].append(
                         {"ligne": ligne_no, "statut": "ERREUR", "message": str(exc)}
                     )
+
+            restants = mouvements.finaliser()
+            rapport["mouvements"] = {
+                "nb_entrees": len(restants["entree_ids"]),
+                "nb_sorties": 1 if restants["sortie_id"] else 0,
+                # En aperçu, tout est annulé juste après : des identifiants
+                # n'auraient aucun sens, on ne les renvoie qu'à l'import réel.
+                "entree_ids": [] if dry_run else restants["entree_ids"],
+                "sortie_id": None if dry_run else restants["sortie_id"],
+            }
 
             if dry_run:
                 raise RollbackDryRun()

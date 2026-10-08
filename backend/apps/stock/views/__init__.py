@@ -6,9 +6,11 @@ from .mouvement import MouvementViewSet
 from .salle import SalleViewSet
 from .unite_article import UniteArticleViewSet
 from .views_import import ImportImmobilisationsView
+from .views_import_fourniture import ImportFournituresView
 
 __all__ = [
     'DetailMouvementViewSet',
+    'ImportFournituresView',
     'ImportImmobilisationsView',
     'InventaireSessionViewSet',
     'LigneInventaireViewSet',

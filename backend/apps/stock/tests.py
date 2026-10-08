@@ -1,12 +1,90 @@
+from contextlib import nullcontext
+from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pandas as pd
 from django.test import TestCase
+from django.test import SimpleTestCase
 
 from apps.catalogue.models import Article, Categorie
 from apps.employee.models import Direction, Site
 from apps.stock.models import Affectation, InventaireSession, Salle, UniteArticle
 from apps.stock.serializers import InventaireSessionSerializer, SalleSerializer
+from apps.stock.services_import.import_fournitures import (
+    _traiter_ligne,
+    colonnes_manquantes,
+    detecter_date_import,
+    detecter_index_entete,
+    normaliser_colonnes,
+)
 from apps.stock.services.valider_inventaire import valider_session_inventaire
 from apps.stock.utils import calculer_stock_theorique
 from apps.stock.views.unite_article import UniteArticleViewSet
+
+
+class FournitureExcelHeaderTests(SimpleTestCase):
+    @patch("apps.stock.services_import.import_fournitures.pd.read_excel")
+    def test_detects_header_after_report_date(self, read_excel):
+        read_excel.return_value = pd.DataFrame([
+            [None, None, "DATE 30/09/26"],
+            [None, "ARTICLES", "QTE RESTANT", "OBSERVATION"],
+        ])
+
+        self.assertEqual(detecter_index_entete(BytesIO()), 1)
+
+    @patch("apps.stock.services_import.import_fournitures.pd.read_excel")
+    def test_reads_date_above_header(self, read_excel):
+        read_excel.return_value = pd.DataFrame([[None, None, "DATE 30/09/26"]])
+
+        self.assertEqual(
+            detecter_date_import(BytesIO(), ligne_entete=1).isoformat(),
+            "2026-09-30",
+        )
+
+    def test_normalizes_article_header_alias(self):
+        frame = normaliser_colonnes(pd.DataFrame(columns=[
+            " article ", "QTE RESTANT", "OBSERVATION",
+        ]))
+
+        self.assertEqual(colonnes_manquantes(frame), [])
+        self.assertIn("ARTICLES", frame.columns)
+
+    @patch("apps.stock.services_import.import_fournitures.DetailMouvement.objects.create")
+    @patch("apps.stock.services_import.import_fournitures.get_or_create_article")
+    @patch("apps.stock.services_import.import_fournitures.get_or_create_categorie")
+    @patch("apps.stock.services_import.import_fournitures.transaction.atomic")
+    def test_import_reads_articles_quantity_and_observation(
+        self, atomic, get_categorie, get_article, create_detail
+    ):
+        atomic.return_value = nullcontext()
+        categorie = SimpleNamespace(cat_libelle="FR")
+        article = SimpleNamespace(code_article="FR-0001", designation="Crayon")
+        mouvement = object()
+        get_categorie.return_value = categorie
+        get_article.return_value = (article, True)
+        mouvements = SimpleNamespace(
+            magasin_siege=object(),
+            entree=lambda _: mouvement,
+        )
+
+        resultat = _traiter_ligne(
+            pd.Series({
+                "ARTICLES": "Crayon",
+                "QTE RESTANT": 4.0,
+                "OBSERVATION": "Boîte bleue",
+            }),
+            mouvements,
+        )
+
+        self.assertEqual(resultat["designation"], "Crayon")
+        self.assertEqual(resultat["quantite"], 4)
+        self.assertEqual(resultat["observation"], "Boîte bleue")
+        create_detail.assert_called_once_with(
+            mouvement=mouvement,
+            article=article,
+            quantite=4,
+        )
 
 
 class SalleSerializerTests(TestCase):

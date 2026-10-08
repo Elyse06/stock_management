@@ -21,7 +21,7 @@ class SiteViewSet(viewsets.ModelViewSet):
         return Site.objects.annotate(
             directions_count=Count("employees__emp_dir_id", distinct=True),
             employees_count=Count("employees", distinct=True),
-        )
+        ).order_by("pk")
 
 class DirectionViewSet(viewsets.ModelViewSet):
     serializer_class = DirectionSerializer
@@ -32,7 +32,7 @@ class DirectionViewSet(viewsets.ModelViewSet):
         return Direction.objects.annotate(
             services_count=Count("service", distinct=True),
             employees_count=Count("employees", distinct=True),
-        )
+        ).order_by("pk")
 
 class ServiceViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceSerializer
@@ -43,7 +43,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Service.objects.annotate(
             employees_count=Count("employer", distinct=True),
-        )
+        ).order_by("pk")
 
 class EmployerViewSet(viewsets.ModelViewSet):
     queryset = Employer.objects.all()

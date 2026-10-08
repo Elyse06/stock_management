@@ -1,17 +1,13 @@
 import { useState } from "react";
 import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
+  Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography, Button,
 } from "@mui/material";
-import { Search as SearchIcon, Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon } from "@mui/icons-material";
+import { 
+  Search as SearchIcon, Person as PersonIcon, Business as BusinessIcon, 
+  LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon,
+  Print as PrintIcon,
+} from "@mui/icons-material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS } from "../../../constants/api";
@@ -24,6 +20,7 @@ import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid"
 import { EtatBadge } from "../../../components/common/EtatBadge";
 import { RetourStockModal } from "../components/RetourStockModal";
 import { TransfertUniteModal } from "../components/TransfertUniteModal";
+import { EtiquetteModal } from "../components/EtiquetteModal";
 
 const ETATS_RESUME = [
   { value: "BON", label: "Bon" },
@@ -37,14 +34,17 @@ export function UnitesArticlePage() {
   const queryClient = useQueryClient();
   const { paginationModel, setPaginationModel } = usePagination(25);
   const { canManageInventaire } = usePermission();
+  
   const [search, setSearch] = useState("");
   const [statutFiltre, setStatutFiltre] = useState("");
   const [etatFiltre, setEtatFiltre] = useState("");
   const [articleFiltre, setArticleFiltre] = useState("");
+  
   const [uniteSelectionnee, setUniteSelectionnee] = useState(null);
   const [isRetourModalOpen, setIsRetourModalOpen] = useState(false);
   const [isTransfertModalOpen, setIsTransfertModalOpen] = useState(false);
-
+  const [isEtiquetteModalOpen, setIsEtiquetteModalOpen] = useState(false);
+  
   const { data, isLoading, error } = useQuery({
     queryKey: ["unites-article", {
       page: paginationModel.page + 1,
@@ -63,7 +63,7 @@ export function UnitesArticlePage() {
       if (search) params.search = search;
       if (etatFiltre) params.etat = etatFiltre;
       if (articleFiltre) params.article = articleFiltre;
-
+      
       const { data } = await apiClient.get(API_ENDPOINTS.UNITES_ARTICLE, { params });
       return {
         unites: data.results ?? data,
@@ -72,7 +72,7 @@ export function UnitesArticlePage() {
     },
     keepPreviousData: true,
   });
-
+  
   const {
     data: resumeStock = [],
     isLoading: isLoadingResume,
@@ -84,29 +84,35 @@ export function UnitesArticlePage() {
       return resume;
     },
   });
-
+  
   const handleRetour = (unite) => {
     setUniteSelectionnee(unite);
     setIsRetourModalOpen(true);
   };
-
+  
   const handleTransfert = (unite) => {
     setUniteSelectionnee(unite);
     setIsTransfertModalOpen(true);
   };
-
+  
+  const handleImprimerEtiquette = (unite) => {
+    setUniteSelectionnee(unite);
+    setIsEtiquetteModalOpen(true);
+  };
+  
   const closeModal = () => {
     setUniteSelectionnee(null);
     setIsRetourModalOpen(false);
     setIsTransfertModalOpen(false);
+    setIsEtiquetteModalOpen(false);
   };
-
+  
   const onSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["unites-article"] });
     queryClient.invalidateQueries({ queryKey: ["unites-article-resume-stock"] });
     closeModal();
   };
-
+  
   const columns = [
     {
       field: "beneficiaire_type",
@@ -116,8 +122,7 @@ export function UnitesArticlePage() {
         const row = params.row;
         const nom = row.employe_attribue_nom || "—";
         const type = row.beneficiaire_type;
-
-        //  Icône et couleur selon le type
+        
         const Icon = type === "EMPLOYE"
           ? PersonIcon
           : type === "SITE"
@@ -132,7 +137,7 @@ export function UnitesArticlePage() {
             : type === "SALLE"
               ? "#0288D1"
               : "#7B1FA2";
-
+        
         return (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Icon fontSize="small" sx={{ color: iconColor }} />
@@ -156,7 +161,7 @@ export function UnitesArticlePage() {
     {
       field: "actions",
       headerName: "Actions",
-      width: 160,
+      width: 220,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -167,19 +172,38 @@ export function UnitesArticlePage() {
         const peutRetourner = canManageInventaire && unite.statut === "ATTRIBUE" && unite.etat !== "PERDU";
         const peutTransferer = canManageInventaire && unite.statut === "ATTRIBUE" &&
           unite.etat !== "HORS_USAGE" && unite.etat !== "PERDU";
-
+        
         return (
-          <ActionButtons
-            onAction1={peutRetourner ? () => handleRetour(unite) : null}
-            action1Label="Retour"
-            onAction2={peutTransferer ? () => handleTransfert(unite) : null}
-            action2Label="Transfert"
-          />
+          <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
+            <ActionButtons
+              onAction1={peutRetourner ? () => handleRetour(unite) : null}
+              action1Label="Retour"
+              onAction2={peutTransferer ? () => handleTransfert(unite) : null}
+              action2Label="Transfert"
+            />
+            
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PrintIcon fontSize="small" />}
+              onClick={() => handleImprimerEtiquette(unite)}
+              sx={{ 
+                minWidth: 0, 
+                px: 1,
+                borderColor: "primary.main",
+                color: "primary.main",
+                "&:hover": { bgcolor: "#FFF8E1" }
+              }}
+              title="Imprimer l'étiquette"
+            >
+              Étiquette
+            </Button>
+          </Box>
         );
       },
     },
   ];
-
+  
   return (
     <Box>
       <PageHeader
@@ -207,7 +231,7 @@ export function UnitesArticlePage() {
         />
       </PageHeader>
       <ErrorAlert error={error?.message} />
-
+      
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.5fr) minmax(420px, 1fr)" }, gap: 2, alignItems: "start" }}>
         <Box>
           <Typography variant="h6" sx={{ mb: 1 }}>Unités attribuées</Typography>
@@ -222,7 +246,6 @@ export function UnitesArticlePage() {
             noRowsLabel="Aucune unité attribuée"
           />
         </Box>
-
         <Paper variant="outlined" sx={{ overflow: "hidden" }}>
           <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
             <Typography variant="h6">Résumé des unités en stock</Typography>
@@ -275,11 +298,12 @@ export function UnitesArticlePage() {
           )}
         </Paper>
       </Box>
-
+      
       {uniteSelectionnee && (
         <>
           <RetourStockModal unite={uniteSelectionnee} isOpen={isRetourModalOpen} onClose={closeModal} onSuccess={onSuccess} />
           <TransfertUniteModal unite={uniteSelectionnee} isOpen={isTransfertModalOpen} onClose={closeModal} onSuccess={onSuccess} />
+          <EtiquetteModal unite={uniteSelectionnee} isOpen={isEtiquetteModalOpen} onClose={closeModal} /> {/* 🆕 */}
         </>
       )}
     </Box>
