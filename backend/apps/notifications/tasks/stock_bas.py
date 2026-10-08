@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 
 from apps.catalogue.models import Article
-from apps.utilisateur.models import Utilisateur
+from apps.utilisateur.models import Autoriser, Utilisateur
 
 from .calcul_stock import calculer_stock_article_magasin
 
@@ -22,15 +22,12 @@ def notifier_stock_bas(self, code_article, magasin_id, magasin_nom):
         
         # On récupère les emails de tous les utilisateurs actifs qui ont une adresse email
         # (Vous pourrez affiner plus tard pour n'envoyer qu'aux "Gestionnaires" par exemple)
-        destinataires = list(
-            Utilisateur.objects.exclude(utilisateur_mail__isnull=True)
-            .exclude(utilisateur_mail='')
-            .values_list('utilisateur_mail', flat=True)
-        )
+        gestionnaire_ids = set(Autoriser.objects.filter(autoriser_action_id__action_id='CAT_GERE').values_list('autoriser_utilisateur_id_id', flat=True))
+        destinataires = list(Utilisateur.objects.filter(utilisateur_id__in=gestionnaire_ids).exclude(utilisateur_mail__isnull=True).exclude(utilisateur_mail='').values_list('utilisateur_mail', flat=True))
         
         # Sécurité : si aucun utilisateur n'a d'email, on ne fait rien
         if not destinataires:
-            print("⚠️ Aucun destinataire avec un email valide trouvé en base de données.")
+            print("Aucun destinataire avec un email valide trouvé en base de données.")
             return "Aucun destinataire"
 
         print(f"📧 Envoi de l'alerte à {len(destinataires)} utilisateur(s) : {destinataires}")

@@ -7,11 +7,13 @@ export function CodeChip({ value }) {
       fontFamily="monospace"
       fontWeight={600}
       sx={{
-        bgcolor: "#FFF8E1",
+        bgcolor: "tint.main",
+        color: "primary.dark",
         px: 1,
         py: 0.3,
         borderRadius: 0.5,
-        border: "1px solid #F9A825",
+        border: "1px solid",
+        borderColor: "primary.light",
       }}
     >
       {value}

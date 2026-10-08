@@ -1,11 +1,24 @@
 import { createTheme } from "@mui/material/styles";
 
+const BRAND_BLUE = "#01509B";
+const BRAND_YELLOW = "#FECA05";
+const BRAND_ORANGE = "#F99813";
+
+const BLUE_TINT = "#E8F0F9";
+const BLUE_TINT_LIGHT = "#F4F8FC";
+
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#F9A825",
-      light: "#FFD54F",
-      dark: "#F57F17",
+      main: BRAND_BLUE,
+      light: "#3A7BBF",
+      dark: "#003A73",
+      contrastText: "#FFFFFF",
+    },
+    secondary: {
+      main: BRAND_YELLOW,
+      light: "#FFDD55",
+      dark: BRAND_ORANGE,
       contrastText: "#000000",
     },
     background: {
@@ -14,7 +27,11 @@ const theme = createTheme({
     },
     text: {
       primary: "#212121",
-      secondary: "#757575",
+      secondary: "#5F6B7A",
+    },
+    tint: {
+      main: BLUE_TINT,
+      light: BLUE_TINT_LIGHT,
     },
   },
   typography: {
@@ -60,14 +77,14 @@ const theme = createTheme({
         root: {
           border: "1px solid #E0E0E0",
           "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "#FFF8E1",
-            borderBottom: "2px solid #F9A825",
+            backgroundColor: BLUE_TINT,
+            borderBottom: `2px solid ${BRAND_YELLOW}`,
           },
           "& .MuiDataGrid-cell": {
             borderBottom: "1px solid #E0E0E0",
           },
           "& .MuiDataGrid-row:hover": {
-            backgroundColor: "#FFFDE7",
+            backgroundColor: BLUE_TINT_LIGHT,
           },
         },
       },

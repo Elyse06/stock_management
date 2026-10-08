@@ -16,25 +16,29 @@ const STATUS_LABELS = {
 };
 
 export function StatusChip({ status, variant = "filled", size = "small" }) {
+  // Palette alignée sur le logo : bleu = positif / actif, jaune-orangé = en attente, rouge = rejet
+  const BLUE = { borderColor: "primary.main", color: "primary.main" };
+  const BLUE_FILLED = { ...BLUE, bgcolor: "tint.main" };
+  const PENDING = { borderColor: "secondary.dark", color: "warning.dark" };
+
   const getCustomStyle = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
-        return { borderColor: "#F9A825", color: "#F9A825" };
+        return PENDING;
       case "VALIDEE":
       case "VALIDE":
       case "TRAITE":
       case "ENTREE":
       case "RETOUR":
-        return { borderColor: "#F9A825", color: "#F9A825", bgcolor: "#FFF8E1" };
+        return BLUE_FILLED;
       case "REJETEE":
       case "REJETE":
       case "SORTIE":
-        return { borderColor: "#D32F2F", color: "#D32F2F" };
+        return { borderColor: "error.main", color: "error.main" };
       case "EN_COURS":
       case "TRANSFERT":
-        return { borderColor: "#F9A825", color: "#F9A825" };
       case "AJUSTEMENT":
-        return { borderColor: "#F9A825", color: "#F9A825" };
+        return BLUE;
       default:
         return {};
     }
@@ -48,7 +52,7 @@ export function StatusChip({ status, variant = "filled", size = "small" }) {
       size={size}
       variant="outlined"
       sx={{
-        borderColor: customStyle.borderColor || "#E0E0E0",
+        borderColor: customStyle.borderColor || "divider",
         color: customStyle.color || "text.primary",
         bgcolor: customStyle.bgcolor || "transparent",
         fontWeight: 500,

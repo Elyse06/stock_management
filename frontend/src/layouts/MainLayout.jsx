@@ -43,6 +43,7 @@ import {
   Business as BusinessIcon,
   MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
+import logo from "../assets/tahiry-logo.png";
 
 const MENU_STRUCTURE = [
   {
@@ -274,31 +275,19 @@ export function MainLayout() {
         }}
       >
         <Toolbar sx={{ minHeight: 56, gap: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: "primary.main",
-                borderRadius: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 16,
-              }}
-            >
-              P
-            </Box>
-            <Typography
-              variant="subtitle1"
-              fontWeight={600}
-              color="text.primary"
-            >
-              Paositra
-            </Typography>
-          </Box>
+          <Box
+            component="img"
+            src={logo}
+            alt="Tahiry"
+            onClick={() => navigate("/")}
+            sx={{
+              height: 30,
+              width: "auto",
+              mr: 3,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          />
 
           {/* Barre de navigation */}
           <Box sx={{ display: "flex", gap: 0.5, flex: 1 }}>
@@ -322,12 +311,12 @@ export function MainLayout() {
                     borderBottom: isActive
                       ? "2px solid"
                       : "2px solid transparent",
-                    borderColor: isActive ? "primary.main" : "transparent",
+                    borderColor: isActive ? "secondary.main" : "transparent",
                     borderRadius: 0,
                     px: 2,
                     "&:hover": {
-                      bgcolor: "#FFF8E1",
-                      borderColor: "primary.light",
+                      bgcolor: "tint.main",
+                      borderColor: "secondary.main",
                     },
                   }}
                 >
@@ -392,7 +381,7 @@ export function MainLayout() {
               sx={{
                 minHeight: 40,
                 "& .MuiTabs-indicator": {
-                  backgroundColor: "primary.main",
+                  backgroundColor: "secondary.main",
                   height: 3,
                 },
               }}
@@ -449,7 +438,7 @@ export function MainLayout() {
                 key={child.path}
                 onClick={() => handleChildClick(child.path)}
                 sx={{
-                  "&:hover": { bgcolor: "#FFF8E1" },
+                  "&:hover": { bgcolor: "tint.main" },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>

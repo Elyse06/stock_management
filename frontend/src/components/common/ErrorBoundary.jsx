@@ -67,7 +67,7 @@ class ErrorBoundary extends Component {
                 sx={{
                   mb: 3,
                   p: 2,
-                  bgcolor: "#FFF8E1",
+                  bgcolor: "tint.main",
                   borderRadius: 1,
                   textAlign: "left",
                   maxHeight: 200,
