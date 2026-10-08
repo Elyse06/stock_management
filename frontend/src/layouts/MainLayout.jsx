@@ -165,6 +165,12 @@ const MENU_STRUCTURE = [
         icon: <UploadFileIcon fontSize="small" />,
         actions: ["CAT_GERE"],
       },
+      {
+        path: "/import/fournitures",
+        label: "Import fournitures",
+        icon: <UploadFileIcon fontSize="small" />,
+        actions: ["CAT_GERE"],
+      }
     ],
   },
   {

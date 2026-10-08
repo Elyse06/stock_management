@@ -8,6 +8,7 @@ Application interne de suivi de parc matériel : catalogue, fournisseurs, comman
 ## Base de données
 
 - SQL Server (via `mssql-django` + `pyodbc`)
+- L'API utilise la pagination SQL Server `OFFSET/FETCH`, disponible à partir du niveau de compatibilité 110. Le conteneur SQL Server 2022 configuré par Docker Compose règle la base au niveau 160. Pour une base gérée séparément, vérifier son niveau avec `SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME()` et le régler à une valeur prise en charge par le serveur (au minimum 110).
 
 ## Démarrage
 

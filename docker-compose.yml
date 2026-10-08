@@ -25,7 +25,7 @@ services:
         condition: service_healthy
     entrypoint: >
       /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P "${DB_PASSWORD:-StockDb!Password1}" -C
-      -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_NAME:-stock_db}') CREATE DATABASE [${DB_NAME:-stock_db}]"
+      -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_NAME:-stock_db}') CREATE DATABASE [${DB_NAME:-stock_db}]; ALTER DATABASE [${DB_NAME:-stock_db}] SET COMPATIBILITY_LEVEL = 160"
 
   redis:
     image: redis:7-alpine

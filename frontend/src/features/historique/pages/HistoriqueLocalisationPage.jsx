@@ -166,7 +166,7 @@ export function HistoriqueLocalisationPage() {
           }}
           minWidth={250}
           options={typeLocalisation === "magasin"
-            ? [{ value: "", label: "Sélectionner un magasin..." }, ...magasins.map((magasin) => ({ value: magasin.magasin_id, label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite})` : ""}` }))]
+            ? [{ value: "", label: "Sélectionner un magasin..." }, ...magasins.map((magasin) => ({ value: magasin.magasin_id, label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite_nom})` : ""}` }))]
             : typeLocalisation === "direction"
               ? [{ value: "", label: "Sélectionner une direction..." }, ...directions.map((direction) => ({ value: direction.dir_id, label: direction.dir_libelle }))]
               : typeLocalisation === "site"

@@ -232,7 +232,7 @@ export function HistoriqueGlobalePage() {
           minWidth={180}
           options={[{ value: "", label: "Tous les magasins" }, ...magasins.map((magasin) => ({
             value: magasin.magasin_id,
-            label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite})` : ""}`,
+            label: `${magasin.magasin_nom}${magasin.localite ? ` (${magasin.localite_nom})` : ""}`,
           }))]}
         />
         <SelectFilter

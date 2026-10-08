@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
 	DetailMouvementViewSet,
+    ImportFournituresView,
 	ImportImmobilisationsView,
 	InventaireSessionViewSet,
 	LigneInventaireViewSet,
@@ -26,5 +27,10 @@ urlpatterns = router.urls + [
 		"import-immobilisations/",
 		ImportImmobilisationsView.as_view(),
 		name="import-immobilisations",
+	),
+	path(
+		"import-fournitures/",
+		ImportFournituresView.as_view(),
+		name="import-fournitures",
 	),
 ]
