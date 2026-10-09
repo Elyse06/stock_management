@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, TextField } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS } from "../../../constants/api";
 import { usePermission } from "../../../hooks/usePermission";
@@ -25,7 +25,7 @@ export function ArticleListPage() {
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } =
     useConfirmDialog();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(20);
   const { canManageCatalogue, canReadCatalogue } = usePermission();
 
   const [search, setSearch] = useState("");
@@ -34,7 +34,7 @@ export function ArticleListPage() {
   const [articleToEdit, setArticleToEdit] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: [
       "articles",
       {
@@ -60,7 +60,7 @@ export function ArticleListPage() {
         totalCount: data.count ?? (data.results ?? data).length,
       };
     },
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const { data: categories = [] } = useCategoryOptions();
@@ -135,17 +135,15 @@ export function ArticleListPage() {
   };
 
   const columns = [
-    { field: "designation", headerName: "Désignation", flex: 1, minWidth: 200 },
+    { field: "designation", headerName: "Désignation" },
     {
       field: "categorie_nom",
       headerName: "Catégorie",
-      width: 160,
       renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
       field: "description",
       headerName: "Description",
-      width: 130,
       renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
@@ -192,7 +190,7 @@ export function ArticleListPage() {
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
           size="small"
-          sx={{ flex: 1 }}
+          sx={{ flex: { sm: 1 }, minWidth: { sm: 200 } }}
           slotProps={{
             input: {
               startAdornment: (
@@ -228,7 +226,7 @@ export function ArticleListPage() {
       <PaginatedDataGrid
         rows={data?.articles || []}
         columns={columns}
-        loading={isLoading}
+        loading={isLoading || isPlaceholderData}
         rowCount={data?.totalCount || 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}

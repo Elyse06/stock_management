@@ -192,7 +192,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
             fullWidth
           />
           {!isEditMode && (
-            <Tooltip>
+            <Tooltip title="Générer un code">
               <IconButton
                 size="small"
                 onClick={handleGenerateCode}
@@ -294,7 +294,7 @@ export function ArticleFormModal({ isOpen, onClose, onSuccess, articleToEdit = n
           fullWidth
         />
       </Box>
-      <Box sx={{ gridColumn: { sm: "1 / -1" }, mt: 2, p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
+      <Box sx={{ gridColumn: { sm: "1 / -1" }, mt: 2, p: 2, bgcolor: "tint.main", borderRadius: 1 }}>
         <FormControlLabel
           control={
             <Checkbox

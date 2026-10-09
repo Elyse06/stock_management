@@ -11,6 +11,7 @@ import {
   IconButton,
   Autocomplete,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import {
   ArrowForward as ArrowForwardIcon,
@@ -392,11 +393,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
               Articles commandés ({lignesValides.length})
             </Typography>
             {lignesValides.length === 0 ? (
-              <Box sx={{ p: 2, bgcolor: "#FFF8E1", borderRadius: 1 }}>
-                <Typography variant="body2" color="primary.main">
-                  Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.
-                </Typography>
-              </Box>
+              <Alert severity="info" variant="outlined">Aucun article ajouté. Veuillez revenir en arrière pour en ajouter.</Alert>
             ) : (
               <StyledTable
                 columns={[
@@ -454,7 +451,7 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
                                 ? "warning"
                                 : isSalle
                                   ? "info"
-                                  : "secondary";
+                                  : "default";
 
                             return (
                               <Box key={idx} sx={{ mb: 0.5 }}>
@@ -549,12 +546,10 @@ export function CommandeFormModal({ isOpen, onClose, onSuccess, commandeToEdit =
       actions={renderActions()}
     >
       {!employeeDemandeur && employees.length > 0 && (
-        <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
-          <Typography variant="body2" color="primary.main">
+        <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
             Votre compte utilisateur n'est pas lié à un employé.
             Vous ne pourrez pas créer de commande tant que ce n'est pas fait.
-          </Typography>
-        </Box>
+          </Alert>
       )}
       {renderStepContent()}
     </WizardDialog>

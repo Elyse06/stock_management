@@ -1,8 +1,17 @@
-import { Box, Typography, Alert, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { Box, Typography, Alert, TableRow, TableCell } from "@mui/material";
 import { ShoppingCart as ShoppingCartIcon } from "@mui/icons-material";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { EmptyValue } from "../../../components/common/EmptyValue";
+import { StyledTable } from "../../../components/common/StyledTable";
 import { formatDate } from "../../../utils/formatters";
+
+const COLUMNS = [
+  { label: "N°" },
+  { label: "Date" },
+  { label: "Objet" },
+  { label: "Demandeur" },
+  { label: "Statut" },
+];
 
 export function ArticleCommandesTab({ commandes_recentes }) {
   return (
@@ -15,98 +24,38 @@ export function ArticleCommandesTab({ commandes_recentes }) {
         10 dernières commandes
       </Typography>
       {commandes_recentes.length > 0 ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                N°
+        <StyledTable columns={COLUMNS}>
+          {commandes_recentes.map((c) => (
+            <TableRow key={c.commande_id}>
+              <TableCell>
+                <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
+                  #{c.commande_id}
+                </Typography>
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Date
+              <TableCell>{formatDate(c.date_commande)}</TableCell>
+              <TableCell>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{ maxWidth: { xs: 140, sm: 200 } }}
+                  title={c.objet}
+                >
+                  <EmptyValue value={c.objet} />
+                </Typography>
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Objet
+              <TableCell>
+                <Typography variant="body2">
+                  <EmptyValue value={c.demandeur} />
+                </Typography>
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Demandeur
-              </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Statut
+              <TableCell>
+                <StatusChip status={c.statut} />
               </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {commandes_recentes.map((c) => (
-              <TableRow
-                key={c.commande_id}
-                sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}
-              >
-                <TableCell>
-                  <Typography
-                    variant="body2"
-                    fontFamily="monospace"
-                    fontWeight={600}
-                  >
-                    #{c.commande_id}
-                  </Typography>
-                </TableCell>
-                <TableCell>{formatDate(c.date_commande)}</TableCell>
-                <TableCell>
-                  <Typography
-                    variant="body2"
-                    noWrap
-                    sx={{ maxWidth: 200 }}
-                    title={c.objet}
-                  >
-                    <EmptyValue value={c.objet} />
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    <EmptyValue value={c.demandeur} />
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <StatusChip status={c.statut} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          ))}
+        </StyledTable>
       ) : (
-        <Alert severity="info">
-          Aucune commande liée à cet article.
-        </Alert>
+        <Alert severity="info">Aucune commande liée à cet article.</Alert>
       )}
     </Box>
   );

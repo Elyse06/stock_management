@@ -7,7 +7,9 @@ import {
   Typography,
   Button,
   CircularProgress,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { Close as CloseIcon } from "@mui/icons-material";
 
 export function FormDialog({
@@ -21,15 +23,22 @@ export function FormDialog({
   disabled = false,
   maxWidth = "sm",
 }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth={maxWidth}
       fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
+      fullScreen={fullScreen}
+      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : 2 } }}
     >
-      <form onSubmit={onSubmit}>
+      <form
+        onSubmit={onSubmit}
+        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+      >
         <DialogTitle
           sx={{
             display: "flex",

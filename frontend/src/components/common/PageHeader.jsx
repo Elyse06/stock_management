@@ -20,8 +20,9 @@ export function PageHeader({
     <Box
       sx={{
         display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
         gap: 2,
-        alignItems: "center",
+        alignItems: { xs: "stretch", sm: "center" },
         mb: 2,
         p: hasFilterBar ? 2 : 0,
         bgcolor: hasFilterBar ? "#FAFAFA" : "transparent",
@@ -30,7 +31,7 @@ export function PageHeader({
         flexWrap: "wrap",
       }}
     >
-      <Box sx={{ minWidth: title || subtitle ? 180 : 0 }}>
+      <Box sx={{ minWidth: title || subtitle ? { sm: 180 } : 0 }}>
         {title && <Typography variant="h2">{title}</Typography>}
         {subtitle && (
           <Typography variant="body2" color="text.secondary">
@@ -42,8 +43,9 @@ export function PageHeader({
         <Box
           sx={{
             display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
             gap: 2,
-            alignItems: "center",
+            alignItems: { xs: "stretch", sm: "center" },
             flex: 1,
             flexWrap: "wrap",
           }}
@@ -61,7 +63,7 @@ export function PageHeader({
           variant="contained"
           startIcon={<AddIcon />}
           onClick={onAction}
-          sx={{ ml: "auto" }}
+          sx={{ ml: { xs: 0, sm: "auto" }, width: { xs: "100%", sm: "auto" } }}
         >
           {actionLabel}
         </Button>
@@ -70,7 +72,7 @@ export function PageHeader({
         <Button
           variant="outlined"
           onClick={onSecondaryAction}
-          sx={{ ml: actionLabel ? 0 : "auto" }}
+          sx={{ ml: actionLabel ? 0 : { xs: 0, sm: "auto" }, width: { xs: "100%", sm: "auto" } }}
         >
           {secondaryActionLabel}
         </Button>

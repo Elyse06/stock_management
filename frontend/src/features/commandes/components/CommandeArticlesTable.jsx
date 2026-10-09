@@ -1,52 +1,79 @@
-import { Box, Typography, Chip, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
-import { Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon, MeetingRoom as MeetingRoomIcon } from "@mui/icons-material";
+import { Box, Typography, Chip, Paper, Divider, Alert } from "@mui/material";
 import { CodeChip } from "../../../components/common/CodeChip";
+import { StatutAttributionBadge } from "../../../components/common/StatutAttributionBadge";
+import { getBeneficiaireMeta } from "./beneficiaireMeta";
+
+/** Quantité affichée pour une attribution : "demandé → accordé" si elle a été ajustée. */
+function quantiteLabel(attr) {
+  const demandee = attr.quantite_demandee ?? attr.quantite;
+  const accordee = attr.quantite_validee ?? attr.quantite;
+  if (attr.statut === "VALIDEE" && accordee != null && Number(accordee) !== Number(demandee)) {
+    return `${demandee} → ${accordee}`;
+  }
+  return accordee ?? demandee;
+}
 
 export function CommandeArticlesTable({ commande, articles }) {
-  const getArticle = (codeArticle) =>
-    articles.find((a) => a.code_article === codeArticle);
+  const details = commande.details ?? [];
+  const totalQuantite = details.reduce((sum, d) => sum + (Number(d.quantite) || 0), 0);
   const defaultBeneficiaire =
     commande.demandeur?.nom || commande.employe_demandeur || "—";
+  const getArticle = (code) => articles.find((a) => a.code_article === code);
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="h3" sx={{ mb: 1.5 }}>
-        Articles demandés ({commande.details?.length ?? 0})
-      </Typography>
-      <Table
-        size="small"
+      <Box
         sx={{
-          border: "1px solid #E0E0E0",
-          "& .MuiTableCell-root": { borderColor: "#E0E0E0", py: 1, px: 1.5 },
-          "& .MuiTableHead-root .MuiTableCell-root": {
-            bgcolor: "#FFF8E1",
-            fontWeight: 600,
-            fontSize: 13,
-            borderBottom: "2px solid #F9A825",
-          },
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 1,
+          mb: 1.5,
         }}
       >
-        <TableHead>
-          <TableRow>
-            <TableCell>Article</TableCell>
-            <TableCell align="center" sx={{ width: 100 }}>
-              Quantité
-            </TableCell>
-            <TableCell sx={{ minWidth: 200 }}>Attributions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {commande.details?.length > 0 ? (
-            commande.details.map((detail) => {
-              const article = getArticle(detail.article);
-              const isNS = article?.mode_suivi === "NUMERO_SERIE";
-              return (
-                <TableRow
-                  key={detail.id}
-                  sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}
+        <Typography variant="h3">Articles demandés</Typography>
+        <Chip label={`${details.length} article(s)`} size="small" variant="outlined" />
+        <Chip
+          label={`${totalQuantite} unité(s)`}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      </Box>
+
+      {details.length === 0 ? (
+        <Alert severity="info" variant="outlined">
+          Aucun article dans cette commande
+        </Alert>
+      ) : (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {details.map((detail) => {
+            const article = getArticle(detail.article);
+            const isNS = article?.mode_suivi === "NUMERO_SERIE";
+            const attributions = detail.attributions ?? [];
+
+            return (
+              <Paper
+                key={detail.id}
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  borderLeft: "3px solid",
+                  borderLeftColor: "secondary.main",
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 2,
+                  }}
                 >
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}
+                    >
                       <CodeChip value={detail.article} />
                       {isNS && (
                         <Chip
@@ -54,87 +81,87 @@ export function CommandeArticlesTable({ commande, articles }) {
                           size="small"
                           color="info"
                           variant="outlined"
-                          sx={{ height: 18, fontSize: 10 }}
+                          sx={{ height: 20, fontSize: 11 }}
                         />
                       )}
                     </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {detail.article_designation}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
                     <Typography
                       variant="body2"
                       fontWeight={600}
+                      sx={{ mt: 0.5, wordBreak: "break-word" }}
+                    >
+                      {detail.article_designation || article?.designation}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Quantité
+                    </Typography>
+                    <Typography
+                      variant="h3"
                       fontFamily="monospace"
+                      fontWeight={700}
+                      color="primary.main"
+                      sx={{ lineHeight: 1.2 }}
                     >
                       {detail.quantite}
                     </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {detail.attributions?.length > 0 ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 0.5,
-                        }}
-                      >
-                        {detail.attributions.map((attr) => {
-                          const isEmploye = attr.beneficiaire_type === "EMPLOYE";
-                          const isSite = attr.beneficiaire_type === "SITE";
-                          const isSalle = attr.beneficiaire_type === "SALLE";
-                          const Icon = isEmploye
-                            ? PersonIcon
-                            : isSite
-                              ? LocationCityIcon
-                              : isSalle
-                                ? MeetingRoomIcon
-                                : BusinessIcon;
-                          const color = isEmploye
-                            ? "primary"
-                            : isSite
-                              ? "warning"
-                              : isSalle
-                                ? "info"
-                                : "secondary";
+                  </Box>
+                </Box>
 
-                          return (
-                            <Chip
-                              key={attr.id}
-                              label={`${attr.beneficiaire_nom} (${attr.quantite})`}
-                              size="small"
-                              color={color}
-                              variant="outlined"
-                              icon={<Icon />}
-                            />
-                          );
-                        })}
-                      </Box>
-                    ) : (
-                      <Chip
-                        label={defaultBeneficiaire}
-                        size="small"
-                        variant="outlined"
-                        color="default"
-                        sx={{ fontStyle: "italic", opacity: 0.7 }}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          ) : (
-            <TableRow>
-              <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Aucun article dans cette commande
-                </Typography>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+                <Divider sx={{ my: 1.25 }} />
+
+                {attributions.length > 0 ? (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                    {attributions.map((attr) => {
+                      const meta = getBeneficiaireMeta(attr.beneficiaire_type);
+                      const { Icon } = meta;
+                      const showStatut = attr.statut && attr.statut !== "EN_ATTENTE";
+
+                      return (
+                        <Box
+                          key={attr.id}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 1,
+                          }}
+                        >
+                          <Icon
+                            fontSize="small"
+                            color={meta.color === "default" ? "action" : meta.color}
+                          />
+                          <Box sx={{ flex: 1, minWidth: 140 }}>
+                            <Typography variant="body2" fontWeight={500}>
+                              {attr.beneficiaire_nom}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {meta.label}
+                              {attr.statut === "REFUSEE" && attr.motif_refus
+                                ? ` • Motif : ${attr.motif_refus}`
+                                : ""}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
+                            × {quantiteLabel(attr)}
+                          </Typography>
+                          {showStatut && <StatutAttributionBadge statut={attr.statut} />}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    Attribué au demandeur : <strong>{defaultBeneficiaire}</strong>
+                  </Typography>
+                )}
+              </Paper>
+            );
+          })}
+        </Box>
+      )}
     </Box>
   );
 }

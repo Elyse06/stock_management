@@ -107,7 +107,15 @@ export function ArticlePremiumPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          alignItems: { xs: "flex-start", sm: "center" },
+          gap: 2,
+          mb: 3,
+        }}
+      >
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
@@ -115,8 +123,8 @@ export function ArticlePremiumPage() {
         >
           Retour à la liste
         </Button>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h2">{article.designation}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h2" sx={{ wordBreak: "break-word" }}>{article.designation}</Typography>
           <Typography variant="body2" color="text.secondary">
             Code : {article.code_article}
           </Typography>
@@ -124,7 +132,7 @@ export function ArticlePremiumPage() {
       </Box>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 2fr" }, gap: 3 }}>
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <ArticleIdentityCard
             article={article}
             stocks_par_magasin={stocks_par_magasin}
@@ -136,17 +144,22 @@ export function ArticlePremiumPage() {
             border: "1px solid #E0E0E0",
             borderRadius: 1,
             bgcolor: "#FFFFFF",
+            minWidth: 0,
           }}
         >
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               borderBottom: "1px solid #E0E0E0",
+              "& .MuiTabs-indicator": { backgroundColor: "secondary.main", height: 3 },
               "& .MuiTab-root": {
                 textTransform: "none",
                 fontWeight: 500,
-                minWidth: 120,
+                minWidth: { xs: 90, sm: 120 },
               },
               "& .Mui-selected": {
                 color: "primary.main",
@@ -157,7 +170,7 @@ export function ArticlePremiumPage() {
               <Tab key={tab.key} label={tab.label} />
             ))}
           </Tabs>
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {activeTab === 0 && (
               <ArticleSyntheseTab
                 evolution_data={evolution_data}

@@ -8,10 +8,15 @@ import {
   Box,
   Alert,
   Divider,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { Close as CloseIcon } from "@mui/icons-material";
 import { WizardStepper } from "./WizardStepper";
 
+/**
+ * Composant wizard réutilisable qui encapsule toute la structure d'un wizard multi-étapes.
+ */
 export function WizardDialog({
   isOpen,
   onClose,
@@ -25,15 +30,21 @@ export function WizardDialog({
   actions,
   maxWidth = "md",
 }) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Dialog
       open={isOpen}
       onClose={onClose}
       maxWidth={maxWidth}
       fullWidth
-      PaperProps={{ sx: { borderRadius: 2, minHeight: 500 } }}
+      fullScreen={fullScreen}
+      PaperProps={{
+        sx: { borderRadius: fullScreen ? 0 : 2, minHeight: fullScreen ? "auto" : 500 },
+      }}
     >
-      {/* HEADER */}
+      {/* ====== HEADER ====== */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -65,13 +76,13 @@ export function WizardDialog({
         </IconButton>
       </DialogTitle>
 
-      {/* STEPPER */}
+      {/* ====== STEPPER ====== */}
       <Box sx={{ px: 3, pt: 3, pb: 1 }}>
         <WizardStepper steps={steps} activeStep={activeStep} />
       </Box>
       <Divider />
 
-      {/* CONTENU */}
+      {/* ====== CONTENU ====== */}
       <DialogContent sx={{ pt: 3, minHeight: 300 }}>
         {error && (
           <Alert severity="error" onClose={onErrorClose} sx={{ mb: 2 }}>
@@ -81,7 +92,7 @@ export function WizardDialog({
         {children}
       </DialogContent>
 
-      {/* ACTIONS */}
+      {/* ====== ACTIONS ====== */}
       <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>{actions}</DialogActions>
     </Dialog>
   );

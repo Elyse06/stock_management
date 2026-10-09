@@ -1,5 +1,20 @@
-import { Box, Typography, Alert, Table, TableHead, TableBody, TableRow, TableCell, Chip } from "@mui/material";
+import { Box, Typography, Alert, TableRow, TableCell, Chip } from "@mui/material";
 import { QrCode as QrCodeIcon } from "@mui/icons-material";
+import { StyledTable } from "../../../components/common/StyledTable";
+
+const COLUMNS = [
+  { label: "Bénéficiaire" },
+  { label: "Site" },
+  { label: "Quantité sortie", align: "center" },
+  { label: "QR Code", align: "center" },
+];
+
+function beneficiaireType(a) {
+  if (a.beneficiaire_type === "DIRECTION") return "Direction";
+  if (a.beneficiaire_type === "SALLE") return "Salle";
+  if (a.beneficiaire_type === "SITE") return "Site";
+  return [a.matricule, a.fonction].filter(Boolean).join(" • ") || "Employé";
+}
 
 export function ArticleTracabiliteTab({ attributions_actives }) {
   return (
@@ -12,99 +27,39 @@ export function ArticleTracabiliteTab({ attributions_actives }) {
         Attributions actives
       </Typography>
       {attributions_actives.length > 0 ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Bénéficiaire
+        <StyledTable columns={COLUMNS}>
+          {attributions_actives.map((a, idx) => (
+            <TableRow key={idx}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={600}>
+                  {a.beneficiaire_nom || "—"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {beneficiaireType(a)}
+                </Typography>
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Site
+              <TableCell>
+                <Chip label={a.site || "—"} size="small" variant="outlined" />
               </TableCell>
-              <TableCell
-                align="center"
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Quantité sortie
+              <TableCell align="center">
+                <Typography variant="body2" fontWeight={700} fontFamily="monospace">
+                  {a.quantite_sortie}
+                </Typography>
               </TableCell>
-              <TableCell
-                align="center"
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                QR Code
+              <TableCell align="center">
+                <Chip
+                  icon={<QrCodeIcon />}
+                  label={a.code_unique_qr?.substring(0, 8) + "..."}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
               </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {attributions_actives.map((a, idx) => (
-              <TableRow key={idx} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={600}>
-                    {a.beneficiaire_nom || "—"}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {a.beneficiaire_type === "DIRECTION"
-                      ? "Direction"
-                      : a.beneficiaire_type === "SALLE"
-                        ? "Salle"
-                        : a.beneficiaire_type === "SITE"
-                          ? "Site"
-                          : [a.matricule, a.fonction].filter(Boolean).join(" • ") || "Employé"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={a.site || "—"}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    fontFamily="monospace"
-                  >
-                    {a.quantite_sortie}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Chip
-                    icon={<QrCodeIcon />}
-                    label={a.code_unique_qr?.substring(0, 8) + "..."}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          ))}
+        </StyledTable>
       ) : (
-        <Alert severity="info">
-          Aucune attribution active pour cet article.
-        </Alert>
+        <Alert severity="info">Aucune attribution active pour cet article.</Alert>
       )}
     </Box>
   );

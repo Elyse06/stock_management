@@ -1,8 +1,11 @@
 import { Box, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { TrendingUp as TrendingUpIcon } from "@mui/icons-material";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export function ArticleSyntheseTab({ evolution_data }) {
+  const theme = useTheme();
+
   return (
     <Box>
       <Typography
@@ -38,9 +41,9 @@ export function ArticleSyntheseTab({ evolution_data }) {
               <Line
                 type="monotone"
                 dataKey="stock"
-                stroke="#F9A825"
+                stroke={theme.palette.primary.main}
                 strokeWidth={2}
-                dot={{ fill: "#F9A825", r: 3 }}
+                dot={{ fill: theme.palette.secondary.main, stroke: theme.palette.primary.main, r: 3 }}
               />
             </LineChart>
           </ResponsiveContainer>

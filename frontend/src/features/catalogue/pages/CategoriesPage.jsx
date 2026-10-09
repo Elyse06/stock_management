@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, TextField } from "@mui/material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
@@ -18,14 +18,14 @@ export function CategoriesPage() {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const { paginationModel, setPaginationModel } = usePagination(25);
+  const { paginationModel, setPaginationModel } = usePagination(20);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formLibelle, setFormLibelle] = useState("");
   const [formDescription, setFormDescription] = useState("");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ["categories", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize }],
     queryFn: async () => {
       const { data } = await apiClient.get(API_ENDPOINTS.CATEGORIES, {
@@ -36,7 +36,7 @@ export function CategoriesPage() {
         totalCount: data.count ?? (data.results ?? data).length,
       };
     },
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const createMutation = useMutation({
@@ -124,12 +124,10 @@ export function CategoriesPage() {
   };
 
   const columns = [
-    { field: "cat_libelle", headerName: "code", flex: 1, minWidth: 200 },
+    { field: "cat_libelle", headerName: "code" },
     {
       field: "cat_description",
       headerName: "Description",
-      flex: 2,
-      minWidth: 300,
       renderCell: (params) => <EmptyValue value={params.value} />,
     },
     {
@@ -159,7 +157,7 @@ export function CategoriesPage() {
       <PaginatedDataGrid
         rows={data?.categories || []}
         columns={columns}
-        loading={isLoading}
+        loading={isLoading || isPlaceholderData}
         rowCount={data?.totalCount || 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
