@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, Chip } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, Chip, useMediaQuery } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { Close as CloseIcon } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
@@ -8,6 +9,7 @@ import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { CodeChip } from "../../../components/common/CodeChip";
+import { CommandeProgress } from "./CommandeProgress";
 import { CommandeInfoSection } from "./CommandeInfoSection";
 import { CommandeArticlesTable } from "./CommandeArticlesTable";
 import { CommandeTraitementSection } from "./CommandeTraitementSection";
@@ -16,6 +18,8 @@ import { CommandeActions } from "./CommandeActions";
 export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const notify = useNotification();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { canManageCatalogue, canValidateCommande } = usePermission();
   
   const [magasinSource, setMagasinSource] = useState("");
@@ -210,47 +214,59 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onSuccess }) {
   const magasinOptions = [{ value: "", label: "Sélectionner un magasin" }, ...magasins.map((m) => ({ value: m.magasin_id, label: `${m.magasin_nom}${m.localite ? ` (${m.localite})` : ""}` }))];
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      fullScreen={fullScreen}
+      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : 2 } }}
+    >
       <DialogTitle
         sx={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          bgcolor: "#FFF8E1",
+          alignItems: "flex-start",
+          gap: 1,
+          bgcolor: "tint.main",
           borderBottom: "2px solid",
-          borderColor: "primary.main",
+          borderColor: "secondary.main",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Typography variant="h3">
-            {dialogTitle} <CodeChip value={`#${commande.commande_id}`} />
-          </Typography>
-          <StatusChip status={commande.statut} />
-          
-          {peutTraiter && (
-            <Chip
-              label={
-                isAgentSecondaire && commande.statut === "EN_ATTENTE"
-                  ? "Pré-validation"
-                  : "Validation finale"
-              }
-              size="small"
-              color={
-                isAgentSecondaire && commande.statut === "EN_ATTENTE"
-                  ? "info"
-                  : "success"
-              }
-              sx={{ fontWeight: 600, fontSize: 11 }}
-            />
-          )}
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="h3" component="span">
+              {dialogTitle}
+            </Typography>
+            <CodeChip value={`#${commande.commande_id}`} />
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
+            <StatusChip status={commande.statut} />
+            {peutTraiter && (
+              <Chip
+                label={
+                  isAgentSecondaire && commande.statut === "EN_ATTENTE"
+                    ? "Pré-validation"
+                    : "Validation finale"
+                }
+                size="small"
+                color={
+                  isAgentSecondaire && commande.statut === "EN_ATTENTE"
+                    ? "info"
+                    : "success"
+                }
+                sx={{ fontWeight: 600, fontSize: 11 }}
+              />
+            )}
+          </Box>
         </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 3 }}>
+      <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>
+        <CommandeProgress statut={commande.statut} />
         <CommandeInfoSection commande={commande} />
         <CommandeArticlesTable commande={commande} articles={articles} />
         {peutTraiter && (

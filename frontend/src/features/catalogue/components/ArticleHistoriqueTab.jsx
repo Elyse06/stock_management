@@ -1,8 +1,17 @@
-import { Box, Typography, Alert, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { Box, Typography, Alert, TableRow, TableCell } from "@mui/material";
 import { History as HistoryIcon } from "@mui/icons-material";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { EmptyValue } from "../../../components/common/EmptyValue";
+import { StyledTable } from "../../../components/common/StyledTable";
 import { formatDateTime } from "../../../utils/formatters";
+
+const COLUMNS = [
+  { label: "Date" },
+  { label: "Type" },
+  { label: "Source / Dest." },
+  { label: "Qté", align: "center" },
+  { label: "Origine" },
+];
 
 export function ArticleHistoriqueTab({ historique_recents }) {
   return (
@@ -15,102 +24,44 @@ export function ArticleHistoriqueTab({ historique_recents }) {
         10 derniers mouvements
       </Typography>
       {historique_recents.length > 0 ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Date
+        <StyledTable columns={COLUMNS}>
+          {historique_recents.map((h, idx) => (
+            <TableRow key={idx}>
+              <TableCell>{formatDateTime(h.date)}</TableCell>
+              <TableCell>
+                <StatusChip status={h.type_mouvement} />
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Type
+              <TableCell>
+                <Typography variant="body2">
+                  <EmptyValue value={h.magasin_source} /> →{" "}
+                  <EmptyValue value={h.magasin_destination} />
+                </Typography>
+                {h.beneficiaire && (
+                  <Typography variant="caption" color="text.secondary">
+                    Bénéficiaire : {h.beneficiaire}
+                  </Typography>
+                )}
               </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Source / Dest.
+              <TableCell align="center">
+                <Typography variant="body2" fontWeight={700} fontFamily="monospace">
+                  {h.quantite}
+                </Typography>
               </TableCell>
-              <TableCell
-                align="center"
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Qté
-              </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: "#FFF8E1",
-                  fontWeight: 600,
-                  borderBottom: "2px solid #F9A825",
-                }}
-              >
-                Origine
+              <TableCell>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{ maxWidth: { xs: 140, sm: 200 } }}
+                  title={h.origine}
+                >
+                  <EmptyValue value={h.origine} />
+                </Typography>
               </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {historique_recents.map((h, idx) => (
-              <TableRow key={idx} sx={{ "&:hover": { bgcolor: "#FFFDE7" } }}>
-                <TableCell>{formatDateTime(h.date)}</TableCell>
-                <TableCell>
-                  <StatusChip status={h.type_mouvement} />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    <EmptyValue value={h.magasin_source} /> →{" "}
-                    <EmptyValue value={h.magasin_destination} />
-                  </Typography>
-                  {h.beneficiaire && (
-                    <Typography variant="caption" color="text.secondary">
-                      Bénéficiaire : {h.beneficiaire}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell align="center">
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    fontFamily="monospace"
-                  >
-                    {h.quantite}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography
-                    variant="body2"
-                    noWrap
-                    sx={{ maxWidth: 200 }}
-                    title={h.origine}
-                  >
-                    <EmptyValue value={h.origine} />
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          ))}
+        </StyledTable>
       ) : (
-        <Alert severity="info">
-          Aucun mouvement enregistré pour cet article.
-        </Alert>
+        <Alert severity="info">Aucun mouvement enregistré pour cet article.</Alert>
       )}
     </Box>
   );

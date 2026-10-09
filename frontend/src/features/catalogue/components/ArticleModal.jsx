@@ -46,9 +46,9 @@ export function ArticleModal({ article, isOpen, onClose }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          bgcolor: "#FFF8E1",
+          bgcolor: "tint.main",
           borderBottom: "2px solid",
-          borderColor: "primary.main",
+          borderColor: "secondary.main",
         }}
       >
         <Box>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, TextField } from "@mui/material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
@@ -27,13 +27,13 @@ export function FournisseursPage() {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const { paginationModel, setPaginationModel } = usePagination(25);
+  const { paginationModel, setPaginationModel } = usePagination(20);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ["fournisseurs", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize }],
     queryFn: async () => {
       const { data } = await apiClient.get(API_ENDPOINTS.FOURNISSEURS, {
@@ -44,7 +44,7 @@ export function FournisseursPage() {
         totalCount: data.count ?? (data.results ?? data).length,
       };
     },
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const createMutation = useMutation({
@@ -145,12 +145,12 @@ export function FournisseursPage() {
   };
 
   const columns = [
-    { field: "nom", headerName: "Nom", flex: 1, minWidth: 180 },
-    { field: "email", headerName: "Email", flex: 1, minWidth: 200, renderCell: (params) => <EmptyValue value={params.value} /> },
-    { field: "contact", headerName: "Contact", width: 160, renderCell: (params) => <EmptyValue value={params.value} /> },
-    { field: "nif", headerName: "NIF", width: 140, renderCell: (params) => <EmptyValue value={params.value} /> },
-    { field: "stat", headerName: "STAT", width: 140, renderCell: (params) => <EmptyValue value={params.value} /> },
-    { field: "adresse", headerName: "Adresse", flex: 1, minWidth: 200, renderCell: (params) => <EmptyValue value={params.value} /> },
+    { field: "nom", headerName: "Nom" },
+    { field: "email", headerName: "Email", renderCell: (params) => <EmptyValue value={params.value} /> },
+    { field: "contact", headerName: "Contact", renderCell: (params) => <EmptyValue value={params.value} /> },
+    { field: "nif", headerName: "NIF", renderCell: (params) => <EmptyValue value={params.value} /> },
+    { field: "stat", headerName: "STAT", renderCell: (params) => <EmptyValue value={params.value} /> },
+    { field: "adresse", headerName: "Adresse", renderCell: (params) => <EmptyValue value={params.value} /> },
     {
       field: "actions",
       headerName: "Actions",
@@ -178,7 +178,7 @@ export function FournisseursPage() {
       <PaginatedDataGrid
         rows={data?.fournisseurs || []}
         columns={columns}
-        loading={isLoading}
+        loading={isLoading || isPlaceholderData}
         rowCount={data?.totalCount || 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
@@ -223,7 +223,7 @@ export function FournisseursPage() {
           placeholder="Nom du contact principal"
           inputProps={{ maxLength: 20 }}
         />
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mt: 1 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mt: 1 }}>
           <TextField
             label="NIF"
             value={form.nif}

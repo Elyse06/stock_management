@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Box } from "@mui/material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Box, Tooltip, Typography } from "@mui/material";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
@@ -10,6 +10,8 @@ import { useNotification } from "../../../components/common/NotificationProvider
 import { PageHeader } from "../../../components/common/PageHeader";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
+import { CodeChip } from "../../../components/common/CodeChip";
+import { EmptyValue } from "../../../components/common/EmptyValue";
 import { ActionButtons } from "../../../components/common/ActionButtons";
 import { SelectFilter } from "../../../components/common/SelectFilter";
 import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
@@ -61,11 +63,20 @@ function getDateRangeForPeriode(periodeId) {
   return { debut: null, fin: null };
 }
 
+const getDemandeurNom = (row) =>
+  row?.demandeur?.nom || row?.employe_demandeur || "—";
+
+const getArticlesLabel = (row) =>
+  (row?.details ?? [])
+    .map((d) => d.article_designation ?? d.article?.designation ?? d.designation)
+    .filter(Boolean)
+    .join(", ");
+
 export function CommandesPage() {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(20);
   const { canCreateCommande, canValidateCommande, canManageCatalogue } = usePermission();
 
   const isAgentPrincipal = canManageCatalogue && canValidateCommande;
@@ -79,7 +90,7 @@ export function CommandesPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ["commandes", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize, statut: statutFiltre }],
     queryFn: async () => {
       const params = { page: paginationModel.page + 1, page_size: paginationModel.pageSize };
@@ -91,7 +102,7 @@ export function CommandesPage() {
         totalCount: data.count ?? (data.results ?? data).length,
       };
     },
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const deleteMutation = useMutation({
@@ -157,41 +168,45 @@ export function CommandesPage() {
 
   const columns = [
     {
+      field: "commande_id",
+      headerName: "N°",
+      getText: (row) => `#${row.commande_id}`,
+      autoExtraWidth: 16,
+      renderCell: (params) => <CodeChip value={`#${params.value}`} />,
+    },
+    {
       field: "date_commande",
       headerName: "Date demande",
-      width: 160,
+      getText: (row) => formatDateTime(row.date_commande),
       renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: "demandeur",
       headerName: "Demandeur",
-      width: 180,
-      renderCell: (params) => params.row?.demandeur?.nom || params.row?.employe_demandeur || "—",
+      getText: getDemandeurNom,
+      renderCell: (params) => getDemandeurNom(params.row),
     },
     {
       field: "article_designation",
       headerName: "Articles",
-      width: 700,
-      headerAlign: "center",
-      align: "center",
+      getText: getArticlesLabel,
       renderCell: (params) => {
-        const articles = params.row.details
-          ?.map(
-            (detail) =>
-              detail.article_designation ??
-              detail.article?.designation ??
-              detail.designation
-          )
-          .filter(Boolean)
-          .join(", ");
-
-        return articles || <EmptyValue />;
+        const label = getArticlesLabel(params.row);
+        if (!label) return <EmptyValue />;
+        return (
+          <Tooltip title={label}>
+            <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
+              {label}
+            </Typography>
+          </Tooltip>
+        );
       },
     },
     {
       field: "statut",
       headerName: "Statut",
-      width: 140,
+      getText: (row) => row.statut,
+      autoExtraWidth: 40,
       renderCell: (params) => {
         const statusValue = params.value === "VALIDEE" ? "TRAITE" : params.value;
         return <StatusChip status={statusValue} />;
@@ -200,7 +215,7 @@ export function CommandesPage() {
     {
       field: "actions",
       headerName: "Actions",
-      width: 200,
+      width: 160,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -236,7 +251,7 @@ export function CommandesPage() {
           setStatutFiltre("");
           setPeriodeFiltre("tous");
         }}
-        hasFilters={statutFiltre || periodeFiltre !== "tous"}
+        hasFilters={Boolean(statutFiltre || periodeFiltre !== "tous")}
       >
         <SelectFilter
           label="Période"
@@ -264,7 +279,7 @@ export function CommandesPage() {
       <PaginatedDataGrid
         rows={commandesFiltrees}
         columns={columns}
-        loading={isLoading}
+        loading={isLoading || isPlaceholderData}
         rowCount={data?.totalCount || 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}

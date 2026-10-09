@@ -25,8 +25,8 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
         border: "1px solid #E0E0E0",
         borderRadius: 1,
         bgcolor: "#FFFFFF",
-        position: "sticky",
-        top: 80,
+        position: { md: "sticky" },
+        top: { md: 80 },
       }}
     >
       {/* Code article */}
@@ -99,9 +99,10 @@ export function ArticleIdentityCard({ article, stocks_par_magasin }) {
       <Box
         sx={{
           p: 2,
-          bgcolor: est_en_rupture ? "#FFEBEE" : "#FFF8E1",
+          bgcolor: est_en_rupture ? "#FFEBEE" : "tint.main",
           borderRadius: 1,
-          border: `1px solid ${est_en_rupture ? "#D32F2F" : "#F9A825"}`,
+          border: "1px solid",
+          borderColor: est_en_rupture ? "error.main" : "primary.light",
           textAlign: "center",
         }}
       >
