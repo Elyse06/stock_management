@@ -14,3 +14,11 @@ export const aiSearchArticles = async (query, magasinId = null) => {
   const { data } = await apiClient.post("/api/ai/search/", payload);
   return data;
 };
+
+export const aiChat = async (message, history = []) => {
+  const { data } = await apiClient.post("/api/ai/chat/", {
+    message,
+    history,
+  });
+  return data;
+};
