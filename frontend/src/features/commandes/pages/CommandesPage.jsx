@@ -168,13 +168,6 @@ export function CommandesPage() {
 
   const columns = [
     {
-      field: "commande_id",
-      headerName: "N°",
-      getText: (row) => `#${row.commande_id}`,
-      autoExtraWidth: 16,
-      renderCell: (params) => <CodeChip value={`#${params.value}`} />,
-    },
-    {
       field: "date_commande",
       headerName: "Date demande",
       getText: (row) => formatDateTime(row.date_commande),
