@@ -42,8 +42,10 @@ import {
   AccountTree as AccountTreeIcon,
   Business as BusinessIcon,
   MeetingRoom as MeetingRoomIcon,
+  AutoAwesome as MagicIcon,
 } from "@mui/icons-material";
 import logo from "../assets/tahiry-logo.png";
+import { AIChatDrawer } from "../components/AIChatDrawer";
 
 const MENU_STRUCTURE = [
   {
@@ -200,6 +202,8 @@ export function MainLayout() {
   const [popoverAnchor, setPopoverAnchor] = useState(null);
   const [activePopoverKey, setActivePopoverKey] = useState(null);
 
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+
   const canSeeItem = (item) => {
     if (!item.actions || item.actions.length === 0) {
       if (item.children) {
@@ -327,6 +331,22 @@ export function MainLayout() {
           </Box>
 
           {/* User menu */}
+          <IconButton
+            onClick={() => setAiDrawerOpen(true)}
+            title="Assistant IA"
+            sx={{
+              ml: 1,
+              bgcolor: "#FFF8E1",
+              border: "1px solid #FFE082",
+              "&:hover": {
+                bgcolor: "#FFECB3",
+                borderColor: "#FFC107",
+              },
+            }}
+          >
+            <MagicIcon sx={{ color: "#FFC107", fontSize: 22 }} />
+          </IconButton>
+
           <IconButton
             onClick={(e) => setUserMenuAnchor(e.currentTarget)}
             sx={{ ml: 2 }}
@@ -464,6 +484,12 @@ export function MainLayout() {
       >
         <Outlet />
       </Box>
+
+      <AIChatDrawer
+        open={aiDrawerOpen}
+        onClose={() => setAiDrawerOpen(false)}
+      />
+
     </Box>
   );
 }
