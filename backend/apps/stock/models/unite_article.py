@@ -95,22 +95,15 @@ class UniteArticle(models.Model):
         return self.affectation.beneficiaire_type if self.affectation_id else None
 
     def attribuer(self, beneficiaire, mouvement_sortie):
-        """beneficiaire : un Employer, une Direction, une Salle ou un Site.
-        Résout (ou crée) l'Affectation partagée correspondante."""
         self.affectation = Affectation.resoudre(beneficiaire)
         self.statut = self.Statut.ATTRIBUE
-        if isinstance(mouvement_sortie, dict):
-            pass
-        else:
-            self.mouvement_sortie = mouvement_sortie
-        self.full_clean()
+        self.mouvement_sortie = mouvement_sortie
         self.save()
 
     def retourner_stock(self):
-        self.statut = 'EN_STOCK'
+        self.statut = self.Statut.EN_STOCK
         self.affectation = None
         self.mouvement_sortie = None
-        self.full_clean()
         self.save()
 
     def save(self, *args, **kwargs):

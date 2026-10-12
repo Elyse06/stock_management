@@ -1,8 +1,7 @@
-import random
+from django.core.management.base import BaseCommand
 
 from apps.employee.models import Direction, Employer, Service, Site
 from apps.stock.models import Magasin
-from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
@@ -17,19 +16,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options["reset"]:
-            self.stdout.write(self.style.WARNING("⚠️ Suppression des données existantes..."))
+            self.stdout.write(self.style.WARNING("Suppression des données existantes..."))
             Employer.objects.all().delete()
             Service.objects.all().delete()
             Direction.objects.all().delete()
-            Site.objects.all().delete() 
-            self.stdout.write(self.style.SUCCESS("✅ Données supprimées"))
+            Site.objects.all().delete()
+            self.stdout.write(self.style.SUCCESS("Données supprimées"))
 
         self._seed_site()
         self._seed_directions()
         self._seed_services()
         self._seed_employes()
         self._seed_magasin()
-        self.stdout.write(self.style.SUCCESS("\n🎉 Seed terminé avec succès !"))
+        self.stdout.write(self.style.SUCCESS("\nSeed terminé avec succès !"))
 
     # =========================================================================
     # 1) SITES
@@ -58,31 +57,26 @@ class Command(BaseCommand):
                     "localite": localite,
                 }
             )
-        self.stdout.write(self.style.SUCCESS("✅ Sites initialisés"))
+        self.stdout.write(self.style.SUCCESS("Sites initialisés"))
 
     # =========================================================================
     # 2) DIRECTIONS
     # =========================================================================
     def _seed_directions(self):
         directions_data = [
-            ("1", "DO", "Direction des Opérations", 10),
-            ("2", "DSI", "D informatique", 10),
-            ("3", "DAF", "D Finance", 10),
-            ("4", "RMG", "Moyen Genereau", 10),
-            ("5", "DRH", "D Ressource Humaine", 10),
-            ("6", "DCOM", "D Communication", 10),
+            ("1", "DO", "Direction des Opérations"),
+            ("2", "DSI", "D informatique"),
+            ("3", "DAF", "D Finance"),
+            ("4", "RMG", "Moyen Genereau"),
+            ("5", "DRH", "D Ressource Humaine"),
+            ("6", "DCOM", "D Communication"),
         ]
-        for dir_id, dir_libelle, dir_description, site_id in directions_data:
-            site = Site.objects.filter(site_id=site_id).first()
+        for dir_id, dir_libelle, dir_description in directions_data:
             Direction.objects.get_or_create(
                 dir_id=dir_id,
-                defaults={
-                    "dir_libelle": dir_libelle,
-                    "dir_description": dir_description,
-                    "site": site,
-                }
+                defaults={"dir_libelle": dir_libelle, "dir_description": dir_description},
             )
-        self.stdout.write(self.style.SUCCESS("✅ Directions initialisées"))
+        self.stdout.write(self.style.SUCCESS("Directions initialisées"))
 
     # =========================================================================
     # 3) SERVICES
@@ -106,7 +100,7 @@ class Command(BaseCommand):
                     "serv_dir_id": direction,
                 }
             )
-        self.stdout.write(self.style.SUCCESS("✅ Services initialisés"))
+        self.stdout.write(self.style.SUCCESS("Services initialisés"))
 
     # =========================================================================
     # 4) EMPLOYÉS
@@ -114,7 +108,6 @@ class Command(BaseCommand):
     def _seed_employes(self):
         # Récupération des services pour répartir les employés
         services = list(Service.objects.all())
-        siege_site = Site.objects.filter(site_id=10).first()
 
         # 1. Les 3 premiers (attachés au site Siège ou sans service direct)
         top_employes = [
@@ -196,7 +189,7 @@ class Command(BaseCommand):
                     "emp_serv_id": service_attribue,
                 }
             )
-        self.stdout.write(self.style.SUCCESS("✅ Employés initialisés et répartis"))
+        self.stdout.write(self.style.SUCCESS("Employés initialisés et répartis"))
 
     # =========================================================================
     # 5) MAGASINS
@@ -213,4 +206,4 @@ class Command(BaseCommand):
                     "localite_id": localite_id,
                 }
             )
-        self.stdout.write(self.style.SUCCESS("✅ Magasins initialisés"))
+        self.stdout.write(self.style.SUCCESS("Magasins initialisés"))

@@ -2,15 +2,15 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-	DetailMouvementViewSet,
+    DetailMouvementViewSet,
     ImportFournituresView,
-	ImportImmobilisationsView,
-	InventaireSessionViewSet,
-	LigneInventaireViewSet,
-	MagasinViewSet,
-	MouvementViewSet,
-	SalleViewSet,
-	UniteArticleViewSet,
+    ImportImmobilisationsView,
+    InventaireSessionViewSet,
+    LigneInventaireViewSet,
+    MagasinViewSet,
+    MouvementViewSet,
+    SalleViewSet,
+    UniteArticleViewSet,
 )
 
 router = DefaultRouter()
@@ -23,14 +23,14 @@ router.register("inventaires", InventaireSessionViewSet, basename="inventaire")
 router.register("lignes-inventaire", LigneInventaireViewSet, basename="ligne-inventaire")
 
 urlpatterns = router.urls + [
-	path(
-		"import-immobilisations/",
-		ImportImmobilisationsView.as_view(),
-		name="import-immobilisations",
-	),
-	path(
-		"import-fournitures/",
-		ImportFournituresView.as_view(),
-		name="import-fournitures",
-	),
+    path(
+        "import-immobilisations/",
+        ImportImmobilisationsView.as_view(),
+        name="import-immobilisations",
+    ),
+    path(
+        "import-fournitures/",
+        ImportFournituresView.as_view(),
+        name="import-fournitures",
+    ),
 ]

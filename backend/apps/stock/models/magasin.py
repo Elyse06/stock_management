@@ -1,5 +1,6 @@
-from apps.employee.models import Site
 from django.db import models
+
+from apps.employee.models import Site
 
 
 class Magasin(models.Model):

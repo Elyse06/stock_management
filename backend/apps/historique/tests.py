@@ -5,8 +5,8 @@ from django.utils import timezone
 
 from apps.catalogue.models import Article, Categorie
 from apps.employee.models import Site
-from apps.stock.models import Affectation, DetailMouvement, Magasin, Mouvement, Salle
 from apps.historique.views.localisation import HistoriqueLocalisationView
+from apps.stock.models import Affectation, DetailMouvement, Magasin, Mouvement, Salle
 
 
 class HistoriqueLocalisationSalleTests(TestCase):

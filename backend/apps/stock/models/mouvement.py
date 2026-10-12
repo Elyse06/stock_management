@@ -16,7 +16,7 @@ class Mouvement(models.Model):
     mouvement_id = models.BigAutoField(primary_key=True)
     date = models.DateTimeField(default=timezone.now)
     type_mouvement = models.CharField(max_length=20, choices=Type.choices)
-    origine = models.CharField(max_length=100, blank=True)  # Ex: "Commande #12"
+    origine = models.CharField(max_length=100, blank=True)  # ex. "Commande #12"
     motif = models.CharField(max_length=255, blank=True)
 
     magasin_source = models.ForeignKey(
@@ -32,6 +32,10 @@ class Mouvement(models.Model):
         db_table = "t_mouvement"
         verbose_name = "Mouvement"
         verbose_name_plural = "Mouvements"
+        indexes = [  # noqa: RUF012
+            models.Index(fields=["date"], name="mouvement_date_idx"),
+            models.Index(fields=["type_mouvement", "date"], name="mouvement_type_date_idx"),
+        ]
 
     def clean(self):
         if self.type_mouvement == self.Type.ENTREE and not self.magasin_destination:
@@ -43,7 +47,7 @@ class Mouvement(models.Model):
         if self.type_mouvement == self.Type.TRANSFERT:
             if not self.magasin_source or not self.magasin_destination:
                 raise ValidationError("Un transfert nécessite un magasin source ET destination.")
-            if self.magasin_source == self.magasin_destination:
+            if self.magasin_source_id == self.magasin_destination_id:
                 raise ValidationError("Le magasin source et destination doivent être différents.")
 
         if self.type_mouvement == self.Type.RETOUR and not self.magasin_destination:

@@ -1,38 +1,32 @@
 import json
+import uuid
 
-
-def format_employee_data(employee):
-    if not employee:
-        return None
-
-    service = getattr(employee, "emp_serv_id", None)
-    direction = service.serv_dir_id if service else None
-    site = employee.emp_site_id
-
-    return {
-        "emp_id": employee.emp_id,
-        "nom": getattr(employee, "emp_nom", ""),
-        "matricule": getattr(employee, "emp_matricule", ""),
-        "contact": getattr(employee, "emp_contact", ""),
-        "fonction": getattr(employee, "emp_fonction", ""),
-        "service": service.serv_libelle if service else None,
-        "direction": direction.dir_libelle if direction else None,
-        "agence": {
-            "site_type": site.get_site_type_display() if site else None,
-            "site_nom": site.site_nom if site else None,
-        } if site else None,
-    }
+QR_SELECT_RELATED = (
+    "detail_commande__article",
+    "affectation__employe__emp_serv_id__serv_dir_id",
+    "affectation__employe__emp_site_id",
+    "affectation__direction",
+    "affectation__salle__localite",
+    "affectation__site",
+)
 
 
 def generate_attribution_qr_payload(attribution) -> str:
-    if hasattr(attribution, "get_qr_payload"):
-        return json.dumps(attribution.get_qr_payload(), default=str)
-    
-    # Filet de sécurité si jamais get_qr_payload() n'existe pas sur l'objet
-    # passé : 'beneficiaire_id' pointe maintenant vers l'Affectation partagée
-    # (et non plus directement vers un employé).
-    return json.dumps({
-        "code_unique": str(attribution.code_unique),
-        "quantite": float(attribution.quantite),
-        "beneficiaire_id": getattr(attribution, "affectation_id", None),
-    })
+    return json.dumps(attribution.get_qr_payload(), default=str)
+
+
+def qr_payloads_par_code(codes) -> dict:
+    from apps.commande.models import AttributionDetailCommande
+
+    uuids = set()
+    for code in codes:
+        try:
+            uuids.add(uuid.UUID(str(code)))
+        except (TypeError, ValueError):
+            continue
+    if not uuids:
+        return {}
+    attributions = AttributionDetailCommande.objects.filter(
+        code_unique__in=uuids
+    ).select_related(*QR_SELECT_RELATED)
+    return {str(a.code_unique): generate_attribution_qr_payload(a) for a in attributions}

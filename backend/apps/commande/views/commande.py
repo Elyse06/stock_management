@@ -3,91 +3,63 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.commande.access import (
+    filtrer_commandes_visibles,
+    verifier_commande_modifiable,
+)
 from apps.commande.models import Commande
 from apps.commande.serializers import (
     CommandeSerializer,
     CommandeTraitementSerializer,
     RecapitulatifCommandeSerializer,
 )
-from apps.common.permissions import (
-    HasAction,
-    get_request_employee,
-)
+from apps.commande.utils import QR_SELECT_RELATED
+from apps.common import actions
+from apps.common.permissions import HasAction
+
+from .permissions import CommandePermission
+
+_EMPLOYE = ("emp_serv_id__serv_dir_id", "emp_dir_id", "emp_site_id")
 
 
 class CommandeViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Commande.objects.all()
-        .select_related(
-            "employe_demandeur",
-            "employe_traitant",
-            "employe_demandeur__emp_serv_id",
-            "employe_traitant__emp_serv_id",
-            "employe_demandeur__emp_dir_id",
-            "employe_traitant__emp_dir_id",
-            "employe_demandeur__emp_site_id",
-            "employe_traitant__emp_site_id",
-        )
-        .prefetch_related(
-            "details__article",
-            "details__attributions__affectation",
-            "details__attributions__affectation__employe",
-            "details__attributions__affectation__direction",
-            "details__attributions__affectation__salle",
-            "details__attributions__affectation__site",
-        )
-    )
     serializer_class = CommandeSerializer
-    permission_classes = [HasAction.for_actions("COM_DEM")]  # noqa: RUF012
+    permission_classes = [CommandePermission]  # noqa: RUF012
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
     filterset_fields = ["statut", "employe_demandeur"]  # noqa: RUF012
 
-    def get_permissions(self):
-        if self.action == "traiter":
-            return [HasAction.for_actions("COM_VAL")()]
-        if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
-        return [HasAction.for_actions("COM_DEM")()]
-
     def get_queryset(self):
-        has_cat_gere = HasAction.for_actions("CAT_GERE")().has_permission(self.request, self)
-        has_com_val = HasAction.for_actions("COM_VAL")().has_permission(self.request, self)
-        queryset = super().get_queryset()
-        if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            employee = get_request_employee(self.request)
-            if has_cat_gere and has_com_val:
-                pass
-            elif has_com_val:
-                if employee and employee.emp_dir_id:
-                    queryset = queryset.filter(
-                        employe_demandeur__emp_dir_id=employee.emp_dir_id
-                    )
-            else:
-                if employee:
-                    queryset = queryset.filter(employe_demandeur=employee)
+        queryset = (
+            Commande.objects.select_related(
+                *(f"employe_demandeur__{chemin}" for chemin in _EMPLOYE),
+                *(f"employe_traitant__{chemin}" for chemin in _EMPLOYE),
+            )
+            .prefetch_related(
+                "details__article",
+                *(f"details__attributions__{chemin}" for chemin in QR_SELECT_RELATED),
+            )
+            .order_by("pk")
+        )
+        return filtrer_commandes_visibles(queryset, self.request)
 
-        return queryset
+    def perform_update(self, serializer):
+        verifier_commande_modifiable(serializer.instance, self.request)
+        serializer.save()
 
-    @action(
-        detail=True,
-        methods=["post"],
-        permission_classes=[HasAction.for_actions("COM_VAL")],
-    )
+    def perform_destroy(self, instance):
+        verifier_commande_modifiable(instance, self.request)
+        instance.delete()
+
+    @action(detail=True, methods=["post"], permission_classes=[HasAction.for_actions(actions.COM_VAL)])
     def traiter(self, request, pk=None):
-        commande = self.get_object()
         serializer = CommandeTraitementSerializer(
-            data=request.data,
-            context={"commande": commande, "request": request},
+            data=request.data, context={"commande": self.get_object(), "request": request},
         )
         serializer.is_valid(raise_exception=True)
-        commande_traitee = serializer.save()
-        output_serializer = CommandeSerializer(
-            commande_traitee, context={"request": request}
-        )
-        return Response(output_serializer.data, status=status.HTTP_200_OK)
+        commande = serializer.save()
+        commande = self.get_queryset().get(pk=commande.pk)
+        return Response(self.get_serializer(commande).data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['get'], url_path='recapitulatif')
-    def recapitulatif(self, request, commande_id=None):
-        commande = self.get_object()
-        serializer = RecapitulatifCommandeSerializer(commande, context={'request': request})
-        return Response(serializer.data)
+    @action(detail=True, methods=["get"], url_path="recapitulatif")
+    def recapitulatif(self, request, pk=None):
+        return Response(RecapitulatifCommandeSerializer(self.get_object(), context={"request": request}).data)

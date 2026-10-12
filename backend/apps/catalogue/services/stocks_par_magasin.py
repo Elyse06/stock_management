@@ -1,15 +1,11 @@
+from apps.common.stock import stocks_par_magasin
 from apps.stock.models import Magasin
 
-from .stock_magasin import _calculer_stock_magasin
 
-
-def _get_stocks_par_magasin(article):
-    magasins = Magasin.objects.all()
-    stocks = {}
-    
-    for magasin in magasins:
-        stock = _calculer_stock_magasin(article, magasin)
-        if stock > 0:
-            stocks[magasin.magasin_nom] = stock
-    
-    return stocks
+def get_stocks_par_magasin(article):
+    """``{nom_magasin: stock}`` des magasins où l'article est en stock (2 requêtes)."""
+    stocks = {mid: stock for mid, stock in stocks_par_magasin(article).items() if stock > 0}
+    if not stocks:
+        return {}
+    noms = dict(Magasin.objects.filter(pk__in=stocks).values_list("pk", "magasin_nom"))
+    return {noms[mid]: stock for mid, stock in stocks.items() if mid in noms}

@@ -4,13 +4,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
-from django.test import TestCase
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from apps.catalogue.models import Article, Categorie
-from apps.employee.models import Direction, Site
-from apps.stock.models import Affectation, InventaireSession, Salle, UniteArticle
+from apps.employee.models import Site
+from apps.stock.models import Affectation, Salle, UniteArticle
 from apps.stock.serializers import InventaireSessionSerializer, SalleSerializer
+from apps.stock.services.valider_inventaire import valider_session_inventaire
 from apps.stock.services_import.import_fournitures import (
     _traiter_ligne,
     colonnes_manquantes,
@@ -18,7 +18,6 @@ from apps.stock.services_import.import_fournitures import (
     detecter_index_entete,
     normaliser_colonnes,
 )
-from apps.stock.services.valider_inventaire import valider_session_inventaire
 from apps.stock.utils import calculer_stock_theorique
 from apps.stock.views.unite_article import UniteArticleViewSet
 
@@ -169,21 +168,6 @@ class InventaireSessionLocationTests(TestCase):
             site_nom="Siège", site_type="SIEGE", localite="Centre"
         )
         serializer = InventaireSessionSerializer(data={"site": siege.pk, "lignes": []})
-
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("non_field_errors", serializer.errors)
-
-    def test_rejects_direction_belonging_to_an_agency(self):
-        agence = Site.objects.create(
-            site_nom="Agence", site_type="AGENCE", localite="Nord"
-        )
-        direction = Direction.objects.create(
-            dir_id="D001",
-            dir_libelle="Direction régionale",
-            dir_description="",
-            site=agence,
-        )
-        serializer = InventaireSessionSerializer(data={"service": direction.pk, "lignes": []})
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("non_field_errors", serializer.errors)

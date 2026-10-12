@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class HistoriqueConfig(AppConfig):
-	default_auto_field = "django.db.models.BigAutoField"
-	name = "apps.historique"
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.historique"

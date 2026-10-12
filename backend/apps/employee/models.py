@@ -20,12 +20,12 @@ class Site(models.Model):
         ('SIEGE', 'Siège'),
         ('AGENCE', 'Agence'),
     ]
-    
+
     site_id = models.AutoField(primary_key=True)
     site_nom = models.CharField(max_length=50)
     site_type = models.CharField(max_length=20, choices=SITE_TYPE_CHOICES)
     localite = models.CharField(max_length=50)
-    
+
     class Meta:
         db_table = 't_site'
         verbose_name = 'Site'
@@ -50,7 +50,7 @@ class Direction(models.Model):
 
     def __str__(self) :
         return self.dir_libelle
-    
+
 
 class Service(models.Model):
     serv_id = models.CharField(primary_key=True, max_length=8)
@@ -70,7 +70,7 @@ class Service(models.Model):
 
     def __str__(self):
         return self.serv_libelle
-    
+
 
 class Employer(models.Model):
     emp_id = models.CharField(primary_key=True, max_length=6)

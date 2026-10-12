@@ -1,10 +1,9 @@
 from apps.commande.models import Commande
 
 
-def _get_commandes_recentes(article):
+def get_commandes_recentes(article):
     commandes = list(
         Commande.objects.filter(details__article=article)
-        .select_related("employe_demandeur", "employe_traitant")
         .distinct()
         .order_by("-date_commande")[:10]
         .values(
@@ -16,7 +15,7 @@ def _get_commandes_recentes(article):
             "employe_traitant__emp_nom",
         )
     )
-    
+
     return [
         {
             "commande_id": c["commande_id"],

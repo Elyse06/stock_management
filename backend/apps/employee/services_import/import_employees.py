@@ -1,229 +1,164 @@
-# apps/employee/services_import/import_employees.py
-import logging
+from django.db import transaction
 
+from apps.common.imports import acronyme, executer_avec_dry_run, texte_ou_vide
 from apps.employee.models import Direction, Employer, Service, Site
-from django.db import transaction  # type: ignore
 
-logger = logging.getLogger("employee.import")
-
-COLONNES_ATTENDUES = [
-    "Mle", "Nom et prénoms", "Direction", "Fonction",
-    "Lieu de Travail", "Affectation",
-]
-
-VALEURS_NON_APPLICABLE = {"non applicable", "n/a", "na", "", "none", "nan"}
+COLONNES_ATTENDUES = ["Mle", "Nom et prénoms", "Direction", "Fonction", "Lieu de Travail", "Affectation"]
+COLONNES_OBLIGATOIRES = ["Mle", "Nom et prénoms"]
 
 
-class RollbackDryRun(Exception):
-    pass
+class _Referentiels:
+    def __init__(self):
+        self.vider()
 
+    def vider(self):
+        self.sites, self.directions, self.services = {}, {}, {}
 
-def est_non_applicable(valeur) -> bool:
-    if valeur is None:
-        return True
-    try:
-        import pandas as pd  # type: ignore
-        if pd.isna(valeur):
-            return True
-    except (TypeError, ValueError):
-        pass
-    return str(valeur).strip().lower() in VALEURS_NON_APPLICABLE
+    def site(self, nom_affectation, lieu_travail) -> Site:
+        nom = texte_ou_vide(nom_affectation) or "INCONNU"
+        cle = nom.lower()
+        if cle not in self.sites:
+            self.sites[cle], _ = Site.objects.get_or_create(
+                site_nom__iexact=nom,
+                defaults={
+                    "site_nom": nom[:50],
+                    "site_type": "SIEGE" if nom.upper() in {"SIEGE", "SIÈGE"} else "AGENCE",
+                    "localite": texte_ou_vide(lieu_travail)[:50],
+                },
+            )
+        return self.sites[cle]
 
+    def direction(self, direction_str) -> Direction:
+        description = texte_ou_vide(direction_str) or "Direction Générale"
+        cle = description.lower()
+        if cle not in self.directions:
+            self.directions[cle], _ = Direction.objects.get_or_create(
+                dir_description__iexact=description,
+                defaults={
+                    "dir_libelle": acronyme(description, "DG")[:50],
+                    "dir_description": description[:255],
+                },
+            )
+        return self.directions[cle]
 
-def _get_or_create_site(nom_affectation, lieu_travail) -> Site:
-    nom = "" if est_non_applicable(nom_affectation) else str(nom_affectation).strip()
-    if not nom:
-        nom = "INCONNU"
-    
-    site_type = "SIEGE" if nom.upper() in {"SIEGE", "SIÈGE"} else "AGENCE"
-    
-    localite = "" if est_non_applicable(lieu_travail) else str(lieu_travail).strip()
-    
-    site, _ = Site.objects.get_or_create(
-        site_nom__iexact=nom,
-        defaults={
-            "site_nom": nom[:50],
-            "site_type": site_type,
-            "localite": localite[:50],
-        },
-    )
-    return site
-
-
-def _get_or_create_direction(direction_str) -> Direction:
-    """La direction prend la description complète et le libellé en initiales (ex: DG)."""
-    desc = "" if est_non_applicable(direction_str) else str(direction_str).strip()
-    if not desc:
-        desc = "Direction Générale"
-    
-    # Génération automatique du libellé en initiales (ex: "Direction des Systèmes d'Information" -> "DSI")
-    mots = [m for m in desc.split() if m.lower() not in {"de", "des", "du", "la", "le", "les", "et"}]
-    if len(mots) > 1:
-        libelle = "".join(m[0].upper() for m in mots)
-    elif mots:
-        libelle = mots[0][:5].upper()
-    else:
-        libelle = "DG"
-
-    # Recherche unique basée sur la description ou le libellé pour éviter les doublons
-    direction, _ = Direction.objects.get_or_create(
-        dir_description__iexact=desc,
-        defaults={
-            "dir_libelle": libelle[:50],
-            "dir_description": desc[:255],
-        },
-    )
-    return direction
-
-
-def _get_or_create_service(direction: Direction, service_str=None) -> Service:
-    """Le service utilise la même information (description / initiales) que la direction."""
-    desc = "" if est_non_applicable(service_str) else str(service_str).strip()
-    if not desc:
-        desc = direction.dir_description
-        libelle = direction.dir_libelle
-    else:
-        mots = [m for m in desc.split() if m.lower() not in {"de", "des", "du", "la", "le", "les", "et"}]
-        if len(mots) > 1:
-            libelle = "".join(m[0].upper() for m in mots)
-        elif mots:
-            libelle = mots[0][:5].upper()
+    def service(self, direction: Direction, service_str=None) -> Service:
+        description = texte_ou_vide(service_str)
+        if description:
+            libelle = acronyme(description, "SRV")
         else:
-            libelle = "SRV"
-
-    service, _ = Service.objects.get_or_create(
-        serv_dir_id=direction,
-        serv_info__iexact=desc,
-        defaults={
-            "serv_libelle": libelle[:50],
-            "serv_info": desc[:255],
-        },
-    )
-    return service
+            description, libelle = direction.dir_description, direction.dir_libelle
+        cle = (direction.pk, description.lower())
+        if cle not in self.services:
+            self.services[cle], _ = Service.objects.get_or_create(
+                serv_dir_id=direction,
+                serv_info__iexact=description,
+                defaults={"serv_libelle": libelle[:50], "serv_info": description[:255]},
+            )
+        return self.services[cle]
 
 
-def _resoudre_ou_creer_employe(row: dict, overwrite: bool) -> tuple:
-    matricule = "" if est_non_applicable(row.get("Mle")) else str(row.get("Mle")).strip().removesuffix(".0")
-    nom = "" if est_non_applicable(row.get("Nom et prénoms")) else str(row.get("Nom et prénoms")).strip()
-    fonction = "" if est_non_applicable(row.get("Fonction")) else str(row.get("Fonction")).strip() or "Agent"
-    direction_libelle = row.get("Direction", "")
-    affectation = row.get("Affectation", "")
-    lieu_travail = row.get("Lieu de Travail", "")
-
+def _traiter_ligne(row: dict, overwrite: bool, referentiels: _Referentiels):
+    matricule = texte_ou_vide(row.get("Mle")).removesuffix(".0")
+    nom = texte_ou_vide(row.get("Nom et prénoms"))
+    fonction = texte_ou_vide(row.get("Fonction"))
     avertissement = None
 
     if not matricule:
         matricule = Employer.generer_emp_id_unique(nom or "INCONNU")
         avertissement = "Matricule manquant, généré automatiquement"
 
-    site = _get_or_create_site(affectation, lieu_travail)
-    direction = _get_or_create_direction(direction_libelle)
-    service = _get_or_create_service(direction, direction_libelle)
+    site = referentiels.site(row.get("Affectation", ""), row.get("Lieu de Travail", ""))
+    direction = referentiels.direction(row.get("Direction", ""))
+    service = referentiels.service(direction, row.get("Direction", ""))
 
     employe = Employer.objects.filter(emp_matricule=matricule).first()
-
     if employe:
         if not overwrite:
-            return employe, "IGNORE", (avertissement or "Déjà existant : non modifié (mise à jour désactivée)")
+            return employe, "IGNORE", (
+                avertissement or "Déjà existant : non modifié (mise à jour désactivée)"
+            ), employe.emp_site_id
         if nom:
             employe.emp_nom = nom[:255]
         employe.emp_fonction = fonction[:50]
         employe.emp_serv_id = service
         employe.save()
-        statut_action = "MAJ"
+        statut = "MAJ"
     else:
-        nom_final = nom or f"Employé matricule {matricule} (nom à compléter)"
         employe = Employer.objects.create(
             emp_id=Employer.generer_emp_id_unique(matricule),
-            emp_nom=nom_final[:255],
+            emp_nom=(nom or f"Employé matricule {matricule} (nom à compléter)")[:255],
             emp_matricule=matricule,
             emp_fonction=fonction[:50],
             emp_contact="",
             emp_serv_id=service,
         )
-        statut_action = "CREE"
+        statut = "CREE"
 
     Employer.objects.filter(pk=employe.pk).update(emp_site_id=site.pk)
-    employe.emp_site_id = site
+    return employe, statut, avertissement, site
 
-    return employe, statut_action, avertissement
+
+_LIBELLES = {"CREE": ("lignes_creees", "CRÉÉ"), "MAJ": ("lignes_maj", "MIS À JOUR"),
+             "IGNORE": ("lignes_ignorees", "IGNORÉ")}
 
 
 def importer_employes(df, overwrite: bool = True, dry_run: bool = True) -> dict:
     df = df.copy()
-    df.columns = [str(c).strip() for c in df.columns]
+    df.columns = [str(colonne).strip() for colonne in df.columns]
 
-    colonnes_obligatoires = ["Mle", "Nom et prénoms"]
-    colonnes_manquantes = [c for c in colonnes_obligatoires if c not in df.columns]
-    if colonnes_manquantes:
+    manquantes = [c for c in COLONNES_OBLIGATOIRES if c not in df.columns]
+    if manquantes:
         return {
             "dry_run": dry_run,
-            "colonnes_manquantes": colonnes_manquantes,
+            "colonnes_manquantes": manquantes,
             "lignes_ok": 0,
             "lignes_erreur": len(df),
-            "details": [{"ligne": i + 2, "statut": "ERREUR", "message": f"Colonnes manquantes : {colonnes_manquantes}"} for i in range(len(df))],
+            "details": [
+                {"ligne": i + 2, "statut": "ERREUR", "message": f"Colonnes manquantes : {manquantes}"}
+                for i in range(len(df))
+            ],
         }
 
     rapport = {
         "dry_run": dry_run,
         "colonnes_manquantes": [c for c in COLONNES_ATTENDUES if c not in df.columns],
-        "lignes_ok": 0,
-        "lignes_erreur": 0,
-        "lignes_maj": 0,
-        "lignes_creees": 0,
-        "lignes_ignorees": 0,
+        "lignes_ok": 0, "lignes_erreur": 0, "lignes_maj": 0,
+        "lignes_creees": 0, "lignes_ignorees": 0,
         "details": [],
     }
+    referentiels = _Referentiels()
 
-    try:
-        with transaction.atomic():
-            for idx, row in df.iterrows():
-                ligne_no = idx + 2
-                try:
-                    employe, statut_action, avertissement = _resoudre_ou_creer_employe(
-                        row.to_dict(), overwrite
+    with executer_avec_dry_run(dry_run):
+        for idx, row in df.iterrows():
+            ligne_no = idx + 2
+            try:
+                with transaction.atomic():
+                    employe, statut, avertissement, site = _traiter_ligne(
+                        row.to_dict(), overwrite, referentiels
                     )
+            except Exception as exc:  # noqa: BLE001 - erreur rapportée ligne par ligne
+                referentiels.vider()
+                rapport["lignes_erreur"] += 1
+                rapport["details"].append({"ligne": ligne_no, "statut": "ERREUR", "message": str(exc)})
+                continue
 
-                    if statut_action == "CREE":
-                        rapport["lignes_creees"] += 1
-                        statut_detail = "CRÉÉ"
-                    elif statut_action == "MAJ":
-                        rapport["lignes_maj"] += 1
-                        statut_detail = "MIS À JOUR"
-                    else:
-                        rapport["lignes_ignorees"] += 1
-                        statut_detail = "IGNORÉ"
-
-                    rapport["lignes_ok"] += 1
-                    detail = {
-                        "ligne": ligne_no,
-                        "statut": statut_detail,
-                        "matricule": employe.emp_matricule,
-                        "nom": employe.emp_nom,
-                        "fonction": employe.emp_fonction,
-                        "service": employe.emp_serv_id.serv_libelle if employe.emp_serv_id_id else "",
-                        "direction": (
-                            employe.emp_serv_id.serv_dir_id.dir_libelle
-                            if employe.emp_serv_id_id and employe.emp_serv_id.serv_dir_id_id else ""
-                        ),
-                        "site": employe.emp_site_id.site_nom if employe.emp_site_id_id else "",
-                    }
-                    if avertissement:
-                        detail["avertissement"] = avertissement
-                    rapport["details"].append(detail)
-
-                except Exception as exc:  # noqa: BLE001
-                    rapport["lignes_erreur"] += 1
-                    rapport["details"].append({
-                        "ligne": ligne_no,
-                        "statut": "ERREUR",
-                        "message": str(exc),
-                    })
-
-            if dry_run:
-                raise RollbackDryRun()
-    except RollbackDryRun:
-        pass
+            compteur, libelle = _LIBELLES[statut]
+            rapport[compteur] += 1
+            rapport["lignes_ok"] += 1
+            service = employe.emp_serv_id
+            detail = {
+                "ligne": ligne_no,
+                "statut": libelle,
+                "matricule": employe.emp_matricule,
+                "nom": employe.emp_nom,
+                "fonction": employe.emp_fonction,
+                "service": service.serv_libelle if service else "",
+                "direction": service.serv_dir_id.dir_libelle if service and service.serv_dir_id_id else "",
+                "site": site.site_nom if site else "",
+            }
+            if avertissement:
+                detail["avertissement"] = avertissement
+            rapport["details"].append(detail)
 
     rapport["count_total"] = rapport["lignes_creees"] + rapport["lignes_maj"]
     return rapport

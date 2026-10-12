@@ -53,9 +53,11 @@ class AttributionDetailCommande(models.Model):
     def beneficiaire(self):
         return self.affectation.cible
 
+    @property
     def beneficiaire_nom(self):
         return self.affectation.nom
 
+    @property
     def beneficiaire_type(self):
         return self.affectation.beneficiaire_type
 

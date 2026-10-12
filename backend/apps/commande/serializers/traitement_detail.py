@@ -6,5 +6,5 @@ class DetailTraitementSerializer(serializers.Serializer):
     unites_a_attribuer = serializers.ListField(
         child=serializers.IntegerField(),
         required=False,
-        default=[],
+        default=list,
     )

@@ -32,4 +32,3 @@ class Article(models.Model):
 
     def __str__(self):
         return f"{self.code_article} - {self.designation}"
-    

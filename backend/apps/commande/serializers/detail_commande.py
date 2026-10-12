@@ -27,7 +27,7 @@ class DetailCommandeSerializer(serializers.ModelSerializer):
         quantite_totale = attrs.get("quantite", getattr(self.instance, "quantite", 0))
         attributions = attrs.get("attributions", [])
         if attributions:
-            somme_attributions = sum(attr.get("quantite", 0) for attr in attributions)
+            somme_attributions = sum(attr.get("quantite") or 0 for attr in attributions)
             if somme_attributions > quantite_totale:
                 raise serializers.ValidationError({
                     "attributions": (

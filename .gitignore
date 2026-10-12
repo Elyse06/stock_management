@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.py[cod]
 *.pyc
 *.pyo
 .venv/
@@ -28,3 +29,11 @@ frontend/.vite/
 # Docker
 *.log
 .github/workflows/
+
+# Fichiers générés
+logs/
+exports/
+media/
+staticfiles/
+*.log
+*.sqlite3

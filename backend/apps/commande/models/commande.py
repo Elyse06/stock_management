@@ -34,6 +34,7 @@ class Commande(models.Model):
         db_table = "t_commande"
         verbose_name = "Commande"
         verbose_name_plural = "Commandes"
+        indexes = [models.Index(fields=["statut"], name="commande_statut_idx")]  # noqa: RUF012
 
     def __str__(self):
         return f"Commande #{self.pk} ({self.statut})"

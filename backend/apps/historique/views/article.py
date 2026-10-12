@@ -1,126 +1,45 @@
-from django.db.models import Q
-from rest_framework.permissions import IsAuthenticated
+import re
+
+from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
 
 from apps.catalogue.models import Article
-from apps.stock.models import DetailMouvement, Mouvement
+from apps.historique.exports import export_fiche_article
+from apps.historique.services import construire_historique, lire_filtres
+
+from .permissions import HistoriquePermission
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 class HistoriqueArticleView(APIView):
-    permission_classes = [IsAuthenticated]  # noqa: RUF012
-    
+    permission_classes = [HistoriquePermission]  # noqa: RUF012
+
     def get(self, request, code_article):
-        site_id = request.query_params.get("site_id")
-        date_debut = request.query_params.get("date_debut")
-        date_fin = request.query_params.get("date_fin")
-        
-        try:
-            article = Article.objects.get(code_article=code_article)
-        except Article.DoesNotExist:
-            return Response(
-                {"error": "Article non trouvé."},
-                status=HTTP_404_NOT_FOUND
-            )
-        
-        mouvements = DetailMouvement.objects.filter(
-            article=article
-        ).select_related(
-            "mouvement",
-            "affectation",
-            "affectation__employe",
-            "affectation__direction",
-            "affectation__salle",
-            "affectation__site",
-        ).order_by("mouvement__date")
-        
-        if site_id:
-            mouvements = mouvements.filter(
-                Q(mouvement__magasin_source__localite_id=site_id) |
-                Q(mouvement__magasin_destination__localite_id=site_id)
-            )
-        
-        if date_debut:
-            mouvements = mouvements.filter(mouvement__date__gte=date_debut)
-        if date_fin:
-            mouvements = mouvements.filter(mouvement__date__lte=date_fin)
-        
-        historique = []
-        stock_cumule = 0
-        
-        for detail in mouvements:
-            mouvement = detail.mouvement
-            quantite = detail.quantite
-            
-            impact = 0
-            
-            if mouvement.type_mouvement in (Mouvement.Type.ENTREE, Mouvement.Type.RETOUR):
-                if not site_id or mouvement.magasin_destination and str(mouvement.magasin_destination.localite_id) == str(site_id):
-                    stock_cumule += quantite
-                    impact = quantite
-            elif mouvement.type_mouvement == Mouvement.Type.SORTIE:
-                if not site_id or mouvement.magasin_source and str(mouvement.magasin_source.localite_id) == str(site_id):
-                    stock_cumule -= quantite
-                    impact = -quantite
-            elif mouvement.type_mouvement == Mouvement.Type.TRANSFERT:
-                destination_match = (
-                    mouvement.magasin_destination
-                    and (not site_id or str(mouvement.magasin_destination.localite_id) == str(site_id))
-                )
-                source_match = (
-                    mouvement.magasin_source
-                    and (not site_id or str(mouvement.magasin_source.localite_id) == str(site_id))
-                )
-                if destination_match and not source_match:
-                    stock_cumule += quantite
-                    impact = quantite
-                elif source_match and not destination_match:
-                    stock_cumule -= quantite
-                    impact = -quantite
-                elif not destination_match and not source_match:
-                    continue  # Pas concerné par ce magasin
-            elif mouvement.type_mouvement == Mouvement.Type.AJUSTEMENT:
-                if (
-                    mouvement.magasin_destination_id
-                    and (not site_id or str(mouvement.magasin_destination.localite_id) == str(site_id))
-                    and not mouvement.magasin_source_id
-                ):
-                    stock_cumule += quantite
-                    impact = quantite
-                elif (
-                    mouvement.magasin_source_id
-                    and (not site_id or str(mouvement.magasin_source.localite_id) == str(site_id))
-                    and not mouvement.magasin_destination_id
-                ):
-                    stock_cumule -= quantite
-                    impact = -quantite
-                else:
-                    continue
-            
-            historique.append({
-                "date": mouvement.date,
-                "type_mouvement": mouvement.type_mouvement,
-                "magasin_source": mouvement.magasin_source.magasin_nom if mouvement.magasin_source else None,
-                "magasin_destination": mouvement.magasin_destination.magasin_nom if mouvement.magasin_destination else None,
-                "quantite": quantite,
-                "impact": impact,
-                "stock_cumule": stock_cumule,
-                "origine": mouvement.origine,
-                "motif": mouvement.motif,
-                "beneficiaire_type": detail.beneficiaire_type,
-                # Avant : la salle n'était pas un type géré (elle n'existait
-                # pas encore) ; l'accès direct à .direction_beneficiaire /
-                # .site_beneficiaire est remplacé par la propriété unique
-                # detail.affectation.nom, qui couvre les 4 types.
-                "beneficiaire_nom": detail.affectation.nom if detail.affectation_id else None,
-            })
-        
+        article = Article.objects.filter(code_article=code_article).first()
+        if article is None:
+            return Response({"error": "Article non trouvé."}, status=HTTP_404_NOT_FOUND)
+        historique, stock = construire_historique(article, **lire_filtres(request.query_params))
         return Response({
-            "article": {
-                "code_article": article.code_article,
-                "designation": article.designation,
-            },
+            "article": {"code_article": article.code_article, "designation": article.designation},
             "historique": historique,
-            "stock_actuel": stock_cumule,
+            "stock_actuel": stock,
         })
+
+
+class HistoriqueArticleExportView(APIView):
+    permission_classes = [HistoriquePermission]  # noqa: RUF012
+
+    def get(self, request, code_article):
+        article = Article.objects.filter(code_article=code_article).first()
+        if article is None:
+            return Response({"error": "Article non trouvé."}, status=HTTP_404_NOT_FOUND)
+        historique, _ = construire_historique(
+            article, avec_beneficiaire=False, **lire_filtres(request.query_params)
+        )
+        nom_fichier = "fiche_article_{}.xlsx".format(re.sub(r"[^A-Za-z0-9_-]", "_", article.code_article))
+        response = HttpResponse(export_fiche_article(article.code_article, historique), content_type=XLSX)
+        response["Content-Disposition"] = f'attachment; filename="{nom_fichier}"'
+        return response

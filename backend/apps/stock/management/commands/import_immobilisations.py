@@ -1,15 +1,7 @@
-"""
-Commande d'import du fichier Excel "Suivi des immobilisations".
-
-Placement conseillé : apps/stock/management/commands/import_immobilisations.py
-
-Usage (Windows, chemin entre guillemets s'il contient des espaces) :
-    python manage.py import_immobilisations "C:\\Users\\moi\\Documents\\immobilisations.xlsx" --dry-run
-    python manage.py import_immobilisations "C:\\Users\\moi\\Documents\\immobilisations.xlsx"
-"""
 import pandas as pd
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.common.params import parse_sheet
 from apps.stock.services_import.import_immobilisations import (
     detecter_index_entete,
     importer_immobilisations,
@@ -22,7 +14,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("fichier", type=str, help="Chemin vers le fichier .xlsx")
         parser.add_argument("--dry-run", action="store_true", help="Simule sans écrire en base")
-        parser.add_argument("--feuille", type=str, default=0)
+        parser.add_argument("--feuille", type=parse_sheet, default=0)
         parser.add_argument(
             "--ligne-entete",
             type=int,
@@ -43,10 +35,13 @@ class Command(BaseCommand):
                 sheet_name=options["feuille"],
                 header=ligne_entete,
             )
-        except FileNotFoundError:
-            raise CommandError(f"Fichier introuvable : {options['fichier']}")
+        except FileNotFoundError as exc:
+            raise CommandError(f"Fichier introuvable : {options['fichier']}") from exc
 
-        rapport = importer_immobilisations(df, dry_run=options["dry_run"])
+        try:
+            rapport = importer_immobilisations(df, dry_run=options["dry_run"])
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
 
         if rapport["colonnes_manquantes"]:
             self.stdout.write(self.style.WARNING(

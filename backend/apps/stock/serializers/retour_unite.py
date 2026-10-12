@@ -1,6 +1,7 @@
+from rest_framework import serializers
+
 from apps.stock.models import Magasin, UniteArticle
 from apps.stock.services import retourner_unite_au_stock
-from rest_framework import serializers
 
 
 class RetourUniteSerializer(serializers.Serializer):
@@ -9,25 +10,25 @@ class RetourUniteSerializer(serializers.Serializer):
         queryset=Magasin.objects.all()
     )
     motif = serializers.CharField(required=False, allow_blank=True, default="")
-    
+
     def validate_unite_id(self, value):
         try:
             unite = UniteArticle.objects.get(unite_id=value)
-        except UniteArticle.DoesNotExist:
-            raise serializers.ValidationError(f"Unité #{value} introuvable.")
-        
+        except UniteArticle.DoesNotExist as exc:
+            raise serializers.ValidationError(f"Unité #{value} introuvable.") from exc
+
         if unite.statut != UniteArticle.Statut.ATTRIBUE:
             raise serializers.ValidationError(
                 f"L'unité #{value} n'est pas attribuée."
             )
-        
+
         if unite.etat == UniteArticle.Etat.PERDU:
             raise serializers.ValidationError(
                 "Une unité marquée 'Perdu' ne peut pas être retournée."
             )
-        
+
         return value
-    
+
     def save(self, **kwargs):
         return retourner_unite_au_stock(
             unite_id=self.validated_data['unite_id'],

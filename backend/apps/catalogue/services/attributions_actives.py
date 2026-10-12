@@ -1,12 +1,11 @@
 from apps.commande.models import AttributionDetailCommande
 
 
-def _get_attributions_actives(article):
+def get_attributions_actives(article):
     attributions = (
         AttributionDetailCommande.objects.filter(
             detail_commande__article=article,
             statut="VALIDEE",
-            quantite_validee__isnull=False,
             quantite_validee__gt=0,
         )
         .select_related(
@@ -30,9 +29,6 @@ def _get_attributions_actives(article):
         direction = affectation.direction
         salle = affectation.salle
 
-        # Avant : seuls Employé et Direction étaient gérés ici (Site était
-        # silencieusement ignoré, bien que le modèle l'autorise déjà).
-        # Généralisé aux 4 types via l'affectation partagée.
         if employe:
             site = employe.site
         elif direction:

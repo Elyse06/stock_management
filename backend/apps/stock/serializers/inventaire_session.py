@@ -1,12 +1,9 @@
-from apps.employee.models import Direction, Site
-from apps.stock.models import (
-    InventaireSession,
-    LigneInventaire,
-    Salle,
-)
-from apps.stock.utils import calculer_stock_theorique, generer_code_reference
 from django.db import transaction
 from rest_framework import serializers
+
+from apps.employee.models import Direction
+from apps.stock.models import InventaireSession, LigneInventaire
+from apps.stock.utils import calculer_stock_theorique, generer_code_reference
 
 from .ligne_inventaire import LigneInventaireSerializer
 
@@ -62,7 +59,6 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
             )
         return attrs
 
-    
     @transaction.atomic
     def create(self, validated_data):
         lignes_data = validated_data.pop("lignes", [])
@@ -83,8 +79,7 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
                 site=site,
                 salle=salle,
             )
-            
             ligne_data["quantite_theorique"] = stock_theorique
             LigneInventaire.objects.create(session=session, **ligne_data)
-        
+
         return session

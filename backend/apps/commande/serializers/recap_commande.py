@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from apps.commande.models import AttributionDetailCommande, Commande
-from apps.commande.utils import format_employee_data
+from apps.commande.models import Commande
+from apps.common.employees import format_employee_data
 
 from .recap_detail import RecapitulatifDetailCommandeSerializer
 
@@ -18,40 +18,31 @@ class RecapitulatifCommandeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Commande
         fields = [  # noqa: RUF012
-            'commande_id', 'objet', 'statut', 'date_commande', 'demandeur', 'commentaire_agent',
-            'details', 'total_lignes', 'total_demande', 'total_valide', 'total_refuse', 'total_en_attente',
+            "commande_id", "objet", "statut", "date_commande", "demandeur", "commentaire_agent",
+            "details", "total_lignes", "total_demande", "total_valide", "total_refuse", "total_en_attente",
         ]
         read_only_fields = fields
+
+    @staticmethod
+    def _attributions(obj):
+        return [a for detail in obj.details.all() for a in detail.attributions.all()]
 
     def get_demandeur(self, obj):
         return format_employee_data(obj.employe_demandeur)
 
     def get_total_lignes(self, obj):
-        return obj.details.count()
+        return len(obj.details.all())
 
     def get_total_demande(self, obj):
-        from django.db.models import Sum
-        result = AttributionDetailCommande.objects.filter(
-            detail_commande__commande=obj
-        ).aggregate(total=Sum('quantite_demandee'))
-        return result['total'] or 0
+        return sum((a.quantite_demandee for a in self._attributions(obj)), 0)
 
     def get_total_valide(self, obj):
-        from django.db.models import Sum
-        result = AttributionDetailCommande.objects.filter(
-            detail_commande__commande=obj,
-            statut='VALIDEE'
-        ).aggregate(total=Sum('quantite_validee'))
-        return result['total'] or 0
+        return sum(
+            (a.quantite_validee or 0 for a in self._attributions(obj) if a.statut == "VALIDEE"), 0
+        )
 
     def get_total_refuse(self, obj):
-        return AttributionDetailCommande.objects.filter(
-            detail_commande__commande=obj,
-            statut='REFUSEE'
-        ).count()
+        return sum(1 for a in self._attributions(obj) if a.statut == "REFUSEE")
 
     def get_total_en_attente(self, obj):
-        return AttributionDetailCommande.objects.filter(
-            detail_commande__commande=obj,
-            statut='EN_ATTENTE'
-        ).count()
+        return sum(1 for a in self._attributions(obj) if a.statut == "EN_ATTENTE")

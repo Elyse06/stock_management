@@ -6,8 +6,11 @@ class Utilisateur(models.Model):
     utilisateur_mail = models.EmailField(unique=True)
     utilisateur_mdp = models.CharField(max_length=255)
 
+    class Meta:
+        db_table = "t_utilisateur"
+
     def __str__(self):
-        return self.mail
+        return self.utilisateur_mail
 
     @property
     def is_authenticated(self):
@@ -17,19 +20,18 @@ class Utilisateur(models.Model):
     def is_anonymous(self):
         return False
 
-    class Meta:
-        db_table = 't_utilisateur'
 
 class Action(models.Model):
     action_id = models.CharField(primary_key=True, max_length=8)
     action_libelle = models.CharField(max_length=50)
     action_description = models.TextField()
 
-    def __str__(self):
-        return self.libelle
-
     class Meta:
-        db_table = 't_action'
+        db_table = "t_action"
+
+    def __str__(self):
+        return self.action_libelle
+
 
 class Autoriser(models.Model):
     autoriser_utilisateur_id = models.ForeignKey(
@@ -40,6 +42,7 @@ class Autoriser(models.Model):
     )
 
     class Meta:
-        db_table = 't_autoriser'
+        db_table = "t_autoriser"
 
-
+    def __str__(self):
+        return f"{self.autoriser_utilisateur_id_id} -> {self.autoriser_action_id_id}"

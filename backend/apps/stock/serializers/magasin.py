@@ -1,5 +1,6 @@
-from apps.stock.models import Magasin
 from rest_framework import serializers
+
+from apps.stock.models import Magasin
 
 
 class MagasinSerializer(serializers.ModelSerializer):

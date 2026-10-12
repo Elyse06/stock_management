@@ -1,30 +1,36 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 
+from apps.commande.access import (
+    filtrer_commandes_visibles,
+    verifier_commande_modifiable,
+)
 from apps.commande.models import AttributionDetailCommande
 from apps.commande.serializers import AttributionDetailCommandeSerializer
-from apps.common.permissions import (
-    HasAction,
-)
+from apps.commande.utils import QR_SELECT_RELATED
+
+from .permissions import CommandePermission
 
 
 class AttributionDetailCommandeViewSet(viewsets.ModelViewSet):
-    queryset = AttributionDetailCommande.objects.select_related(
-        'affectation', 'affectation__employe', 'affectation__direction',
-        'affectation__salle', 'affectation__site', 'detail_commande',
-    ).all()
     serializer_class = AttributionDetailCommandeSerializer
-
-    def get_permissions(self):
-        if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            return [HasAction.for_actions("COM_DEM", "COM_VAL")()]
-        return [HasAction.for_actions("COM_DEM")()]
-
+    permission_classes = [CommandePermission]  # noqa: RUF012
     filter_backends = [DjangoFilterBackend]  # noqa: RUF012
     filterset_fields = [  # noqa: RUF012
-        "detail_commande",
-        "affectation__employe",
-        "affectation__direction",
-        "affectation__salle",
-        "affectation__site",
+        "detail_commande", "affectation__employe", "affectation__direction",
+        "affectation__salle", "affectation__site",
     ]
+
+    def get_queryset(self):
+        queryset = AttributionDetailCommande.objects.select_related(
+            "detail_commande__commande", *QR_SELECT_RELATED
+        ).order_by("pk")
+        return filtrer_commandes_visibles(queryset, self.request, chemin="detail_commande__commande__")
+
+    def perform_update(self, serializer):
+        verifier_commande_modifiable(serializer.instance.detail_commande.commande, self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        verifier_commande_modifiable(instance.detail_commande.commande, self.request)
+        instance.delete()

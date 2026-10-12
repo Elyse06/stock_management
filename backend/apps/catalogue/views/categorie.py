@@ -2,17 +2,11 @@ from rest_framework import viewsets
 
 from apps.catalogue.models import Categorie
 from apps.catalogue.serializers import CategorieSerializer
-from apps.common.permissions import HasActionByMethod
+
+from .permissions import CataloguePermission
 
 
 class CategorieViewSet(viewsets.ModelViewSet):
-    queryset = Categorie.objects.all()
+    queryset = Categorie.objects.order_by("pk")
     serializer_class = CategorieSerializer
-    permission_classes = [  # noqa: RUF012
-        HasActionByMethod.for_methods(
-            GET=("CAT_LIRE",),
-            HEAD=("CAT_LIRE",),
-            OPTIONS=("CAT_LIRE",),
-            **{"*": ("CAT_GERE",)},
-        )
-    ]
+    permission_classes = [CataloguePermission]  # noqa: RUF012

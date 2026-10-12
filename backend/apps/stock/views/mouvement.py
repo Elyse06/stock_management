@@ -4,9 +4,11 @@ from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 
-from apps.common.permissions import HasActionByMethod
 from apps.stock.models import DetailMouvement, Mouvement
 from apps.stock.serializers import MouvementListSerializer, MouvementSerializer
+
+from .detail_mouvement import PREFETCH_UNITES
+from .permissions import MouvementPermission
 
 
 class MouvementFilter(django_filters.FilterSet):
@@ -33,32 +35,20 @@ def _par_mouvement(aggregat):
 
 
 class MouvementViewSet(viewsets.ModelViewSet):
-    queryset = Mouvement.objects.all()
-    serializer_class = MouvementSerializer
-    permission_classes = [  # noqa: RUF012
-        HasActionByMethod.for_methods(
-            GET=("MOV_LIRE",),
-            HEAD=("MOV_LIRE",),
-            OPTIONS=("MOV_LIRE",),
-            **{"*": ("INV_GERE",)},
-        )
-    ]
+    permission_classes = [MouvementPermission]  # noqa: RUF012
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]  # noqa: RUF012
     filterset_class = MouvementFilter
     ordering_fields = ["date", "mouvement_id"]  # noqa: RUF012
-    ordering = ["-date", "-mouvement_id"]  # du plus récent au plus ancien  # noqa: RUF012
+    ordering = ["-date", "-mouvement_id"]  # noqa: RUF012
 
     def get_queryset(self):
         base = Mouvement.objects.select_related("magasin_source", "magasin_destination")
-
         if self.action == "list":
-            # Liste : aucun détail, juste deux totaux calculés en base
+            # Liste : uniquement deux totaux calculés en base, sans les détails.
             return base.annotate(
                 nb_articles=_par_mouvement(Count("pk")),
                 quantite_totale=_par_mouvement(Sum("quantite")),
             )
-
-        # Détail / création / modification : tout est préchargé en une fois
         return base.prefetch_related(
             "details__article",
             "details__fournisseur",
@@ -66,11 +56,8 @@ class MouvementViewSet(viewsets.ModelViewSet):
             "details__affectation__direction",
             "details__affectation__salle",
             "details__affectation__site",
-            "details__unites_creees",
-            "details__unites_attribuees",
+            *(f"details__{chemin}" for chemin in PREFETCH_UNITES),
         )
 
     def get_serializer_class(self):
-        if self.action == "list":
-            return MouvementListSerializer
-        return MouvementSerializer
+        return MouvementListSerializer if self.action == "list" else MouvementSerializer

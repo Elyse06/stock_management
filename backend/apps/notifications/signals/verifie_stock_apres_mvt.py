@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -6,30 +6,22 @@ from apps.notifications.tasks import notifier_stock_bas
 from apps.stock.models import DetailMouvement, Mouvement
 
 
+def _planifier(code_article, magasin_id):
+    cle = (code_article, magasin_id)
+    if any(getattr(entree[1], "cle_stock", None) == cle for entree in connection.run_on_commit):
+        return
+
+    def envoyer():
+        notifier_stock_bas.delay(code_article=code_article, magasin_id=magasin_id)
+
+    envoyer.cle_stock = cle
+    transaction.on_commit(envoyer)
+
+
 @receiver(post_save, sender=DetailMouvement)
 def verifier_stock_apres_mouvement(sender, instance, created, **kwargs):
-    """
-    Vérifie le stock après la création d'un DetailMouvement.
-    Utilise on_commit pour garantir que la transaction DB est validée.
-    """
     if not created:
-        return  # On ne vérifie que lors de la création
-
+        return
     mouvement = instance.mouvement
-    
-    # On ne déclenche l'alerte que pour les mouvements qui réduisent le stock d'un magasin
-    if mouvement.type_mouvement in [Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT]:
-        magasin_source = mouvement.magasin_source
-        
-        if not magasin_source:
-            return
-        
-        #  on_commit garantit que Celery ne sera déclenché que si la validation 
-        # de la commande est un SUCCÈS total en base de données.
-        transaction.on_commit(
-            lambda: notifier_stock_bas.delay(
-                code_article=instance.article.code_article,
-                magasin_id=magasin_source.magasin_id,
-                magasin_nom=magasin_source.magasin_nom,
-            )
-        )
+    if mouvement.type_mouvement in (Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT) and mouvement.magasin_source_id:
+        _planifier(instance.article_id, mouvement.magasin_source_id)

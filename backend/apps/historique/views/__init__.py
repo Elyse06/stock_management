@@ -1,11 +1,10 @@
-from .article import HistoriqueArticleView
-from .export import HistoriqueArticleExportView
+from .article import HistoriqueArticleExportView, HistoriqueArticleView
 from .globale import HistoriqueGlobaleView
 from .localisation import HistoriqueLocalisationView
 
 __all__ = [
-    'HistoriqueArticleExportView',
-    'HistoriqueArticleView',
-    'HistoriqueGlobaleView',
-    'HistoriqueLocalisationView'
+    "HistoriqueArticleExportView",
+    "HistoriqueArticleView",
+    "HistoriqueGlobaleView",
+    "HistoriqueLocalisationView",
 ]

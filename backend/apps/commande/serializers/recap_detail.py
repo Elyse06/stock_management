@@ -32,15 +32,9 @@ class RecapitulatifDetailCommandeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_total_demande_ligne(self, obj):
-        from django.db.models import Sum
-        result = obj.attributions.aggregate(
-            total=Sum('quantite_demandee')
-        )
-        return result['total'] or 0
+        return sum((a.quantite_demandee for a in obj.attributions.all()), 0)
 
     def get_total_valide_ligne(self, obj):
-        from django.db.models import Sum
-        result = obj.attributions.filter(statut='VALIDEE').aggregate(
-            total=Sum('quantite_validee')
+        return sum(
+            (a.quantite_validee or 0 for a in obj.attributions.all() if a.statut == "VALIDEE"), 0
         )
-        return result['total'] or 0

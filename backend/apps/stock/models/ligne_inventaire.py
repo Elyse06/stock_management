@@ -1,6 +1,7 @@
-from apps.catalogue.models import Article
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.catalogue.models import Article
 
 from .inventaire_session import InventaireSession
 from .unite_article import UniteArticle
@@ -31,14 +32,14 @@ class LigneInventaire(models.Model):
                 raise ValidationError({
                     'propositions_series': "Doit être un objet JSON."
                 })
-            
+
             allowed_keys = {'ajouts', 'retraits', 'changements_etat'}
             invalid_keys = set(self.propositions_series.keys()) - allowed_keys
             if invalid_keys:
                 raise ValidationError({
                     'propositions_series': f"Clés invalides : {invalid_keys}. Clés autorisées : {allowed_keys}"
                 })
-            
+
             for ajout in self.propositions_series.get('ajouts', []):
                 if not isinstance(ajout, dict):
                     raise ValidationError({'propositions_series': "Chaque ajout doit être un objet."})
@@ -50,7 +51,7 @@ class LigneInventaire(models.Model):
                     raise ValidationError({
                         'propositions_series': f"État invalide : {ajout['etat']}"
                     })
-            
+
             for retrait in self.propositions_series.get('retraits', []):
                 if not isinstance(retrait, dict):
                     raise ValidationError({'propositions_series': "Chaque retrait doit être un objet."})
@@ -64,7 +65,7 @@ class LigneInventaire(models.Model):
                             f"Un retrait doit avoir l'état 'HORS_USAGE' ou 'PERDU' (reçu : {retrait['etat']})."
                         )
                     })
-            
+
             for changement in self.propositions_series.get('changements_etat', []):
                 if not isinstance(changement, dict):
                     raise ValidationError({'propositions_series': "Chaque changement doit être un objet."})
