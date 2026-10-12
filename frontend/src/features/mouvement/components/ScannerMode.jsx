@@ -31,7 +31,7 @@ export function ScannerMode({ scanValue, onScanValueChange, onScanKeyDown }) {
           sx: {
             fontFamily: "monospace",
             fontSize: 16,
-            bgcolor: "#FFFDE7",
+            bgcolor: "tint.light",
           },
         }}
       />

@@ -10,7 +10,9 @@ import {
   Tabs,
   Tab,
   IconButton,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   Close as CloseIcon,
   QrCodeScanner as ScannerIcon,
@@ -40,6 +42,8 @@ export function SaisieRapideNumerosSerie({
   articleDesignation = "",
 }) {
   const notify = useNotification();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [activeTab, setActiveTab] = useState("scanner");
   const [nouveauxNumeros, setNouveauxNumeros] = useState([]);
   const [scanValue, setScanValue] = useState("");
@@ -187,16 +191,17 @@ export function SaisieRapideNumerosSerie({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
+      fullScreen={fullScreen}
+      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : 2 } }}
     >
       <DialogTitle
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          bgcolor: "#FFF8E1",
+          bgcolor: "tint.main",
           borderBottom: "2px solid",
-          borderColor: "primary.main",
+          borderColor: "secondary.main",
         }}
       >
         <Box>
@@ -212,7 +217,7 @@ export function SaisieRapideNumerosSerie({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 3 }}>
+      <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>
         {/* Stats */}
         <SaisieStats
           nbValides={nbValides}
@@ -224,13 +229,17 @@ export function SaisieRapideNumerosSerie({
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
             mb: 2,
             borderBottom: "1px solid #E0E0E0",
+            "& .MuiTabs-indicator": { backgroundColor: "secondary.main", height: 3 },
             "& .MuiTab-root": {
               textTransform: "none",
               fontWeight: 500,
-              minWidth: 120,
+              minWidth: { xs: 90, sm: 120 },
             },
             "& .Mui-selected": { color: "primary.main" },
           }}

@@ -336,15 +336,16 @@ export function MainLayout() {
             title="Assistant IA"
             sx={{
               ml: 1,
-              bgcolor: "#FFF8E1",
-              border: "1px solid #FFE082",
+              bgcolor: "tint.main",
+              border: "1px solid",
+              borderColor: "secondary.main",
               "&:hover": {
-                bgcolor: "#FFECB3",
-                borderColor: "#FFC107",
+                bgcolor: "tint.light",
+                borderColor: "secondary.dark",
               },
             }}
           >
-            <MagicIcon sx={{ color: "#FFC107", fontSize: 22 }} />
+            <MagicIcon sx={{ color: "secondary.dark", fontSize: 22 }} />
           </IconButton>
 
           <IconButton
@@ -479,7 +480,8 @@ export function MainLayout() {
           flex: 1,
           p: 3,
           bgcolor: "#FFFFFF",
-          overflow: "auto",
+          // "clip" (et non "auto") : sinon les éléments sticky des pages ne collent jamais
+          overflowX: "clip",
         }}
       >
         <Outlet />

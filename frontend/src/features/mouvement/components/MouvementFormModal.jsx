@@ -5,16 +5,21 @@ import {
   Typography,
   Box,
   IconButton,
+  Paper,
+  Autocomplete,
+  Chip,
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Login as LoginIcon,
   SwapHoriz as SwapHorizIcon,
-  QrCode as QrCodeIcon,
   QrCodeScanner as QrCodeScannerIcon,
-  Business as BusinessIcon,
-  Save as SaveIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
@@ -22,7 +27,6 @@ import { usePermission } from "../../../hooks/usePermission";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { FormDialog } from "../../../components/common/FormDialog";
 import { SelectFilter } from "../../../components/common/SelectFilter";
-import { StyledTable } from "../../../components/wizard/StyledTable";
 import { SaisieRapideNumerosSerie } from "./SaisieRapideNumerosSerie";
 
 const TYPES_MANUELS = [
@@ -30,7 +34,44 @@ const TYPES_MANUELS = [
   { value: "TRANSFERT", label: "Transfert entre magasins", icon: <SwapHorizIcon fontSize="small" /> },
 ];
 
-const EMPTY_DETAIL = { article: "", quantite: 1, numeros_de_serie: [], fournisseur: "" , prix_achat: ""};
+const EMPTY_DETAIL = { article: "", quantite: 1, numeros_de_serie: [], fournisseur: "", prix_achat: "" };
+
+/** Champ d'ajout d'un numéro de série : Entrée pour valider (sans soumettre le formulaire). */
+function NumeroSerieInput({ onAdd }) {
+  const [value, setValue] = useState("");
+
+  const submit = () => {
+    if (!value.trim()) return;
+    onAdd([value]);
+    setValue("");
+  };
+
+  return (
+    <TextField
+      size="small"
+      fullWidth
+      label="Ajouter un N° de série (Entrée pour valider)"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submit();
+        }
+      }}
+      slotProps={{
+        htmlInput: { maxLength: 100, style: { fontFamily: "monospace" } },
+        input: {
+          endAdornment: (
+            <IconButton size="small" color="primary" onClick={submit} disabled={!value.trim()}>
+              <AddIcon fontSize="small" />
+            </IconButton>
+          ),
+        },
+      }}
+    />
+  );
+}
 
 export function MouvementFormModal({
   isOpen,
@@ -63,7 +104,7 @@ export function MouvementFormModal({
     setMagasinDestination("");
     setDetails(
       preselectedArticle
-        ? [{ article: preselectedArticle, quantite: preselectedQuantite || 1, numeros_de_serie: [], fournisseur: "", prix_achat: "" }]
+        ? [{ ...EMPTY_DETAIL, article: preselectedArticle, quantite: preselectedQuantite || 1 }]
         : [{ ...EMPTY_DETAIL }]
     );
 
@@ -83,40 +124,43 @@ export function MouvementFormModal({
   const getArticle = (codeArticle) => articles.find((a) => a.code_article === codeArticle);
   const isModeNumeroSerie = (codeArticle) => getArticle(codeArticle)?.mode_suivi === "NUMERO_SERIE";
 
-  const handleDetailChange = (index, field, value) => {
-    const updated = [...details];
-    updated[index] = { ...updated[index], [field]: value };
-    if (field === "article") {
-      updated[index].numeros_de_serie = [];
-      if (isModeNumeroSerie(value)) {
-        updated[index].quantite = updated[index].numeros_de_serie.length || 1;
-      }
-    }
-    setDetails(updated);
-  };
+  // ---- Mises à jour immuables des lignes ----
+  const updateDetail = (index, changes) =>
+    setDetails((prev) => prev.map((d, i) => (i === index ? { ...d, ...changes } : d)));
 
-  const handleNumeroSerieChange = (detailIndex, nsIndex, value) => {
-    const updated = [...details];
-    const numeros = [...updated[detailIndex].numeros_de_serie];
-    numeros[nsIndex] = value;
-    updated[detailIndex].numeros_de_serie = numeros;
-    updated[detailIndex].quantite = numeros.filter((ns) => ns.trim()).length;
-    setDetails(updated);
-  };
+  const handleArticleChange = (index, article) =>
+    updateDetail(index, {
+      article: article?.code_article ?? "",
+      numeros_de_serie: [],
+      quantite: 1,
+    });
 
-  const addNumeroSerieRow = (detailIndex) => {
-    const updated = [...details];
-    updated[detailIndex].numeros_de_serie = [...updated[detailIndex].numeros_de_serie, ""];
-    setDetails(updated);
-  };
+  const ajouterNumeros = (index, nouveaux) =>
+    setDetails((prev) =>
+      prev.map((d, i) => {
+        if (i !== index) return d;
+        const vus = new Set(d.numeros_de_serie.map((n) => n.toLowerCase()));
+        const ajoutes = [];
+        for (const brut of nouveaux) {
+          const numero = brut.trim();
+          if (numero && !vus.has(numero.toLowerCase())) {
+            vus.add(numero.toLowerCase());
+            ajoutes.push(numero);
+          }
+        }
+        const numeros = [...d.numeros_de_serie, ...ajoutes];
+        return { ...d, numeros_de_serie: numeros, quantite: numeros.length };
+      })
+    );
 
-  const removeNumeroSerieRow = (detailIndex, nsIndex) => {
-    const updated = [...details];
-    const numeros = updated[detailIndex].numeros_de_serie.filter((_, i) => i !== nsIndex);
-    updated[detailIndex].numeros_de_serie = numeros;
-    updated[detailIndex].quantite = numeros.filter((ns) => ns.trim()).length;
-    setDetails(updated);
-  };
+  const retirerNumero = (index, nsIndex) =>
+    setDetails((prev) =>
+      prev.map((d, i) => {
+        if (i !== index) return d;
+        const numeros = d.numeros_de_serie.filter((_, k) => k !== nsIndex);
+        return { ...d, numeros_de_serie: numeros, quantite: numeros.length };
+      })
+    );
 
   const ouvrirSaisieRapide = (detailIndex) => {
     setSaisieRapideDetailIndex(detailIndex);
@@ -125,27 +169,18 @@ export function MouvementFormModal({
 
   const handleSaisieRapideSubmit = (nouveauxNumeros) => {
     if (saisieRapideDetailIndex === null) return;
-    const updated = [...details];
-    const detail = updated[saisieRapideDetailIndex];
-    const existantsSet = new Set(detail.numeros_de_serie.map((n) => n.toLowerCase()));
-    const nouveauxFiltres = nouveauxNumeros.filter((n) => !existantsSet.has(n.toLowerCase()));
-    detail.numeros_de_serie = [...detail.numeros_de_serie, ...nouveauxFiltres];
-    detail.quantite = detail.numeros_de_serie.filter((ns) => ns.trim()).length;
-    setDetails(updated);
+    ajouterNumeros(saisieRapideDetailIndex, nouveauxNumeros);
     setSaisieRapideOpen(false);
     setSaisieRapideDetailIndex(null);
   };
 
-  const addDetailRow = () => {
-    setDetails([...details, { ...EMPTY_DETAIL }]);
-  };
+  const addDetailRow = () => setDetails((prev) => [...prev, { ...EMPTY_DETAIL }]);
 
   const removeDetailRow = (index) => {
-    if (details.length > 1) {
-      setDetails(details.filter((_, i) => i !== index));
-    }
+    if (details.length > 1) setDetails((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // ---- Validation et envoi (logique inchangée) ----
   const valider = () => {
     const hasInvalidArticle = details.some((d) => !d.article || String(d.article).trim() === "");
     if (hasInvalidArticle) return "Veuillez sélectionner un article valide pour chaque ligne.";
@@ -160,10 +195,8 @@ export function MouvementFormModal({
         if (uniqueNumeros.size !== numerosValides.length) {
           return `Numéros de série en doublon pour "${getArticle(detail.article)?.designation}".`;
         }
-      } else {
-        if (!detail.quantite || Number(detail.quantite) <= 0) {
-          return `Quantité invalide pour "${getArticle(detail.article)?.designation}".`;
-        }
+      } else if (!detail.quantite || Number(detail.quantite) <= 0) {
+        return `Quantité invalide pour "${getArticle(detail.article)?.designation}".`;
       }
     }
 
@@ -193,12 +226,13 @@ export function MouvementFormModal({
       const payload = {
         type_mouvement: typeMouvement,
         details: details.map((d) => {
+          const numeros = d.numeros_de_serie.filter((ns) => ns.trim()).map((ns) => ns.trim());
           const detailPayload = {
             article: String(d.article),
-            quantite: parseInt(d.quantite, 10),
+            quantite: isModeNumeroSerie(d.article) ? numeros.length : parseInt(d.quantite, 10),
           };
           if (isModeNumeroSerie(d.article)) {
-            detailPayload.numeros_de_serie = d.numeros_de_serie.filter((ns) => ns.trim()).map((ns) => ns.trim());
+            detailPayload.numeros_de_serie = numeros;
           }
           if (typeMouvement === "ENTREE" && d.fournisseur) {
             detailPayload.fournisseur = Number(d.fournisseur);
@@ -236,21 +270,11 @@ export function MouvementFormModal({
     }
   };
 
-  const typeMouvementOptions = TYPES_MANUELS.map((t) => ({
-    value: t.value,
-    label: (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        {t.icon}
-        <span>{t.label}</span>
-      </Box>
-    ),
-  }));
-
   const magasinOptions = [
     { value: "", label: "Sélectionner un magasin" },
     ...magasins.map((m) => ({
       value: m.magasin_id,
-      label: `${m.magasin_nom}${m.localite ? ` (${m.localite})` : ""}`,
+      label: `${m.magasin_nom}${m.localite ? ` (${m.localite_nom})` : ""}`,
     })),
   ];
 
@@ -259,12 +283,9 @@ export function MouvementFormModal({
     ...fournisseurs.map((f) => ({ value: f.fournisseur_id, label: f.nom })),
   ];
 
-  const articleOptions = [
-    { value: "", label: "-- Sélectionner un article --" },
-    ...articles.map((a) => ({ value: a.code_article, label: `${a.code_article} - ${a.designation}` })),
-  ];
-
   const titre = typeMouvement === "ENTREE" ? "Nouvelle entrée de stock" : "Nouveau transfert";
+
+  const totalUnites = details.reduce((sum, d) => sum + (Number(d.quantite) || 0), 0);
 
   return (
     <FormDialog
@@ -274,168 +295,242 @@ export function MouvementFormModal({
       onSubmit={handleSubmit}
       saving={saving}
       submitLabel="Enregistrer"
-      submitIcon={<SaveIcon />}
       disabled={!canCreate}
       maxWidth="md"
     >
       {preselectedArticle && (
-        <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1 }}>
-          <Typography variant="body2">
-            Article pré-sélectionné : <strong>{preselectedArticle}</strong>
-            {preselectedQuantite && ` — Quantité suggérée : ${preselectedQuantite}`}
-          </Typography>
-        </Box>
+        <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+          Article pré-sélectionné : <strong>{preselectedArticle}</strong>
+          {preselectedQuantite && ` — Quantité suggérée : ${preselectedQuantite}`}
+        </Alert>
       )}
 
-      <SelectFilter
-        label="Type de mouvement"
+      {/* ---------- Type ---------- */}
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
         value={typeMouvement}
-        onChange={(value) => setTypeMouvement(value)}
-        options={typeMouvementOptions}
-      />
+        onChange={(_, value) => value && setTypeMouvement(value)}
+        sx={{
+          mb: 2.5,
+          "& .MuiToggleButton-root": {
+            py: 1,
+            gap: 1,
+            textTransform: "none",
+            "&.Mui-selected": {
+              bgcolor: "tint.main",
+              color: "primary.main",
+              borderColor: "primary.main",
+              fontWeight: 600,
+            },
+          },
+        }}
+      >
+        {TYPES_MANUELS.map((t) => (
+          <ToggleButton key={t.value} value={t.value}>
+            {t.icon}
+            {t.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
-      {typeMouvement === "ENTREE" && (
-        <TextField
-          label="Origine (optionnel)"
-          value={origine}
-          onChange={(e) => setOrigine(e.target.value)}
-          fullWidth
-          margin="normal"
-          placeholder="Ex: Réapprovisionnement, Ajustement..."
-          inputProps={{ maxLength: 100 }}
-        />
-      )}
+      {/* ---------- Magasins ---------- */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns:
+            typeMouvement === "TRANSFERT"
+              ? { xs: "1fr", sm: "1fr auto 1fr" }
+              : { xs: "1fr", sm: "1fr 1fr" },
+          alignItems: "center",
+          gap: 2,
+          "& .MuiFormControl-root": { width: "100%" },
+        }}
+      >
+        {typeMouvement === "ENTREE" && (
+          <TextField
+            label="Origine (optionnel)"
+            value={origine}
+            onChange={(e) => setOrigine(e.target.value)}
+            placeholder="Ex: Réapprovisionnement, Ajustement..."
+            slotProps={{ htmlInput: { maxLength: 100 } }}
+          />
+        )}
 
-      {typeMouvement === "TRANSFERT" && (
+        {typeMouvement === "TRANSFERT" && (
+          <>
+            <SelectFilter
+              label="Magasin source *"
+              value={magasinSource}
+              onChange={setMagasinSource}
+              options={magasinOptions}
+              required
+            />
+            <Box sx={{ display: "flex", justifyContent: "center", color: "text.secondary" }}>
+              <ArrowForwardIcon sx={{ display: { xs: "none", sm: "block" } }} />
+              <ArrowDownwardIcon sx={{ display: { xs: "block", sm: "none" } }} />
+            </Box>
+          </>
+        )}
+
         <SelectFilter
-          label="Magasin source *"
-          value={magasinSource}
-          onChange={(value) => setMagasinSource(value)}
+          label="Magasin destination *"
+          value={magasinDestination}
+          onChange={setMagasinDestination}
           options={magasinOptions}
           required
         />
-      )}
+      </Box>
 
-      <SelectFilter
-        label="Magasin destination *"
-        value={magasinDestination}
-        onChange={(value) => setMagasinDestination(value)}
-        options={magasinOptions}
-        required
-      />
-
-      <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
-        Articles concernés
-      </Typography>
-
-      <StyledTable
-        columns={[
-          { label: "Article" },
-          { label: "Quantité", align: "center", width: 120 },
-          { label: "Numéros de série", minWidth: 250 },
-          ...(typeMouvement === "ENTREE" ? [
-            {label: 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <BusinessIcon fontSize="small" />Fournisseur
-            </Box>, 
-            minWidth: 180},
-            {label: "Prix d'achat (MGA)", minWidth: 150}
-          ] : []),
-          { label: "", align: "center", width: 60 },
-        ]}
+      {/* ---------- Articles ---------- */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
+          mt: 3,
+          mb: 1.5,
+        }}
       >
-        {details.map((row, index) => {
-          const article = getArticle(row.article);
-          const modeNS = article?.mode_suivi === "NUMERO_SERIE";
-          return (
-            <tr key={index}>
-              <td>
-                <SelectFilter
-                  value={row.article}
-                  onChange={(value) => handleDetailChange(index, "article", value)}
-                  options={articleOptions}
+        <Typography variant="h3">Articles concernés</Typography>
+        <Chip
+          label={`${details.length} ligne(s) • ${totalUnites} unité(s)`}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      </Box>
+
+      {details.map((row, index) => {
+        const article = getArticle(row.article);
+        const modeNS = article?.mode_suivi === "NUMERO_SERIE";
+
+        return (
+          <Paper
+            key={index}
+            variant="outlined"
+            sx={{ p: 2, mb: 1.5, borderLeft: "3px solid", borderLeftColor: "secondary.main" }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                LIGNE {index + 1}
+              </Typography>
+              {details.length > 1 && (
+                <IconButton size="small" color="error" onClick={() => removeDetailRow(index)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+
+            <Autocomplete
+              size="small"
+              options={articles}
+              value={article ?? null}
+              onChange={(_, value) => handleArticleChange(index, value)}
+              getOptionLabel={(a) => `${a.code_article} - ${a.designation}`}
+              isOptionEqualToValue={(a, v) => a.code_article === v.code_article}
+              noOptionsText="Aucun article"
+              renderInput={(params) => (
+                <TextField {...params} label="Article" placeholder="Rechercher par code ou désignation..." />
+              )}
+              renderOption={(props, a) => {
+                const { key, ...rest } = props;
+                return (
+                  <Box component="li" key={key} {...rest}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {a.designation}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {a.code_article}
+                        {a.categorie_nom ? ` • ${a.categorie_nom}` : ""}
+                        {a.mode_suivi === "NUMERO_SERIE" ? " • N° de série" : ""}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              }}
+            />
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: typeMouvement === "ENTREE" ? "140px 1fr 1fr" : "140px",
+                },
+                gap: 2,
+                mt: 2,
+                alignItems: "start",
+                "& .MuiFormControl-root": { width: "100%" },
+              }}
+            >
+              {modeNS ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<QrCodeScannerIcon />}
+                  onClick={() => ouvrirSaisieRapide(index)}
+                  sx={{ height: 40 }}
+                >
+                  Saisie rapide
+                </Button>
+              ) : (
+                <TextField
+                  label="Quantité"
+                  type="number"
                   size="small"
+                  value={row.quantite}
+                  onChange={(e) => updateDetail(index, { quantite: e.target.value })}
+                  slotProps={{ htmlInput: { min: 1 } }}
                 />
-              </td>
-              <td align="center">
-                {modeNS ? (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<QrCodeScannerIcon />}
-                    onClick={() => ouvrirSaisieRapide(index)}
-                    sx={{ mb: 1, width: "100%" }}
-                  >
-                    Saisie rapide ({row.numeros_de_serie.length})
-                  </Button>
-                ) : (
+              )}
+
+              {typeMouvement === "ENTREE" && (
+                <>
+                  <SelectFilter
+                    label="Fournisseur"
+                    value={row.fournisseur}
+                    onChange={(value) => updateDetail(index, { fournisseur: value })}
+                    options={fournisseurOptions}
+                  />
                   <TextField
+                    label="Prix d'achat (MGA)"
                     type="number"
                     size="small"
-                    value={row.quantite}
-                    onChange={(e) => handleDetailChange(index, "quantite", e.target.value)}
-                    inputProps={{ min: 1 }}
-                    sx={{ width: 100 }}
+                    value={row.prix_achat}
+                    onChange={(e) => updateDetail(index, { prix_achat: e.target.value })}
+                    slotProps={{ htmlInput: { min: 1 } }}
                   />
-                )}
-              </td>
-              <td>
-                {modeNS ? (
-                  <Box>
-                    {row.numeros_de_serie.map((ns, nsIndex) => (
-                      <Box key={nsIndex} sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-                        <QrCodeIcon fontSize="small" color="action" />
-                        <TextField
-                          size="small"
-                          value={ns}
-                          onChange={(e) => handleNumeroSerieChange(index, nsIndex, e.target.value)}
-                          placeholder={`N° série ${nsIndex + 1}`}
-                          sx={{ flex: 1 }}
-                          inputProps={{ maxLength: 100 }}
-                        />
-                        <IconButton size="small" color="error" onClick={() => removeNumeroSerieRow(index, nsIndex)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ))}
-                    <Button size="small" startIcon={<AddIcon />} onClick={() => addNumeroSerieRow(index)} sx={{ mt: 0.5 }}>
-                      Ajouter N° série
-                    </Button>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    —
-                  </Typography>
-                )}
-              </td>
-              {typeMouvement === "ENTREE" && (
-                <><td>
-                  <SelectFilter
-                    value={row.fournisseur}
-                    onChange={(value) => handleDetailChange(index, "fournisseur", value)}
-                    options={fournisseurOptions}
-                    size="small" />
-                </td><td>
-                    <TextField
-                      type="number"
-                      size="small"
-                      value={row.prix_achat}
-                      onChange={(e) => handleDetailChange(index, "prix_achat", e.target.value)}
-                      inputProps={{ min: 1 }}
-                      sx={{ width: 100 }} />
-                  </td></>
+                </>
               )}
-              <td align="center">
-                {details.length > 1 && (
-                  <IconButton size="small" color="error" onClick={() => removeDetailRow(index)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+            </Box>
+
+            {modeNS && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
+                  Numéros de série ({row.numeros_de_serie.length})
+                </Typography>
+                {row.numeros_de_serie.length > 0 && (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 1.5 }}>
+                    {row.numeros_de_serie.map((ns, nsIndex) => (
+                      <Chip
+                        key={`${ns}-${nsIndex}`}
+                        label={ns}
+                        size="small"
+                        onDelete={() => retirerNumero(index, nsIndex)}
+                        sx={{ fontFamily: "monospace" }}
+                      />
+                    ))}
+                  </Box>
                 )}
-              </td>
-            </tr>
-          );
-        })}
-      </StyledTable>
+                <NumeroSerieInput onAdd={(nouveaux) => ajouterNumeros(index, nouveaux)} />
+              </Box>
+            )}
+          </Paper>
+        );
+      })}
 
       <Button variant="outlined" startIcon={<AddIcon />} onClick={addDetailRow} size="small">
         Ajouter une ligne
@@ -448,9 +543,17 @@ export function MouvementFormModal({
           setSaisieRapideDetailIndex(null);
         }}
         onSubmit={handleSaisieRapideSubmit}
-        numerosExistant={saisieRapideDetailIndex !== null ? (details[saisieRapideDetailIndex]?.numeros_de_serie ?? []) : []}
-        quantiteRequise={saisieRapideDetailIndex !== null ? (details[saisieRapideDetailIndex]?.quantite ?? 0) : 0}
-        articleDesignation={saisieRapideDetailIndex !== null ? (getArticle(details[saisieRapideDetailIndex]?.article)?.designation ?? "") : ""}
+        numerosExistant={
+          saisieRapideDetailIndex !== null ? (details[saisieRapideDetailIndex]?.numeros_de_serie ?? []) : []
+        }
+        quantiteRequise={
+          saisieRapideDetailIndex !== null ? (details[saisieRapideDetailIndex]?.quantite ?? 0) : 0
+        }
+        articleDesignation={
+          saisieRapideDetailIndex !== null
+            ? (getArticle(details[saisieRapideDetailIndex]?.article)?.designation ?? "")
+            : ""
+        }
       />
     </FormDialog>
   );
