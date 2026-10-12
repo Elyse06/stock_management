@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Box, Typography, Paper } from "@mui/material";
+import { Box, Typography, Paper, Alert } from "@mui/material";
 import { UploadFile as UploadIcon } from "@mui/icons-material";
 
 export function FileImportMode({ onFileUpload }) {
@@ -7,24 +7,20 @@ export function FileImportMode({ onFileUpload }) {
 
   return (
     <Box>
-      <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
-        <Typography variant="body2" fontWeight={600}>
-          📁 Uploadez un fichier contenant un numéro de série par ligne.
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Formats acceptés : .txt, .csv
-        </Typography>
-      </Box>
+      <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+        Uploadez un fichier contenant un numéro de série par ligne (formats .txt ou .csv).
+      </Alert>
       <Paper
         elevation={0}
         sx={{
-          p: 4,
-          border: "2px dashed #F9A825",
+          p: { xs: 3, sm: 4 },
+          border: "2px dashed",
+          borderColor: "primary.light",
           borderRadius: 2,
           textAlign: "center",
-          bgcolor: "#FFFDE7",
+          bgcolor: "tint.light",
           cursor: "pointer",
-          "&:hover": { bgcolor: "#FFF8E1" },
+          "&:hover": { bgcolor: "tint.main" },
         }}
         onClick={() => fileInputRef.current?.click()}
       >

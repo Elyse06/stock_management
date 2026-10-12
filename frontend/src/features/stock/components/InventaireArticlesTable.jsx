@@ -1,168 +1,124 @@
-import { Box, Typography, Chip } from "@mui/material";
+import { useState } from "react";
 import {
-  Add as AddIcon,
-  Remove as RemoveIcon,
-  SwapHoriz as SwapHorizIcon,
-} from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+  Box,
+  Typography,
+  Chip,
+  TableRow,
+  TableCell,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { EmptyValue } from "../../../components/common/EmptyValue";
+import { StyledTable } from "../../../components/wizard/StyledTable";
+
+const COLUMNS = [
+  { label: "Article" },
+  { label: "Théorique", align: "center" },
+  { label: "Physique", align: "center" },
+  { label: "Écart", align: "center" },
+  { label: "Commentaire" },
+];
+
+const isNumeroSerie = (ligne) => ligne.article_mode_suivi === "NUMERO_SERIE";
 
 export function InventaireArticlesTable({ lignes }) {
-  const renderPropositions = (propositions) => {
-    if (!propositions || Object.keys(propositions).length === 0) {
-      return <EmptyValue value={null} />;
-    }
+  const [seulementEcarts, setSeulementEcarts] = useState(false);
 
-    const ajouts = propositions.ajouts || [];
-    const retraits = propositions.retraits || [];
-    const changements = propositions.changements_etat || [];
-
-    return (
-      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-        {ajouts.length > 0 && (
-          <Chip
-            icon={<AddIcon sx={{ fontSize: 14 }} />}
-            label={`+${ajouts.length}`}
-            size="small"
-            color="success"
-            variant="outlined"
-            sx={{ height: 22, fontSize: 11 }}
-            title={`${ajouts.length} ajout(s) de n° de série`}
-          />
-        )}
-        {retraits.length > 0 && (
-          <Chip
-            icon={<RemoveIcon sx={{ fontSize: 14 }} />}
-            label={`-${retraits.length}`}
-            size="small"
-            color="error"
-            variant="outlined"
-            sx={{ height: 22, fontSize: 11 }}
-            title={`${retraits.length} retrait(s) (perdu/hors usage)`}
-          />
-        )}
-        {changements.length > 0 && (
-          <Chip
-            icon={<SwapHorizIcon sx={{ fontSize: 14 }} />}
-            label={`~${changements.length}`}
-            size="small"
-            color="warning"
-            variant="outlined"
-            sx={{ height: 22, fontSize: 11 }}
-            title={`${changements.length} changement(s) d'état`}
-          />
-        )}
-      </Box>
-    );
-  };
-
-  const columns = [
-    {
-      field: "article_designation",
-      headerName: "Article",
-      flex: 1,
-      minWidth: 200,
-    },
-    {
-      field: "quantite_theorique",
-      headerName: "Théorique",
-      width: 100,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => (
-        <Typography variant="body2" fontFamily="monospace">
-          {params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: "quantite_physique",
-      headerName: "Physique",
-      width: 100,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => {
-        const isNS = params.row.article_mode_suivi === "NUMERO_SERIE";
-        return (
-          <Typography
-            variant="body2"
-            fontFamily="monospace"
-            fontWeight={600}
-            sx={{ color: isNS ? "text.disabled" : "inherit" }}
-          >
-            {isNS ? "—" : params.value}
-          </Typography>
-        );
-      },
-    },
-    {
-      field: "ecart",
-      headerName: "Écart",
-      width: 100,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => {
-        const isNS = params.row.article_mode_suivi === "NUMERO_SERIE";
-        if (isNS) {
-          return (
-            <Typography
-              variant="body2"
-              fontFamily="monospace"
-              sx={{ color: "text.disabled" }}
-            >
-              —
-            </Typography>
-          );
-        }
-        const ecart = Number(params.value);
-        return (
-          <Typography
-            variant="body2"
-            fontFamily="monospace"
-            fontWeight={700}
-            sx={{ color: ecart === 0 ? "success.main" : "error.main" }}
-          >
-            {ecart > 0 ? `+${ecart}` : ecart}
-          </Typography>
-        );
-      },
-    },
-    /* Utiliser pour l'implementation de numero de série
-    {
-      field: "propositions_series",
-      headerName: "Propositions",
-      width: 180,
-      renderCell: (params) => renderPropositions(params.value),
-    },
-   */
-    {
-      field: "commentaire",
-      headerName: "Commentaire",
-      flex: 1,
-      minWidth: 180,
-      renderCell: (params) => <EmptyValue value={params.value} />,
-    },
-  ];
+  const lignesAvecEcart = lignes.filter((l) => Number(l.ecart) !== 0);
+  const affichees = seulementEcarts ? lignesAvecEcart : lignes;
 
   return (
     <Box>
-      <Typography variant="h3" sx={{ mb: 1 }}>
-        Articles inventoriés ({lignes.length})
-      </Typography>
-      <Box sx={{ height: 400, width: "100%" }}>
-        <DataGrid
-          rows={lignes}
-          columns={columns}
-          getRowId={(row) => row.id}
-          disableRowSelectionOnClick
-          pageSizeOptions={[10, 25, 50]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 25 } },
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
+          mb: 1.5,
+        }}
+      >
+        <Typography variant="h3">Articles inventoriés</Typography>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={seulementEcarts ? "ecarts" : "tous"}
+          onChange={(_, value) => value && setSeulementEcarts(value === "ecarts")}
+          sx={{
+            "& .MuiToggleButton-root": {
+              textTransform: "none",
+              px: 1.5,
+              "&.Mui-selected": {
+                bgcolor: "tint.main",
+                color: "primary.main",
+                borderColor: "primary.main",
+                fontWeight: 600,
+              },
+            },
           }}
-          localeText={{ noRowsLabel: "Aucun article dans cet inventaire." }}
-        />
+        >
+          <ToggleButton value="tous">Tous ({lignes.length})</ToggleButton>
+          <ToggleButton value="ecarts">Écarts ({lignesAvecEcart.length})</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
+
+      <StyledTable
+        columns={COLUMNS}
+        emptyMessage={
+          seulementEcarts ? "Aucun article avec écart." : "Aucun article dans cet inventaire."
+        }
+      >
+        {affichees.map((ligne) => {
+          const ns = isNumeroSerie(ligne);
+          const ecart = Number(ligne.ecart);
+
+          return (
+            <TableRow key={ligne.id}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={500}>
+                  {ligne.article_designation}
+                </Typography>
+                {ligne.article && <CodeChip value={ligne.article} />}
+              </TableCell>
+              <TableCell align="center">
+                <Typography variant="body2" fontFamily="monospace">
+                  {ligne.quantite_theorique}
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                <Typography
+                  variant="body2"
+                  fontFamily="monospace"
+                  fontWeight={600}
+                  sx={{ color: ns ? "text.disabled" : "inherit" }}
+                >
+                  {ns ? "—" : ligne.quantite_physique}
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                {ns ? (
+                  <Typography variant="body2" sx={{ color: "text.disabled" }}>
+                    —
+                  </Typography>
+                ) : (
+                  <Chip
+                    label={ecart > 0 ? `+${ecart}` : ecart}
+                    size="small"
+                    color={ecart === 0 ? "success" : "error"}
+                    variant={ecart === 0 ? "outlined" : "filled"}
+                    sx={{ fontFamily: "monospace", fontWeight: 700, minWidth: 48 }}
+                  />
+                )}
+              </TableCell>
+              <TableCell sx={{ minWidth: 160 }}>
+                <EmptyValue value={ligne.commentaire} />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </StyledTable>
     </Box>
   );
 }

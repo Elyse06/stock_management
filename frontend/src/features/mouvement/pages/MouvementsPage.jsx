@@ -1,16 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Box, TextField } from "@mui/material";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS } from "../../../constants/api";
 import { usePagination } from "../../../hooks/usePagination";
 import { usePermission } from "../../../hooks/usePermission";
-import { useNotification } from "../../../components/common/NotificationProvider";
 import { PageHeader } from "../../../components/common/PageHeader";
 import { ErrorAlert } from "../../../components/common/ErrorAlert";
 import { StatusChip } from "../../../components/common/StatusChip";
 import { ActionButtons } from "../../../components/common/ActionButtons";
-import { EmptyValue } from "../../../components/common/EmptyValue";
 import { SelectFilter } from "../../../components/common/SelectFilter";
 import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
 import { MouvementFormModal } from "../components/MouvementFormModal";
@@ -26,10 +24,17 @@ const TYPES = [
   { value: "RETOUR", label: "Retours" },
 ];
 
+/** "Magasin A → Magasin B" (ou l'origine pour une entrée sans source). */
+const getTrajet = (row) => {
+  const source =
+    row.magasin_source_nom || (row.type_mouvement === "ENTREE" ? row.origine : "") || "—";
+  const destination = row.magasin_destination_nom || "—";
+  return `${source} → ${destination}`;
+};
+
 export function MouvementsPage() {
-  const notify = useNotification();
   const queryClient = useQueryClient();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
+  const { paginationModel, setPaginationModel, resetPage } = usePagination(20);
   const { canManageCatalogue, canManageInventaire } = usePermission();
   const canEdit = canManageCatalogue || canManageInventaire;
 
@@ -39,11 +44,25 @@ export function MouvementsPage() {
   const [selectedMouvement, setSelectedMouvement] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["mouvements", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize, type: filterType }],
+  const { data, isLoading, isPlaceholderData, error } = useQuery({
+    queryKey: [
+      "mouvements",
+      {
+        page: paginationModel.page + 1,
+        pageSize: paginationModel.pageSize,
+        type: filterType,
+        dateDebut,
+        dateFin,
+      },
+    ],
     queryFn: async () => {
-      const params = { page: paginationModel.page + 1, page_size: paginationModel.pageSize };
+      const params = {
+        page: paginationModel.page + 1,
+        page_size: paginationModel.pageSize,
+      };
       if (filterType) params.type_mouvement = filterType;
+      if (dateDebut) params.date_debut = dateDebut;
+      if (dateFin) params.date_fin = dateFin;
 
       const { data } = await apiClient.get(API_ENDPOINTS.MOUVEMENTS, { params });
       return {
@@ -51,80 +70,50 @@ export function MouvementsPage() {
         totalCount: data.count ?? (data.results ?? data).length,
       };
     },
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
-
-  const mouvementsFiltres = useMemo(() => {
-    const allMouvements = data?.mouvements || [];
-    if (!dateDebut && !dateFin) return allMouvements;
-
-    return allMouvements.filter((mouvement) => {
-      const mouvementDate = new Date(mouvement.date);
-      mouvementDate.setHours(0, 0, 0, 0);
-      if (dateDebut) {
-        const debut = new Date(dateDebut);
-        debut.setHours(0, 0, 0, 0);
-        if (mouvementDate < debut) return false;
-      }
-      if (dateFin) {
-        const fin = new Date(dateFin);
-        fin.setHours(23, 59, 59, 999);
-        if (mouvementDate > fin) return false;
-      }
-      return true;
-    });
-  }, [data?.mouvements, dateDebut, dateFin]);
 
   const reinitialiserFiltres = () => {
     setFilterType("");
     setDateDebut("");
     setDateFin("");
+    resetPage();
   };
 
   const columns = [
     {
       field: "date",
       headerName: "Date",
-      width: 180,
-      // renderCell: (params) => formatDateTime(params.value),
-      valueFormatter: (value) => {
-        if (!value) return "";
-        return new Date(value).toLocaleDateString("fr-FR");
-      },
+      getText: (row) => formatDateTime(row.date),
+      renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: "type_mouvement",
       headerName: "Type",
-      width: 120,
+      autoExtraWidth: 40,
       renderCell: (params) => <StatusChip status={params.value} />,
     },
     {
-      field: "nb_articles",
-      headerName: "Nombre d'articles",
-      width: 150,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => params.row.details?.length ?? 0,
+      field: "trajet",
+      headerName: "Origine → Destination",
+      getText: getTrajet,
+      renderCell: (params) => getTrajet(params.row),
     },
     {
-      field: "article_designation",
+      field: "nb_articles",
       headerName: "Articles",
-      width: 700,
       headerAlign: "center",
       align: "center",
-      renderCell: (params) => {
-        const articles = params.row.details
-          ?.map(
-            (detail) =>
-              detail.article_designation ??
-              detail.article?.designation ??
-              detail.designation
-          )
-          .filter(Boolean)
-          .join(", ");
-
-        return articles || <EmptyValue />;
-      },
+      autoGrow: false,
+      renderCell: (params) => params.value ?? 0,
+    },
+    {
+      field: "quantite_totale",
+      headerName: "Qté totale",
+      headerAlign: "center",
+      align: "center",
+      autoGrow: false,
+      renderCell: (params) => params.value ?? 0,
     },
     {
       field: "actions",
@@ -152,7 +141,7 @@ export function MouvementsPage() {
         onAction={() => setIsCreateModalOpen(true)}
         canAction={canEdit}
         onReset={reinitialiserFiltres}
-        hasFilters={filterType || dateDebut || dateFin}
+        hasFilters={Boolean(filterType || dateDebut || dateFin)}
       >
         <SelectFilter
           label="Type"
@@ -168,29 +157,33 @@ export function MouvementsPage() {
           label="Du"
           type="date"
           size="small"
-          value={dateDebut || ""}
-          onChange={(e) => setDateDebut(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          value={dateDebut}
+          onChange={(e) => {
+            setDateDebut(e.target.value);
+            resetPage();
+          }}
           slotProps={{ inputLabel: { shrink: true } }}
-          sx={{ width: 150 }}
+          sx={{ width: { xs: "100%", sm: 160 } }}
         />
         <TextField
           label="Au"
           type="date"
           size="small"
-          value={dateFin || ""}
-          onChange={(e) => setDateFin(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          value={dateFin}
+          onChange={(e) => {
+            setDateFin(e.target.value);
+            resetPage();
+          }}
           slotProps={{ inputLabel: { shrink: true } }}
-          sx={{ width: 150 }}
+          sx={{ width: { xs: "100%", sm: 160 } }}
         />
       </PageHeader>
       <ErrorAlert error={error?.message} />
 
       <PaginatedDataGrid
-        rows={mouvementsFiltres}
+        rows={data?.mouvements || []}
         columns={columns}
-        loading={isLoading}
+        loading={isLoading || isPlaceholderData}
         rowCount={data?.totalCount || 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}

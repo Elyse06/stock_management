@@ -105,8 +105,8 @@ export function PropositionsSeriesEditor({
           <AddIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} />
           Ajouter {ecart} nouvelle(s) unité(s) trouvée(s)
         </Typography>
-        <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-          <TextField size="small" placeholder="N° de série" value={nouveauNs} onChange={(e) => setNouveauNs(e.target.value)} sx={{ flex: 1 }} />
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
+          <TextField size="small" placeholder="N° de série" value={nouveauNs} onChange={(e) => setNouveauNs(e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
           <FormControl size="small" sx={{ minWidth: 100 }}>
             <Select value={nouveauEtat} onChange={(e) => setNouveauEtat(e.target.value)}>
               {ETATS_AJOUT.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
@@ -140,8 +140,8 @@ export function PropositionsSeriesEditor({
           <Alert severity="warning">Aucune unité en stock à retirer.</Alert>
         ) : (
           <>
-            <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-              <FormControl size="small" sx={{ flex: 1 }}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
+              <FormControl size="small" sx={{ flex: 1, minWidth: 180 }}>
                 <InputLabel>Unité à retirer</InputLabel>
                 <Select value="" label="Unité à retirer" onChange={(e) => handleAddRetrait(e.target.value)}>
                   {unitesDisponibles.map((u) => (
@@ -175,7 +175,7 @@ export function PropositionsSeriesEditor({
         </Typography>
 
         {modeSuivi === "QUANTITE" ? (
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
             <TextField
               label="Nombre d'unités concernées"
               type="number"
@@ -194,8 +194,8 @@ export function PropositionsSeriesEditor({
           </Box>
         ) : (
           <>
-            <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-              <FormControl size="small" sx={{ flex: 1 }}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
+              <FormControl size="small" sx={{ flex: 1, minWidth: 180 }}>
                 <InputLabel>Unité concernée</InputLabel>
                 <Select
                   value=""

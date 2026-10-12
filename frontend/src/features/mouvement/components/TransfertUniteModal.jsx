@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box,
   Typography, FormControl, InputLabel, Select, MenuItem, Autocomplete,
-  CircularProgress, ToggleButtonGroup, ToggleButton,
+  CircularProgress, ToggleButtonGroup, ToggleButton, useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   Person as PersonIcon, Business as BusinessIcon, LocationCity as LocationCityIcon,
   MeetingRoom as MeetingRoomIcon,
@@ -14,9 +15,12 @@ import { useNotification } from "../../../components/common/NotificationProvider
 import { CodeChip } from "../../../components/common/CodeChip";
 import { EtatBadge } from "../../../components/common/EtatBadge";
 import { getEmployeLocation } from "../../../components/common/EmployeLocation";
+import { BeneficiaireTag } from "../../../components/common/BeneficiaireTag";
 
 export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
   const notify = useNotification();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [magasins, setMagasins] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [directions, setDirections] = useState([]);
@@ -137,8 +141,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
   const beneficiaireActuelType = unite.beneficiaire_type;
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ bgcolor: "#FFF8E1", borderBottom: "2px solid", borderColor: "primary.main" }}>
+    <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth fullScreen={fullScreen}>
+      <DialogTitle sx={{ bgcolor: "tint.main", borderBottom: "2px solid", borderColor: "secondary.main" }}>
         <Typography variant="h6">Transfert d'unité</Typography>
         <Typography variant="caption" color="text.secondary">
           Unité #{unite.unite_id}
@@ -179,17 +183,8 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Bénéficiaire actuel</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                    {beneficiaireActuelType === "EMPLOYE" ? (
-                      <PersonIcon fontSize="small" color="primary" />
-                    ) : beneficiaireActuelType === "SITE" ? (
-                      <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
-                    ) : beneficiaireActuelType === "SALLE" ? (
-                      <MeetingRoomIcon fontSize="small" color="info" />
-                    ) : (
-                      <BusinessIcon fontSize="small" color="secondary" />
-                    )}
-                    <Typography variant="body2">{beneficiaireActuelNom}</Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    <BeneficiaireTag type={beneficiaireActuelType} nom={beneficiaireActuelNom} />
                   </Box>
                 </Box>
               </Box>
@@ -225,12 +220,12 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
                 }}
                 size="small"
                 sx={{
+                  flexWrap: "wrap",
                   "& .MuiToggleButton-root": {
                     px: 2, py: 0.75, border: "1px solid #E0E0E0",
                     "&.Mui-selected": {
-                      bgcolor: "primary.light", borderColor: "primary.main",
-                      color: "text.primary",
-                      "&:hover": { bgcolor: "primary.main", color: "white" },
+                      bgcolor: "tint.main", borderColor: "primary.main",
+                      color: "primary.main", fontWeight: 600,
                     },
                   },
                 }}

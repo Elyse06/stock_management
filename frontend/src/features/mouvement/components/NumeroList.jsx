@@ -39,7 +39,7 @@ export function NumeroList({ numeros, numerosExistant, onDelete }) {
                 bgcolor: estDoublon
                   ? "#FFEBEE"
                   : estExistant
-                  ? "#FFF8E1"
+                  ? "tint.main"
                   : "#E8F5E9",
                 border: estDoublon
                   ? "1px solid #EF5350"

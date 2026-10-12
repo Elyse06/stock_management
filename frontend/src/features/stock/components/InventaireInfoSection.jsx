@@ -1,57 +1,53 @@
-import { Box, Typography, Grid } from "@mui/material";
-import { Store as StoreIcon, Business as BusinessIcon, CalendarToday as CalendarIcon, CheckCircle as CheckCircleIcon, Assignment as AssignmentIcon, MeetingRoom as MeetingRoomIcon, LocationCity as LocationCityIcon } from "@mui/icons-material";
+import { Box, Typography } from "@mui/material";
+import {
+  CalendarToday as CalendarIcon,
+  CheckCircle as CheckCircleIcon,
+  Assignment as AssignmentIcon,
+} from "@mui/icons-material";
 import { StatusChip } from "../../../components/common/StatusChip";
+import { InfoTile } from "../../../components/common/InfoTile";
 import { formatDateTime } from "../../../utils/formatters";
+import { getLieuMeta } from "./lieuMeta";
 
 export function InventaireInfoSection({ session }) {
-  const LieuIcon = session.magasin
-    ? StoreIcon
-    : session.salle
-      ? MeetingRoomIcon
-      : session.site
-        ? LocationCityIcon
-        : BusinessIcon;
-  const lieuType = session.magasin
-    ? "Magasin"
-    : session.salle
-      ? "Salle"
-      : session.site
-        ? "Site"
-        : "Direction";
+  const { Icon: LieuIcon, label: lieuType } = getLieuMeta(session);
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="h3" sx={{ mb: 1.5 }}>Informations générales</Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <LieuIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">{lieuType}</Typography>
+      <Typography variant="h3" sx={{ mb: 1.5 }}>
+        Informations générales
+      </Typography>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+          gap: 1.5,
+        }}
+      >
+        <InfoTile icon={<LieuIcon fontSize="small" />} label={lieuType}>
+          <Typography variant="body1" fontWeight={500}>
+            {session.lieu_nom || "—"}
+          </Typography>
+        </InfoTile>
+
+        <InfoTile icon={<AssignmentIcon fontSize="small" />} label="Statut">
+          <Box sx={{ mt: 0.25 }}>
+            <StatusChip status={session.statut} />
           </Box>
-          <Typography variant="body1" fontWeight={500}>{session.lieu_nom || "—"}</Typography>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <AssignmentIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">Statut</Typography>
-          </Box>
-          <StatusChip status={session.statut} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <CalendarIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">Date de création</Typography>
-          </Box>
-          <Typography variant="body1">{formatDateTime(session.date_creation)}</Typography>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            <CheckCircleIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">Date de validation</Typography>
-          </Box>
-          <Typography variant="body1">{session.date_validation ? formatDateTime(session.date_validation) : "—"}</Typography>
-        </Grid>
-      </Grid>
+        </InfoTile>
+
+        <InfoTile icon={<CalendarIcon fontSize="small" />} label="Date de création">
+          <Typography variant="body1" fontWeight={500}>
+            {formatDateTime(session.date_creation)}
+          </Typography>
+        </InfoTile>
+
+        <InfoTile icon={<CheckCircleIcon fontSize="small" />} label="Date de validation">
+          <Typography variant="body1" fontWeight={500}>
+            {session.date_validation ? formatDateTime(session.date_validation) : "—"}
+          </Typography>
+        </InfoTile>
+      </Box>
     </Box>
   );
 }

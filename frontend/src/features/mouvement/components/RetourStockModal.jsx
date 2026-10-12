@@ -13,20 +13,20 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { apiClient } from "../../../api/client";
 import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
 import { useNotification } from "../../../components/common/NotificationProvider";
 import { CodeChip } from "../../../components/common/CodeChip";
 import { EtatBadge } from "../../../components/common/EtatBadge";
-import {
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  LocationCity as LocationCityIcon,
-} from "@mui/icons-material";
+import { BeneficiaireTag } from "../../../components/common/BeneficiaireTag";
 
 export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
   const notify = useNotification();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [magasins, setMagasins] = useState([]);
   const [magasinDestination, setMagasinDestination] = useState("");
   const [motif, setMotif] = useState("");
@@ -80,12 +80,12 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
   const beneficiaireType = unite.beneficiaire_type;
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle
         sx={{
-          bgcolor: "#FFF8E1",
+          bgcolor: "tint.main",
           borderBottom: "2px solid",
-          borderColor: "primary.main",
+          borderColor: "secondary.main",
         }}
       >
         <Typography variant="h6">Retour au stock</Typography>
@@ -120,15 +120,8 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">Bénéficiaire</Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                {beneficiaireType === "EMPLOYE" ? (
-                  <PersonIcon fontSize="small" color="primary" />
-                ) : beneficiaireType === "SITE" ? (
-                  <LocationCityIcon fontSize="small" sx={{ color: "warning.main" }} />
-                ) : (
-                  <BusinessIcon fontSize="small" color="secondary" />
-                )}
-                <Typography variant="body2">{beneficiaireNom}</Typography>
+              <Box sx={{ mt: 0.5 }}>
+                <BeneficiaireTag type={beneficiaireType} nom={beneficiaireNom} />
               </Box>
             </Box>
           </Box>

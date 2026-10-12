@@ -1,14 +1,12 @@
-import { Box, TextField, Button, Typography } from "@mui/material";
+import { Box, TextField, Button, Alert } from "@mui/material";
 import { ContentPaste as PasteIcon } from "@mui/icons-material";
 
 export function PasteMode({ pasteValue, onPasteValueChange, onSubmit }) {
   return (
     <Box>
-      <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
-        <Typography variant="body2" fontWeight={600}>
-          Collez votre liste de numéros de série ici.
-        </Typography>
-      </Box>
+      <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+        Collez votre liste de numéros de série (un par ligne, ou séparés par une virgule).
+      </Alert>
       <TextField
         label="Collez votre liste ici"
         value={pasteValue}

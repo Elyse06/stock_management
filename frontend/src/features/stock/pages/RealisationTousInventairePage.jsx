@@ -17,6 +17,8 @@ import {
   Chip,
   Collapse,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Store as StoreIcon,
@@ -27,6 +29,7 @@ import {
   Save as SaveIcon,
   MeetingRoom as MeetingRoomIcon,
   LocationCity as LocationCityIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import { apiClient } from "../../../api/client";
 import { fetchAllPages } from "../../../api/fetchAllPages";
@@ -79,6 +82,8 @@ export function RealisationTousInventairePage({ onSuccess }) {
   const [ligneOuverte, setLigneOuverte] = useState(null);
 
   const [saving, setSaving] = useState(false);
+  const [recherche, setRecherche] = useState("");
+  const [affichage, setAffichage] = useState("tous");
 
   useEffect(() => {
     setLoadingArticles(true);
@@ -203,10 +208,20 @@ export function RealisationTousInventairePage({ onSuccess }) {
     if (article.is_immobilisation) chargerUnites(article);
   };
 
-  const articlesAffiches = useMemo(
-    () => articles.filter((article) => stocksTheoriques[article.code_article]),
-    [articles, stocksTheoriques]
-  );
+  const articlesAffiches = useMemo(() => {
+    const terme = recherche.trim().toLowerCase();
+    return articles.filter((article) => {
+      const code = article.code_article;
+      if (!stocksTheoriques[code]) return false;
+      if (terme && !`${article.designation} ${code}`.toLowerCase().includes(terme)) return false;
+      if (affichage === "tous") return true;
+
+      const saisie = saisies[code];
+      const saisi = Boolean(saisie) && saisie.quantite_physique !== "";
+      if (affichage === "saisis") return saisi;
+      return saisi && (Number(saisie.quantite_physique) || 0) !== (stocksTheoriques[code]?.stock_theorique ?? 0);
+    });
+  }, [articles, stocksTheoriques, recherche, affichage, saisies]);
 
   const getEcartColor = (ecart) => (ecart === 0 ? "success.main" : "error.main");
   const formatEcart = (ecart) => (ecart > 0 ? `+${ecart}` : String(ecart));
@@ -220,6 +235,16 @@ export function RealisationTousInventairePage({ onSuccess }) {
       return s.quantite_physique !== "" || nbProp > 0;
     }).length;
   }, [saisies]);
+
+  const nbEcarts = useMemo(
+    () =>
+      Object.entries(saisies).filter(
+        ([code, s]) =>
+          s.quantite_physique !== "" &&
+          (Number(s.quantite_physique) || 0) !== (stocksTheoriques[code]?.stock_theorique ?? 0)
+      ).length,
+    [saisies, stocksTheoriques]
+  );
 
   const handleSubmit = async () => {
     if (!lieuComplet) {
@@ -312,14 +337,14 @@ export function RealisationTousInventairePage({ onSuccess }) {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 0, md: 3 } }}>
       <Paper
         elevation={0}
         variant="outlined"
-        sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: "background.paper",}}
+        sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2, backgroundColor: "background.paper" }}
         >
         <Typography
-            variant="h6"
+            variant="h3"
             fontWeight="600"
             color="text.primary"
             sx={{ mb: 2.5 }}
@@ -481,6 +506,51 @@ export function RealisationTousInventairePage({ onSuccess }) {
 
       {lieuComplet && (
         <>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              alignItems: { xs: "stretch", sm: "center" },
+              gap: 1.5,
+              mb: 2,
+            }}
+          >
+            <TextField
+              size="small"
+              placeholder="Rechercher un article..."
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              sx={{ flex: { sm: 1 }, maxWidth: { sm: 360 } }}
+              slotProps={{
+                input: {
+                  startAdornment: <SearchIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />,
+                },
+              }}
+            />
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={affichage}
+              onChange={(_, value) => value && setAffichage(value)}
+              sx={{
+                "& .MuiToggleButton-root": {
+                  textTransform: "none",
+                  px: 1.5,
+                  "&.Mui-selected": {
+                    bgcolor: "tint.main",
+                    color: "primary.main",
+                    borderColor: "primary.main",
+                    fontWeight: 600,
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="tous">Tous ({Object.keys(stocksTheoriques).length})</ToggleButton>
+              <ToggleButton value="saisis">Saisis ({nbLignesSaisies})</ToggleButton>
+              <ToggleButton value="ecarts">Écarts ({nbEcarts})</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
           {loadingArticles ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
               <CircularProgress size={24} />
@@ -515,7 +585,8 @@ export function RealisationTousInventairePage({ onSuccess }) {
                   <Fragment key={code}>
                     <tr>
                       <td>
-                        <Typography variant="caption" color="text.secondary">{article.designation}</Typography>
+                        <Typography variant="body2" fontWeight={500}>{article.designation}</Typography>
+                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">{code}</Typography>
                       </td>
                       <td align="center">
                         <Typography variant="body2" fontFamily="monospace">{theo}</Typography>
@@ -592,7 +663,7 @@ export function RealisationTousInventairePage({ onSuccess }) {
                                     />
                                   )}
 
-                                  <Box sx={{ mt: besoinPropositions ? 2 : 0, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
+                                  <Box sx={{ mt: besoinPropositions ? 2 : 0, p: 1.5, bgcolor: "tint.main", borderRadius: 1, border: "1px solid", borderColor: "primary.light" }}>
                                     <FormControlLabel
                                       control={
                                         <Checkbox
@@ -650,10 +721,23 @@ export function RealisationTousInventairePage({ onSuccess }) {
           )}
 
           {/* --- Action d'enregistrement --- */}
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+          <Box
+            sx={{
+              position: "sticky",
+              bottom: 0,
+              zIndex: 2,
+              mt: 3,
+              py: 1.5,
+              display: "flex",
+              justifyContent: "flex-end",
+              bgcolor: "background.paper",
+              borderTop: "1px solid #E0E0E0",
+            }}
+          >
             <Button
               variant="contained"
               size="large"
+              sx={{ width: { xs: "100%", sm: "auto" } }}
               startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
               onClick={handleSubmit}
               disabled={saving || nbLignesSaisies === 0 || !lieuComplet}
