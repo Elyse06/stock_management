@@ -53,9 +53,9 @@ export function ImportReportTable({
     <Box>
       {editable && lignesATraiter.length > 0 && (
         <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
-          Cochez une suggestion pour l'appliquer à la confirmation. Les lignes non
-          cochées (ou sans correspondance trouvée) seront mises de côté, à saisir
-          manuellement après l'import.
+          Les lignes affectées au Siège entrent directement en stock. Pour les autres, cochez
+          le bénéficiaire proposé pour l'attribuer à la confirmation ; les lignes non cochées
+          (ou sans correspondance trouvée) seront mises de côté, à saisir manuellement après l'import.
         </Alert>
       )}
       {!editable && lignesATraiter.length > 0 && (
@@ -165,7 +165,8 @@ export function ImportReportTable({
                         }
                       />
                     ) : (
-                      ligne.attribue_a || "—"
+                      // « En stock : SIEGE » (affectation Siège ou vide) ou « Attribué — Agence : … »
+                      ligne.destination || ligne.attribue_a || "—"
                     )}
                   </DataCell>
                   <DataCell
@@ -187,7 +188,7 @@ export function ImportReportTable({
 }
 
 // Affiche, pour une ligne mise de côté ("A_TRAITER"), soit une case à cocher
-// permettant de confirmer la suggestion trouvée (Magasin/Direction/Agence/
+// permettant de confirmer la suggestion trouvée (Salle/Direction/Agence/
 // Employé), soit un simple texte indiquant qu'aucune correspondance n'a été
 // trouvée. Une fois l'étape d'aperçu passée (editable=false), affiche juste
 // l'état final en lecture seule.
@@ -203,7 +204,7 @@ function SuggestionAffectation({ ligne, editable, confirmee, onChange }) {
   }
 
   const libelleType = {
-    MAGASIN: "Magasin",
+    SALLE: "Salle",
     DIRECTION: "Direction",
     SITE: "Agence",
     EMPLOYE: "Employé",

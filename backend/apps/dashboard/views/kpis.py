@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalogue.models import Article
-from apps.common.dates import plage_mois
+from apps.common.dates import ajouter_mois, plage_mois
 from apps.common.pagination import paginer
 from apps.common.stock import annoter_stock
 from apps.stock.models import DetailMouvement, Mouvement
@@ -16,6 +16,9 @@ from apps.stock.models import DetailMouvement, Mouvement
 from .permissions import DashboardPermission
 
 JOURS_DORMANT = 90
+
+# « Entrées et retours du mois » : un transfert déplace du stock entre magasins
+# sans en ajouter au total ; il n'est donc pas compté (il l'était auparavant).
 FILTRE_ENTREES = Q(mouvement__type_mouvement__in=(Mouvement.Type.ENTREE, Mouvement.Type.RETOUR))
 
 
@@ -31,7 +34,9 @@ class DashboardKPIsView(APIView):
     permission_classes = [DashboardPermission]  # noqa: RUF012
 
     def get(self, request):
-        debut_mois, _, _ = plage_mois()
+        debut_mois, _, libelle = plage_mois()
+        annee, mois = (int(x) for x in libelle.split("-"))
+        debut_precedent, _, _ = plage_mois("{:04d}-{:02d}".format(*ajouter_mois(annee, mois, -1)))
         # Total, ruptures et sous-seuil en une seule requête sur les stocks annotés.
         indicateurs = annoter_stock(Article.objects.all()).aggregate(
             total_articles=Coalesce(Sum(Value(1)), 0),
@@ -44,6 +49,14 @@ class DashboardKPIsView(APIView):
             "entrees_du_mois": _total(DetailMouvement.objects.filter(FILTRE_ENTREES, mouvement__date__gte=debut_mois)),
             "sorties_du_mois": _total(DetailMouvement.objects.filter(
                 mouvement__type_mouvement=Mouvement.Type.SORTIE, mouvement__date__gte=debut_mois
+            )),
+            # Mois précédent complet : sert à afficher l'évolution (« +35 % ») sur les cartes.
+            "entrees_mois_precedent": _total(DetailMouvement.objects.filter(
+                FILTRE_ENTREES, mouvement__date__gte=debut_precedent, mouvement__date__lt=debut_mois
+            )),
+            "sorties_mois_precedent": _total(DetailMouvement.objects.filter(
+                mouvement__type_mouvement=Mouvement.Type.SORTIE,
+                mouvement__date__gte=debut_precedent, mouvement__date__lt=debut_mois,
             )),
         })
 

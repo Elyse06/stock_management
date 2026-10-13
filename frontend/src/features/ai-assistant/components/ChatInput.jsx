@@ -4,10 +4,8 @@ import { Send as SendIcon } from "@mui/icons-material";
 
 import { MAX_LONGUEUR_MESSAGE } from "../api/aiApi";
 
-const SUGGESTIONS = ["Articles avec stock < 5", "Ordinateurs portables", "Immobilisations en stock", "Top 5 catégories"];
-
-/** Suggestions (conversation vierge) et zone de saisie. Entrée envoie, Maj+Entrée va à la ligne. */
-export function ChatInput({ loading, onSend, afficherSuggestions }) {
+/** Suggestions (envoyées d'un clic) et zone de saisie. Entrée envoie, Maj+Entrée va à la ligne. */
+export function ChatInput({ loading, onSend, suggestions = [] }) {
   const [texte, setTexte] = useState("");
   const envoyer = () => {
     if (!texte.trim() || loading) return;
@@ -17,14 +15,14 @@ export function ChatInput({ loading, onSend, afficherSuggestions }) {
 
   return (
     <>
-      {afficherSuggestions && (
+      {suggestions.length > 0 && (
         <Box sx={{ px: 2, pb: 1 }}>
           <Typography variant="caption" color="text.secondary">
             Suggestions :
           </Typography>
           <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
-            {SUGGESTIONS.map((s) => (
-              <Chip key={s} label={s} size="small" clickable onClick={() => setTexte(s)} sx={{ bgcolor: "#FFFDE7", border: "1px solid #FFE082", fontSize: 11 }} />
+            {suggestions.map((s) => (
+              <Chip key={s} label={s} size="small" clickable onClick={() => onSend(s)} sx={{ bgcolor: "#FFFDE7", border: "1px solid #FFE082", fontSize: 11 }} />
             ))}
           </Box>
         </Box>

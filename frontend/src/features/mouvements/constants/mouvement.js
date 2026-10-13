@@ -13,14 +13,6 @@ export const getTrajet = (row) => {
   return `${source} → ${row.magasin_destination_nom || "—"}`;
 };
 
-export const ETATS_UNITE = [
-  { value: "BON", label: "Bon" },
-  { value: "MOYEN", label: "Moyen" },
-  { value: "MAUVAIS", label: "Mauvais" },
-  { value: "HORS_USAGE", label: "Hors usage" },
-  { value: "PERDU", label: "Perdu" },
-];
-
 export const FILTRES_BENEFICIAIRE = [
   { value: "", label: "Tous" },
   { value: "EMPLOYE", label: "Employés" },

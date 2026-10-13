@@ -3,9 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { CodeChip } from "@/components/data-display/CodeChip";
 import { API_ENDPOINTS } from "@/config/endpoints";
+import { ETATS_UNITE } from "@/constants/unites";
 import { apiClient } from "@/lib/api/client";
-
-import { ETATS_UNITE } from "../constants/mouvement";
 
 const ligneMessage = (texte) => (
   <TableRow>
@@ -15,7 +14,10 @@ const ligneMessage = (texte) => (
   </TableRow>
 );
 
-/** Répartition par état des unités en stock, par article. */
+/**
+ * Unités actuellement EN STOCK, par article et par état (situation du jour).
+ * Les unités ne sont pas suivies par magasin : le résumé porte sur l'ensemble du stock.
+ */
 export function ResumeStockUnites() {
   const { data: resume = [], isLoading, error } = useQuery({
     queryKey: ["unites", "resume"],
@@ -27,7 +29,7 @@ export function ResumeStockUnites() {
       <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
         <Typography variant="h3">Résumé des unités en stock</Typography>
         <Typography variant="body2" color="text.secondary">
-          Répartition par état et par article
+          Situation actuelle, tous magasins confondus : répartition par état et par article
         </Typography>
       </Box>
       {error ? (

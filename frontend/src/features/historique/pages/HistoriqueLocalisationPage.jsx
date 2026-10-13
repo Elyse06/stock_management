@@ -14,6 +14,7 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { aujourdhuiISO } from "@/utils/periodes";
 
 import { getStocksLocalisation } from "../api/historiqueApi";
+import { ResumeStockUnites } from "../components/ResumeStockUnites";
 import { TYPES_LOCALISATION, useLocalisations } from "../hooks/useLocalisations";
 
 const COLUMNS = [
@@ -94,6 +95,11 @@ export function HistoriqueLocalisationPage() {
         getRowId={(row) => row.article_code}
         noRowsLabel={lieuId ? "Aucun article trouvé pour cette date" : "Sélectionnez une localisation"}
       />
+
+      {/* Situation actuelle des unités en stock (déplacée depuis la page Unités attribuées). */}
+      <Box sx={{ mt: 4 }}>
+        <ResumeStockUnites />
+      </Box>
     </Box>
   );
 }

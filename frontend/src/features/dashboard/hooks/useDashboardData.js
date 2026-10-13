@@ -11,6 +11,7 @@ const BLOCS = {
   consommationMensuelle: "consommation-mensuelle/",
   repartitionCategorie: "repartition-categorie/",
   repartitionMagasin: "repartition-magasin/",
+  alertes: "kpis/sous-seuil/?page_size=6",
 };
 
 /**
@@ -23,7 +24,9 @@ export function useDashboardData(enabled = true) {
   const resultats = useQueries({
     queries: entrees.map(([cle, chemin]) => ({
       queryKey: ["dashboard", cle],
-      queryFn: ({ signal }) => apiClient.get(`${API_ENDPOINTS.DASHBOARD}${chemin}`, { signal }).then((r) => r.data),
+      // Les listes paginées (alertes) sont ramenées à leur tableau de résultats.
+      queryFn: ({ signal }) =>
+        apiClient.get(`${API_ENDPOINTS.DASHBOARD}${chemin}`, { signal }).then((r) => r.data?.results ?? r.data),
       staleTime: 60 * 1000,
       enabled,
     })),

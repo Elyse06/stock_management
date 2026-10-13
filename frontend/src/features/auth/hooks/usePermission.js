@@ -26,7 +26,6 @@ export function usePermission() {
       canManageMouvements: hasAction(A.INV_GERE),
       canReadHistorique: hasAction(A.MOV_LIRE),
       canSeeDashboard: hasAnyAction(A.CAT_LIRE, A.MOV_LIRE),
-      canUseAssistant: hasAction(A.CAT_LIRE),
       canImport: hasAction(A.CAT_GERE),
       canManageUsers: hasAction(A.USR_GERE),
       canManageEmployee: hasAction(A.USR_GERE),

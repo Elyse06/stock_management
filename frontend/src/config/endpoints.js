@@ -19,6 +19,7 @@ export const API_ENDPOINTS = Object.freeze({
   LIGNES_INVENTAIRE: "/api/stock/lignes-inventaire/",
   UNITES_ARTICLE: "/api/stock/unites-article/",
   RESUME_STOCK_UNITES: "/api/stock/unites-article/resume-stock/",
+  UNITES_PAR_BENEFICIAIRE: "/api/stock/unites-article/par-beneficiaire/",
   IMPORT_IMMOBILISATIONS: "/api/stock/import-immobilisations/",
   IMPORT_FOURNITURES: "/api/stock/import-fournitures/",
 

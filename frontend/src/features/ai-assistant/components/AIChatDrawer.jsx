@@ -1,33 +1,41 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, CircularProgress, Drawer, IconButton, Paper, Typography } from "@mui/material";
 import { AutoAwesome as MagicIcon, Close as CloseIcon, DeleteSweep as ClearIcon } from "@mui/icons-material";
 
-import { useNotification } from "@/hooks/useNotification";
+import { usePermission } from "@/features/auth/hooks/usePermission";
 
 import { useAIChat } from "../hooks/useAIChat";
-import { versParametresArticles } from "../utils/filtres";
+import { suggestionsPour } from "../utils/suggestions";
 
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 
-const LARGEUR = 420;
+const LARGEUR = 460;
 
-/** Panneau latéral de l'assistant IA. */
-export function AIChatDrawer({ open, onClose }) {
+/** Panneau latéral de l'assistant. ``question`` (``{texte, id}``) est posée automatiquement à l'ouverture. */
+export function AIChatDrawer({ open, onClose, question }) {
   const navigate = useNavigate();
-  const notify = useNotification();
+  const droits = usePermission();
   const chat = useAIChat();
   const finRef = useRef(null);
+  const derniereQuestion = useRef(null);
+  const suggestions = useMemo(() => suggestionsPour(droits), [droits]);
+  const { envoyer } = chat;
+
+  useEffect(() => {
+    if (open && question && question.id !== derniereQuestion.current) {
+      derniereQuestion.current = question.id;
+      envoyer(question.texte);
+    }
+  }, [open, question, envoyer]);
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.messages, chat.loading]);
 
-  const voirTout = (resultats) => {
-    const { params, ignores } = versParametresArticles(resultats.filters_applied);
-    if (ignores.length) notify.info(`Filtres non disponibles dans la liste : ${ignores.join(", ")}`);
-    navigate(`/catalogue/articles${params.size ? `?${params}` : ""}`);
+  const naviguer = (chemin) => {
+    navigate(chemin);
     onClose();
   };
 
@@ -43,7 +51,7 @@ export function AIChatDrawer({ open, onClose }) {
               Assistant IA
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Recherche intelligente
+              Données et aide à la navigation
             </Typography>
           </Box>
         </Box>
@@ -59,7 +67,7 @@ export function AIChatDrawer({ open, onClose }) {
 
       <Box role="log" aria-live="polite" sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", gap: 1.5, bgcolor: "#FAFAFA" }}>
         {chat.messages.map((message) => (
-          <ChatMessage key={message.id} message={message} onVoirTout={voirTout} />
+          <ChatMessage key={message.id} message={message} onNaviguer={naviguer} />
         ))}
         {chat.loading && (
           <Paper elevation={0} sx={{ alignSelf: "flex-start", px: 1.5, py: 1, border: "1px solid #E0E0E0", borderRadius: 2, display: "flex", alignItems: "center", gap: 1 }}>
@@ -72,7 +80,7 @@ export function AIChatDrawer({ open, onClose }) {
         <div ref={finRef} />
       </Box>
 
-      <ChatInput loading={chat.loading} onSend={chat.envoyer} afficherSuggestions={chat.estNouvelle} />
+      <ChatInput loading={chat.loading} onSend={chat.envoyer} suggestions={chat.estNouvelle ? suggestions : []} />
     </Drawer>
   );
 }

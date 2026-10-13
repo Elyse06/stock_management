@@ -7,13 +7,13 @@ import { aiChat, MAX_LONGUEUR_MESSAGE } from "../api/aiApi";
 const ACCUEIL = {
   role: "assistant",
   content:
-    "Bonjour ! 👋 Je suis votre assistant IA. Je peux vous aider à rechercher des articles, analyser le stock, et répondre à vos questions. Essayez par exemple : « Articles avec stock < 5 » ou « Ordinateurs Dell ».",
+    "Bonjour ! Je suis l'assistant de Tahiry. Posez-moi une question sur vos données (stock, commandes, mouvements…) ou demandez-moi où trouver une page et comment faire une opération.",
 };
 
 let compteur = 0;
 const avecId = (message) => ({ ...message, id: ++compteur });
 
-/** Conversation avec l'assistant (historique local, requête annulable). */
+/** Conversation avec l'assistant (historique local, requête annulable). Seul le texte est renvoyé en historique. */
 export function useAIChat() {
   const [messages, setMessages] = useState(() => [avecId(ACCUEIL)]);
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,10 @@ export function useAIChat() {
       abortRef.current = new AbortController();
       try {
         const data = await aiChat(contenu, historique, { signal: abortRef.current.signal });
-        setMessages((prev) => [...prev, avecId({ role: "assistant", content: data.reply, searchResults: data.search_results || null })]);
+        setMessages((prev) => [
+          ...prev,
+          avecId({ role: "assistant", content: data.reply, tableaux: data.tableaux || [], liens: data.liens || [] }),
+        ]);
       } catch (error) {
         if (error?.code === "ERR_CANCELED") return;
         const message = getErrorMessage(error, "Désolé, une erreur est survenue.");
