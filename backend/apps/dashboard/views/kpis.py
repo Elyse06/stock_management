@@ -1,3 +1,4 @@
+"""Indicateurs clés et listes détaillées associées."""
 from datetime import timedelta
 
 from django.db.models import Case, F, IntegerField, Max, Q, Sum, Value, When
@@ -9,12 +10,13 @@ from rest_framework.views import APIView
 from apps.catalogue.models import Article
 from apps.common.dates import plage_mois
 from apps.common.pagination import paginer
-from apps.common.stock import annoter_stock, filtres_stock
+from apps.common.stock import annoter_stock
 from apps.stock.models import DetailMouvement, Mouvement
 
 from .permissions import DashboardPermission
 
 JOURS_DORMANT = 90
+FILTRE_ENTREES = Q(mouvement__type_mouvement__in=(Mouvement.Type.ENTREE, Mouvement.Type.RETOUR))
 
 
 def _total(queryset):
@@ -30,6 +32,7 @@ class DashboardKPIsView(APIView):
 
     def get(self, request):
         debut_mois, _, _ = plage_mois()
+        # Total, ruptures et sous-seuil en une seule requête sur les stocks annotés.
         indicateurs = annoter_stock(Article.objects.all()).aggregate(
             total_articles=Coalesce(Sum(Value(1)), 0),
             total_stock=Coalesce(Sum("stock_calcule"), 0),
@@ -38,9 +41,7 @@ class DashboardKPIsView(APIView):
         )
         return Response({
             **indicateurs,
-            "entrees_du_mois": _total(DetailMouvement.objects.filter(
-                filtres_stock()["entree"], mouvement__date__gte=debut_mois
-            )),
+            "entrees_du_mois": _total(DetailMouvement.objects.filter(FILTRE_ENTREES, mouvement__date__gte=debut_mois)),
             "sorties_du_mois": _total(DetailMouvement.objects.filter(
                 mouvement__type_mouvement=Mouvement.Type.SORTIE, mouvement__date__gte=debut_mois
             )),
@@ -178,7 +179,7 @@ class _MouvementsDuMoisView(APIView):
 
 class DashboardEntreesMoisView(_MouvementsDuMoisView):
     def filtre(self):
-        return filtres_stock()["entree"]
+        return FILTRE_ENTREES
 
     def ligne(self, detail):
         destination = detail.mouvement.magasin_destination

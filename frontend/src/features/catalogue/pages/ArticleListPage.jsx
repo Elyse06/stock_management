@@ -1,254 +1,112 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Box, TextField } from "@mui/material";
-import { Search as SearchIcon } from "@mui/icons-material";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS } from "../../../constants/api";
-import { usePermission } from "../../../hooks/usePermission";
-import { usePagination } from "../../../hooks/usePagination";
-import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { useNotification } from "../../../components/common/NotificationProvider";
-import { useCategoryOptions } from "../../../hooks/useCategoryOptions";
-import { PageHeader } from "../../../components/common/PageHeader";
-import { ErrorAlert } from "../../../components/common/ErrorAlert";
-import { ActionButtons } from "../../../components/common/ActionButtons";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { SelectFilter } from "../../../components/common/SelectFilter";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Box } from "@mui/material";
+
+import { EmptyValue } from "@/components/data-display/EmptyValue";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { ErrorAlert } from "@/components/feedback/ErrorAlert";
+import { SearchField } from "@/components/forms/SearchField";
+import { SelectFilter } from "@/components/forms/SelectFilter";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ActionButtons } from "@/components/table/ActionButtons";
+import { actionsColumn } from "@/components/table/columns";
+import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
+import { API_ENDPOINTS } from "@/config/endpoints";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useCrudMutations } from "@/hooks/useCrudMutations";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { getErrorMessage } from "@/lib/api/errors";
+
+import { articlesApi } from "../api/catalogueApi";
 import { ArticleFormModal } from "../components/ArticleFormModal";
+import { TYPE_ARTICLE_OPTIONS } from "../constants/article";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
+
+const optional = ({ value }) => <EmptyValue value={value} />;
 
 export function ArticleListPage() {
   const navigate = useNavigate();
-  const notify = useNotification();
-  const queryClient = useQueryClient();
-  const { confirmState, confirm, handleConfirm, handleCancel } =
-    useConfirmDialog();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(20);
-  const { canManageCatalogue, canReadCatalogue } = usePermission();
-
-  const [search, setSearch] = useState("");
-  const [categorieFiltre, setCategorieFiltre] = useState("");
-  const [typeFiltre, setTypeFiltre] = useState("");
-  const [articleToEdit, setArticleToEdit] = useState(null);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-
-  const { data, isLoading, isPlaceholderData, error } = useQuery({
-    queryKey: [
-      "articles",
-      {
-        page: paginationModel.page + 1,
-        pageSize: paginationModel.pageSize,
-        search,
-        categorie: categorieFiltre,
-        is_immobilisation: typeFiltre ? typeFiltre === "true" : undefined,
-      },
-    ],
-    queryFn: async () => {
-      const params = {
-        page: paginationModel.page + 1,
-        page_size: paginationModel.pageSize,
-      };
-      if (search) params.search = search;
-      if (categorieFiltre) params.categorie = categorieFiltre;
-      if (typeFiltre) params.is_immobilisation = typeFiltre === "true";
-
-      const { data } = await apiClient.get(API_ENDPOINTS.ARTICLES, { params });
-      return {
-        articles: data.results ?? data,
-        totalCount: data.count ?? (data.results ?? data).length,
-      };
-    },
-    placeholderData: keepPreviousData,
-  });
-
+  const { canManageCatalogue } = usePermission();
+  const { confirm, dialogProps } = useConfirmDialog();
+  const { remove } = useCrudMutations(articlesApi, [["articles"]], { deleted: "Article supprimé avec succès" });
   const { data: categories = [] } = useCategoryOptions();
 
-  const deleteMutation = useMutation({
-    mutationFn: async (code) => {
-      await apiClient.delete(`${API_ENDPOINTS.ARTICLES}${code}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["articles"] });
-    },
+  // Filtres initiaux lus dans l'URL (ex. lien « Voir les articles » de l'assistant IA).
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [categorie, setCategorie] = useState(() => searchParams.get("categorie") ?? "");
+  const [type, setType] = useState(() => searchParams.get("type") ?? "");
+  const [form, setForm] = useState({ open: false, article: null });
+  const debouncedSearch = useDebouncedValue(search);
+
+  const list = usePaginatedList(["articles"], API_ENDPOINTS.ARTICLES, {
+    search: debouncedSearch,
+    categorie,
+    is_immobilisation: type,
   });
 
-  const handleSearchChange = (value) => {
-    setSearch(value);
-    resetPage();
-  };
+  const categoryOptions = useMemo(
+    () => [{ value: "", label: "Toutes catégories" }, ...categories.map((c) => ({ value: c.categorie_id, label: c.cat_libelle }))],
+    [categories],
+  );
 
-  const handleCategorieChange = (value) => {
-    setCategorieFiltre(value);
-    resetPage();
-  };
-
-  const handleTypeChange = (value) => {
-    setTypeFiltre(value);
-    resetPage();
-  };
-
-  const openDetailModal = (article) => {
-    navigate(`/catalogue/articles/${article.code_article}`);
-  };
-
-  const openFormModalForCreate = () => {
-    setArticleToEdit(null);
-    setIsFormModalOpen(true);
-  };
-
-  const openFormModalForEdit = async (article) => {
-    try {
-      const { data } = await apiClient.get(
-        `${API_ENDPOINTS.ARTICLES}${article.code_article}/`,
-      );
-      setArticleToEdit(data);
-      setIsFormModalOpen(true);
-    } catch {
-      notify.error(
-        "Impossible de charger les détails de l'article à modifier.",
-      );
-    }
-  };
-
-  const closeFormModal = () => {
-    setIsFormModalOpen(false);
-    setArticleToEdit(null);
-  };
-
-  const handleDelete = (article) => {
-    confirm(
-      "Supprimer l'article",
-      `Êtes-vous sûr de vouloir supprimer l'article "${article.designation}" ?`,
-      async () => {
-        try {
-          await deleteMutation.mutateAsync(article.code_article);
-          notify.success("Article supprimé avec succès");
-        } catch {
-          notify.error(
-            "Suppression impossible (article probablement référencé ailleurs).",
-          );
-        }
-      },
+  const askDelete = (article) =>
+    confirm("Supprimer l'article", `Êtes-vous sûr de vouloir supprimer l'article « ${article.designation} » ?`, () =>
+      remove.mutate(article.code_article),
     );
+
+  const resetFilters = () => {
+    setSearch("");
+    setCategorie("");
+    setType("");
   };
 
   const columns = [
     { field: "designation", headerName: "Désignation" },
-    {
-      field: "categorie_nom",
-      headerName: "Catégorie",
-      renderCell: (params) => <EmptyValue value={params.value} />,
-    },
-    {
-      field: "description",
-      headerName: "Description",
-      renderCell: (params) => <EmptyValue value={params.value} />,
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 160,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => (
+    { field: "categorie_nom", headerName: "Catégorie", renderCell: optional },
+    { field: "description", headerName: "Description", renderCell: optional },
+    actionsColumn(
+      ({ row }) => (
         <ActionButtons
-          onView={() => openDetailModal(params.row)}
-          onEdit={
-            canManageCatalogue ? () => openFormModalForEdit(params.row) : null
-          }
-          onDelete={canManageCatalogue ? () => handleDelete(params.row) : null}
+          onView={() => navigate(`/catalogue/articles/${encodeURIComponent(row.code_article)}`)}
+          onEdit={canManageCatalogue ? () => setForm({ open: true, article: row }) : null}
+          onDelete={canManageCatalogue ? () => askDelete(row) : null}
         />
       ),
-    },
-  ];
-
-  const categoryOptions = [
-    { value: "", label: "Toutes catégories" },
-    ...categories.map((c) => ({ value: c.categorie_id, label: c.cat_libelle })),
+      160,
+    ),
   ];
 
   return (
     <Box>
       <PageHeader
         actionLabel="Nouvel article"
-        onAction={openFormModalForCreate}
+        onAction={() => setForm({ open: true, article: null })}
         canAction={canManageCatalogue}
-        onReset={() => {
-          setSearch("");
-          setCategorieFiltre("");
-          setTypeFiltre("");
-        }}
-        hasFilters={Boolean(search || categorieFiltre || typeFiltre)}
+        onReset={resetFilters}
+        hasFilters={Boolean(search || categorie || type)}
       >
-        <TextField
-          placeholder="Rechercher"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          size="small"
-          sx={{ flex: { sm: 1 }, minWidth: { sm: 200 } }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <SearchIcon
-                  fontSize="small"
-                  sx={{ color: "text.secondary", mr: 1 }}
-                />
-              ),
-            },
-          }}
-        />
-        <SelectFilter
-          label="Catégorie"
-          value={categorieFiltre}
-          onChange={handleCategorieChange}
-          options={categoryOptions}
-          minWidth={200}
-        />
-        <SelectFilter
-          label="Type"
-          value={typeFiltre}
-          onChange={handleTypeChange}
-          options={[
-            { value: "", label: "Tous les types" },
-            { value: "true", label: "Immobilisations" },
-            { value: "false", label: "Fournitures" },
-          ]}
-          minWidth={150}
-        />
+        <SearchField value={search} onChange={setSearch} />
+        <SelectFilter label="Catégorie" value={categorie} onChange={setCategorie} options={categoryOptions} minWidth={200} />
+        <SelectFilter label="Type" value={type} onChange={setType} options={TYPE_ARTICLE_OPTIONS} />
       </PageHeader>
-      <ErrorAlert error={error?.message} />
+      <ErrorAlert error={list.error && getErrorMessage(list.error)} />
 
       <PaginatedDataGrid
-        rows={data?.articles || []}
+        {...list.gridProps}
         columns={columns}
-        loading={isLoading || isPlaceholderData}
-        rowCount={data?.totalCount || 0}
-        paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
         getRowId={(row) => row.code_article}
         noRowsLabel="Aucun article trouvé"
       />
 
       <ArticleFormModal
-        isOpen={isFormModalOpen}
-        onClose={closeFormModal}
-        onSuccess={() =>
-          queryClient.invalidateQueries({ queryKey: ["articles"] })
-        }
-        articleToEdit={articleToEdit}
+        isOpen={form.open}
+        articleCode={form.article?.code_article}
+        onClose={() => setForm({ open: false, article: null })}
       />
-      <ConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        message={confirmState.message}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
 }

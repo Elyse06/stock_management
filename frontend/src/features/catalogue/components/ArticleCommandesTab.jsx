@@ -1,9 +1,9 @@
 import { Box, Typography, Alert, TableRow, TableCell } from "@mui/material";
 import { ShoppingCart as ShoppingCartIcon } from "@mui/icons-material";
-import { StatusChip } from "../../../components/common/StatusChip";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-import { StyledTable } from "../../../components/common/StyledTable";
-import { formatDate } from "../../../utils/formatters";
+import { StatusChip } from "@/components/data-display/StatusChip";
+import { EmptyValue } from "@/components/data-display/EmptyValue";
+import { StyledTable } from "@/components/table/StyledTable";
+import { formatDate } from "@/utils/formatters";
 
 const COLUMNS = [
   { label: "N°" },

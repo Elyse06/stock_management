@@ -15,9 +15,9 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
 } from "@mui/icons-material";
-import { SelectFilter } from "../../../components/common/SelectFilter";
+import { SelectFilter } from "@/components/forms/SelectFilter";
 import { ArticleUniteSelector } from "./ArticleUniteSelector";
-import { getBeneficiaireMeta } from "./beneficiaireMeta";
+import { getBeneficiaireMeta } from "@/utils/beneficiaireMeta";
 
 const DECIDED = ["VALIDEE", "REFUSEE"];
 

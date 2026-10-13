@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { Close as CloseIcon } from "@mui/icons-material";
-import { WizardStepper } from "./WizardStepper";
+import { WizardStepper } from "@/components/wizard/WizardStepper";
 
 /**
  * Composant wizard réutilisable qui encapsule toute la structure d'un wizard multi-étapes.

@@ -140,18 +140,22 @@ export function EmployeeDetailModal({ employee, isOpen, onClose, onEdit }) {
       <Divider />
 
       <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
-        <Button
-          startIcon={<EditIcon />}
-          onClick={() => {
-            onClose();
-            if (onEdit) onEdit(employee);
-          }}
-          color="primary"
-          variant="outlined"
-          sx={{ fontWeight: 600 }}
-        >
-          Modifier
-        </Button>
+        {onEdit ? (
+          <Button
+            startIcon={<EditIcon />}
+            onClick={() => {
+              onClose();
+              onEdit(employee);
+            }}
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 600 }}
+          >
+            Modifier
+          </Button>
+        ) : (
+          <span />
+        )}
         <Button onClick={onClose} variant="contained" color="inherit">
           Fermer
         </Button>

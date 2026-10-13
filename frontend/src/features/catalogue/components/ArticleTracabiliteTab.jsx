@@ -1,6 +1,6 @@
 import { Box, Typography, Alert, TableRow, TableCell, Chip } from "@mui/material";
 import { QrCode as QrCodeIcon } from "@mui/icons-material";
-import { StyledTable } from "../../../components/common/StyledTable";
+import { StyledTable } from "@/components/table/StyledTable";
 
 const COLUMNS = [
   { label: "Bénéficiaire" },

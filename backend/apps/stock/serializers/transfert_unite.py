@@ -61,11 +61,6 @@ class TransfertUniteSerializer(serializers.Serializer):
                 "Le nouveau bénéficiaire doit être différent de l'actuel."
             )
 
-        if not unite.article.is_immobilisation and emp:
-            raise serializers.ValidationError(
-                "Une fourniture ne peut pas être transférée à un employé."
-            )
-
         return attrs
 
     def save(self, **kwargs):

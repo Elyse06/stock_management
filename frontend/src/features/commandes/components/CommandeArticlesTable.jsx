@@ -1,7 +1,7 @@
 import { Box, Typography, Chip, Paper, Divider, Alert } from "@mui/material";
-import { CodeChip } from "../../../components/common/CodeChip";
-import { StatutAttributionBadge } from "../../../components/common/StatutAttributionBadge";
-import { getBeneficiaireMeta } from "./beneficiaireMeta";
+import { CodeChip } from "@/components/data-display/CodeChip";
+import { StatutAttributionBadge } from "@/components/data-display/StatutAttributionBadge";
+import { getBeneficiaireMeta } from "@/utils/beneficiaireMeta";
 
 /** Quantité affichée pour une attribution : "demandé → accordé" si elle a été ajustée. */
 function quantiteLabel(attr) {

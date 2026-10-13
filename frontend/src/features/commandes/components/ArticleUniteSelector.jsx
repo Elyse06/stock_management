@@ -1,6 +1,6 @@
 import { Box, Typography, Chip, Checkbox, FormControlLabel } from "@mui/material";
 import { QrCode as QrCodeIcon } from "@mui/icons-material";
-import { EtatBadge } from "../../../components/common/EtatBadge"; // 🆕 Import
+import { EtatBadge } from "@/components/data-display/EtatBadge"; // 🆕 Import
 
 export function ArticleUniteSelector({
   article,

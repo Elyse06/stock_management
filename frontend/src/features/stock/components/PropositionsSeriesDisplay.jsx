@@ -1,10 +1,9 @@
-import { Box, Typography, Chip, Divider } from "@mui/material";
+import { Box, Chip, Typography } from "@mui/material";
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
   SwapHoriz as SwapHorizIcon,
 } from "@mui/icons-material";
-import { EtatBadge } from "../../../components/common/EtatBadge";
 
 export function PropositionsSeriesDisplay({ propositions }) {
   if (!propositions || Object.keys(propositions).length === 0) {

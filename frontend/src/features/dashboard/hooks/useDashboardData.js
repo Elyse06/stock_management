@@ -1,66 +1,38 @@
-import { useEffect, useState } from "react";
-import { apiClient } from "../../../api/client";
+import { useQueries } from "@tanstack/react-query";
 
-export function useDashboardData() {
-  const [kpis, setKpis] = useState(null);
-  const [topConsommes, setTopConsommes] = useState([]);
-  const [produitsDormants, setProduitsDormants] = useState([]);
-  const [evolutionStock, setEvolutionStock] = useState([]);
-  const [consommationMensuelle, setConsommationMensuelle] = useState([]);
-  const [repartitionCategorie, setRepartitionCategorie] = useState([]);
-  const [repartitionMagasin, setRepartitionMagasin] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+import { API_ENDPOINTS } from "@/config/endpoints";
+import { apiClient } from "@/lib/api/client";
 
-  useEffect(() => {
-    const chargerDonnees = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const [
-          kpisRes,
-          topConsommesRes,
-          produitsDormantsRes,
-          evolutionStockRes,
-          consommationMensuelleRes,
-          repartitionCategorieRes,
-          repartitionMagasinRes,
-        ] = await Promise.all([
-          apiClient.get("/api/dashboard/kpis/"),
-          apiClient.get("/api/dashboard/top-consommes/"),
-          apiClient.get("/api/dashboard/produits-dormants/"),
-          apiClient.get("/api/dashboard/evolution-stock/"),
-          apiClient.get("/api/dashboard/consommation-mensuelle/"),
-          apiClient.get("/api/dashboard/repartition-categorie/"),
-          apiClient.get("/api/dashboard/repartition-magasin/"),
-        ]);
+const BLOCS = {
+  kpis: "kpis/",
+  topConsommes: "top-consommes/",
+  produitsDormants: "produits-dormants/",
+  evolutionStock: "evolution-stock/",
+  consommationMensuelle: "consommation-mensuelle/",
+  repartitionCategorie: "repartition-categorie/",
+  repartitionMagasin: "repartition-magasin/",
+};
 
-        setKpis(kpisRes.data);
-        setTopConsommes(topConsommesRes.data);
-        setProduitsDormants(produitsDormantsRes.data);
-        setEvolutionStock(evolutionStockRes.data);
-        setConsommationMensuelle(consommationMensuelleRes.data);
-        setRepartitionCategorie(repartitionCategorieRes.data);
-        setRepartitionMagasin(repartitionMagasinRes.data);
-      } catch {
-        setError("Impossible de charger les données du tableau de bord.");
-      } finally {
-        setLoading(false);
-      }
-    };
+/**
+ * Données du tableau de bord : une requête par bloc, chargées en parallèle et
+ * mises en cache. Un bloc en erreur n'empêche plus l'affichage des autres
+ * (auparavant un seul Promise.all faisait tout échouer).
+ */
+export function useDashboardData(enabled = true) {
+  const entrees = Object.entries(BLOCS);
+  const resultats = useQueries({
+    queries: entrees.map(([cle, chemin]) => ({
+      queryKey: ["dashboard", cle],
+      queryFn: ({ signal }) => apiClient.get(`${API_ENDPOINTS.DASHBOARD}${chemin}`, { signal }).then((r) => r.data),
+      staleTime: 60 * 1000,
+      enabled,
+    })),
+  });
 
-    chargerDonnees();
-  }, []);
-
+  const donnees = Object.fromEntries(entrees.map(([cle], i) => [cle, resultats[i].data ?? (cle === "kpis" ? null : [])]));
   return {
-    kpis,
-    topConsommes,
-    produitsDormants,
-    evolutionStock,
-    consommationMensuelle,
-    repartitionCategorie,
-    repartitionMagasin,
-    loading,
-    error,
+    ...donnees,
+    loading: resultats.some((r) => r.isLoading),
+    enErreur: resultats.some((r) => r.isError),
   };
 }

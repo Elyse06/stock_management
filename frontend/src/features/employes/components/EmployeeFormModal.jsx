@@ -1,266 +1,132 @@
-import { useEffect, useState } from "react";
-import {
-  TextField,
-  Autocomplete,
-  Box,
-  Typography,
-} from "@mui/material";
-import { Person as PersonIcon } from "@mui/icons-material";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
-import { useNotification } from "../../../components/common/NotificationProvider";
-import { FormDialog } from "../../../components/common/FormDialog";
+import { useEffect, useMemo, useState } from "react";
+import { Autocomplete, Box, TextField, Typography } from "@mui/material";
 
-const getRelationId = (value, key) =>
-  value && typeof value === "object" ? value[key] ?? value.pk ?? "" : value ?? "";
+import { FormDialog } from "@/components/forms/FormDialog";
+import { useCrudMutations } from "@/hooks/useCrudMutations";
+import { useDirections, useServices, useSites } from "@/hooks/useReferenceData";
 
-export function EmployeeFormModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  employeeToEdit = null,
-  sites = [],
-  directions = [],
-  services = [],
-}) {
-  const notify = useNotification();
-  const isEditMode = Boolean(employeeToEdit);
+import { employeesApi, ORGANISATION_KEYS } from "../api/organisationApi";
 
-  const [form, setForm] = useState({
-    emp_nom: "",
-    emp_matricule: "",
-    emp_fonction: "",
-    emp_contact: "",
-    site_id: "",
-    direction_id: "",
-    emp_serv_id: "",
+const EMPTY_FORM = { emp_nom: "", emp_matricule: "", emp_fonction: "", emp_contact: "", site_id: "", direction_id: "", emp_serv_id: "" };
+const idDe = (value, key) => (value && typeof value === "object" ? value[key] ?? "" : value ?? "");
+const memeId = (a, b) => String(a) === String(b);
+
+function versFormulaire(employe, services) {
+  const serviceId = idDe(employe.emp_serv_id, "serv_id");
+  const service = services.find((s) => memeId(s.serv_id, serviceId));
+  return {
+    emp_nom: employe.emp_nom || "",
+    emp_matricule: employe.emp_matricule || "",
+    emp_fonction: employe.emp_fonction || "",
+    emp_contact: employe.emp_contact || "",
+    site_id: idDe(employe.emp_site_id, "site_id"),
+    direction_id: idDe(employe.emp_dir_id, "dir_id") || idDe(service?.serv_dir_id, "dir_id"),
+    emp_serv_id: serviceId,
+  };
+}
+
+/**
+ * Création / modification d'un employé.
+ *
+ * Le site est indépendant de la direction (le backend ne relie plus les
+ * directions à un site) ; le service est filtré par la direction choisie.
+ */
+export function EmployeeFormModal({ isOpen, onClose, employeeToEdit = null }) {
+  const isEdit = Boolean(employeeToEdit);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const { data: sites = [] } = useSites({ enabled: isOpen });
+  const { data: directions = [] } = useDirections({ enabled: isOpen });
+  const { data: services = [] } = useServices({ enabled: isOpen });
+  const { save, saving } = useCrudMutations(employeesApi, ORGANISATION_KEYS, {
+    created: "Employé créé avec succès",
+    updated: "Employé modifié avec succès",
   });
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    if (employeeToEdit) {
-      const serviceId = getRelationId(employeeToEdit.emp_serv_id, "serv_id");
-      const selectedService = services.find(
-        (service) => String(service.serv_id) === String(serviceId)
-      );
-      const directionId =
-        getRelationId(employeeToEdit.emp_dir_id, "dir_id") ||
-        getRelationId(selectedService?.serv_dir_id, "dir_id");
-      const selectedDirection = directions.find(
-        (direction) => String(direction.dir_id) === String(directionId)
-      );
+    setForm(
+      isEdit
+        ? versFormulaire(employeeToEdit, services)
+        : { ...EMPTY_FORM, emp_matricule: `M-${Math.floor(1000 + Math.random() * 9000)}` },
+    );
+  }, [isOpen, isEdit, employeeToEdit, services]);
 
-      setForm({
-        emp_nom: employeeToEdit.emp_nom || "",
-        emp_matricule: employeeToEdit.emp_matricule || "",
-        emp_fonction: employeeToEdit.emp_fonction || "",
-        emp_contact: employeeToEdit.emp_contact || "",
-        site_id:
-          getRelationId(employeeToEdit.emp_site_id, "site_id") ||
-          getRelationId(selectedDirection?.site, "site_id"),
-        direction_id: directionId,
-        emp_serv_id: serviceId,
-      });
-    } else {
-      setForm({
-        emp_nom: "",
-        emp_matricule: `M-${Math.floor(1000 + Math.random() * 9000)}`,
-        emp_fonction: "",
-        emp_contact: "",
-        site_id: "",
-        direction_id: "",
-        emp_serv_id: "",
-      });
-    }
-  }, [isOpen, employeeToEdit, directions, services]);
+  const site = sites.find((s) => memeId(s.site_id, form.site_id)) || null;
+  const direction = directions.find((d) => memeId(d.dir_id, form.direction_id)) || null;
+  const service = services.find((s) => memeId(s.serv_id, form.emp_serv_id)) || null;
+  const servicesDeLaDirection = useMemo(
+    () => services.filter((s) => memeId(idDe(s.serv_dir_id, "dir_id"), form.direction_id)),
+    [services, form.direction_id],
+  );
 
-  const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleClose = () => {
-    setForm({
-      emp_nom: "",
-      emp_matricule: "",
-      emp_fonction: "",
-      emp_contact: "",
-      site_id: "",
-      direction_id: "",
-      emp_serv_id: "",
-    });
-    onClose();
-  };
+  const setField = (name) => (e) => setForm((prev) => ({ ...prev, [name]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.emp_nom.trim()) {
-      notify.error("Le nom est obligatoire.");
-      return;
-    }
-    if (!form.emp_matricule.trim()) {
-      notify.error("Le matricule est obligatoire.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        emp_nom: form.emp_nom.trim(),
-        emp_matricule: form.emp_matricule.trim(),
-        emp_fonction: form.emp_fonction.trim(),
-        emp_contact: form.emp_contact.trim(),
-        emp_site_id: form.site_id || null,
-        emp_dir_id: form.direction_id || null,
-        emp_serv_id: form.emp_serv_id || null,
-      };
-
-      if (isEditMode) {
-        await apiClient.put(`${API_ENDPOINTS.EMPLOYEES}${employeeToEdit.emp_id}/`, payload);
-        notify.success("Employé modifié avec succès");
-      } else {
-        await apiClient.post(API_ENDPOINTS.EMPLOYEES, payload);
-        notify.success("Employé créé avec succès");
-      }
-      if (onSuccess) onSuccess();
-      handleClose();
-    } catch (err) {
-      const detail = err?.response?.data;
-      if (detail && typeof detail === "object") {
-        notify.error(
-          Object.entries(detail)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | ")
-        );
-      } else {
-        notify.error(ERROR_MESSAGES.SAVE_FAILED);
-      }
-    } finally {
-      setSaving(false);
-    }
+    const payload = {
+      emp_nom: form.emp_nom.trim(),
+      emp_matricule: form.emp_matricule.trim(),
+      emp_fonction: form.emp_fonction.trim(),
+      emp_contact: form.emp_contact.trim(),
+      emp_site_id: form.site_id || null,
+      emp_dir_id: form.direction_id || null,
+      emp_serv_id: form.emp_serv_id || null,
+    };
+    if (await save(isEdit ? employeeToEdit.emp_id : null, payload)) onClose();
   };
-
-  const selectedService = services.find(
-    (service) => String(service.serv_id) === String(form.emp_serv_id)
-  );
-  const selectedDirection = directions.find(
-    (direction) => String(direction.dir_id) === String(form.direction_id)
-  );
-  const selectedSite = sites.find(
-    (site) => String(site.site_id) === String(form.site_id)
-  );
-  const directionsForSite = directions.filter(
-    (direction) =>
-      String(getRelationId(direction.site, "site_id")) === String(form.site_id)
-  );
-  const servicesForDirection = services.filter(
-    (service) =>
-      String(getRelationId(service.serv_dir_id, "dir_id")) === String(form.direction_id)
-  );
 
   return (
     <FormDialog
       open={isOpen}
-      onClose={handleClose}
-      title={isEditMode ? "Modifier l'employé" : "Nouvel employé"}
+      onClose={onClose}
+      title={isEdit ? "Modifier l'employé" : "Nouvel employé"}
       onSubmit={handleSubmit}
       saving={saving}
-      submitLabel={isEditMode ? "Mettre à jour" : "Créer l'employé"}
-      submitIcon={<PersonIcon />}
+      submitLabel={isEdit ? "Mettre à jour" : "Créer l'employé"}
+      disabled={!form.emp_nom.trim() || !form.emp_matricule.trim() || !form.emp_fonction.trim()}
       maxWidth="md"
-      headerBadge={isEditMode ? "ÉDITION" : "CRÉATION"}
     >
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-        <TextField
-          label="Nom et Prénoms *"
-          value={form.emp_nom}
-          onChange={handleChange("emp_nom")}
-          required
-          fullWidth
-          autoFocus
-        />
-        <TextField
-          label="Matricule *"
-          value={form.emp_matricule}
-          onChange={handleChange("emp_matricule")}
-          required
-          fullWidth
-        />
-        <TextField
-          label="Fonction"
-          value={form.emp_fonction}
-          onChange={handleChange("emp_fonction")}
-          fullWidth
-        />
-        <TextField
-          label="Contact"
-          value={form.emp_contact}
-          onChange={handleChange("emp_contact")}
-          fullWidth
-        />
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mt: 1 }}>
+        <TextField label="Nom et Prénoms" value={form.emp_nom} onChange={setField("emp_nom")} required autoFocus slotProps={{ htmlInput: { maxLength: 255 } }} />
+        <TextField label="Matricule" value={form.emp_matricule} onChange={setField("emp_matricule")} required slotProps={{ htmlInput: { maxLength: 15 } }} />
+        <TextField label="Fonction" value={form.emp_fonction} onChange={setField("emp_fonction")} required slotProps={{ htmlInput: { maxLength: 50 } }} />
+        <TextField label="Contact" value={form.emp_contact} onChange={setField("emp_contact")} slotProps={{ htmlInput: { maxLength: 50 } }} />
 
-        <Box sx={{ gridColumn: { sm: "1 / -1" }, mt: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-            Rattachement organisationnel
-          </Typography>
-        </Box>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ gridColumn: { sm: "1 / -1" }, mt: 1 }}>
+          Rattachement organisationnel
+        </Typography>
 
         <Autocomplete
           options={sites}
-          getOptionLabel={(option) => option.site_nom || ""}
-          value={selectedSite || null}
-          onChange={(_, newValue) => {
-            setForm((prev) => ({
-              ...prev,
-              site_id: newValue?.site_id || "",
-              direction_id: "",
-              emp_serv_id: "",
-            }));
-          }}
-          renderInput={(params) => (
-            <TextField {...params} label="Site" placeholder="Sélectionner un site..." />
-          )}
-          fullWidth
+          getOptionLabel={(o) => o.site_nom || ""}
+          isOptionEqualToValue={(o, v) => o.site_id === v.site_id}
+          value={site}
+          onChange={(_, v) => setForm((prev) => ({ ...prev, site_id: v?.site_id || "" }))}
+          renderInput={(params) => <TextField {...params} label="Site" placeholder="Sélectionner un site..." />}
         />
-
         <Autocomplete
-          options={directionsForSite}
-          getOptionLabel={(option) => option.dir_libelle || ""}
-          value={selectedDirection || null}
-          onChange={(_, newValue) => {
-            setForm((prev) => ({
-              ...prev,
-              direction_id: newValue?.dir_id || "",
-              emp_serv_id: "",
-            }));
-          }}
-          renderInput={(params) => (
-            <TextField {...params} label="Direction" placeholder="Sélectionner une direction..." />
-          )}
-          disabled={!form.site_id}
-          fullWidth
+          options={directions}
+          getOptionLabel={(o) => o.dir_libelle || ""}
+          isOptionEqualToValue={(o, v) => o.dir_id === v.dir_id}
+          value={direction}
+          onChange={(_, v) => setForm((prev) => ({ ...prev, direction_id: v?.dir_id || "", emp_serv_id: "" }))}
+          renderInput={(params) => <TextField {...params} label="Direction" placeholder="Sélectionner une direction..." />}
         />
-
         <Autocomplete
-          options={servicesForDirection}
-          getOptionLabel={(option) => option.serv_libelle || ""}
-          value={selectedService || null}
-          onChange={(_, newValue) => {
-            setForm((prev) => ({ ...prev, emp_serv_id: newValue?.serv_id || "" }));
-          }}
-          renderInput={(params) => (
-            <TextField {...params} label="Service *" placeholder="Sélectionner un service..." />
-          )}
+          options={servicesDeLaDirection}
+          getOptionLabel={(o) => o.serv_libelle || ""}
+          isOptionEqualToValue={(o, v) => o.serv_id === v.serv_id}
+          value={service}
+          onChange={(_, v) => setForm((prev) => ({ ...prev, emp_serv_id: v?.serv_id || "" }))}
+          renderInput={(params) => <TextField {...params} label="Service" placeholder="Sélectionner un service..." />}
           disabled={!form.direction_id}
-          fullWidth
         />
       </Box>
 
-      {selectedSite && (
+      {(site || direction) && (
         <Box sx={{ mt: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825" }}>
           <Typography variant="body2" color="primary.main">
-            <strong>Rattachement :</strong> {selectedSite.site_nom}
-            {selectedDirection && ` → ${selectedDirection.dir_libelle}`}
-            {selectedService && ` → ${selectedService.serv_libelle}`}
+            <strong>Rattachement :</strong> {[site?.site_nom, direction?.dir_libelle, service?.serv_libelle].filter(Boolean).join(" → ")}
           </Typography>
         </Box>
       )}

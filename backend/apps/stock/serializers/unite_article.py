@@ -11,6 +11,8 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
     employe_attribue_nom = serializers.CharField(read_only=True)
     employe_attribue_matricule = serializers.CharField(read_only=True)
     beneficiaire_type = serializers.CharField(read_only=True)
+    article_categorie = serializers.CharField(source="article.categorie.cat_libelle", read_only=True, default=None)
+    site_beneficiaire_nom = serializers.CharField(read_only=True, allow_null=True)
 
     message_plusieurs_beneficiaires = "Un seul bénéficiaire autorisé."
 
@@ -23,6 +25,7 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
             "employe_beneficiaire", "direction_beneficiaire",
             "salle_beneficiaire", "site_beneficiaire",
             "employe_attribue_nom", "employe_attribue_matricule", "beneficiaire_type",
+            "article_categorie", "site_beneficiaire_nom",
         ]
         read_only_fields = [  # noqa: RUF012
             "unite_id", "date_creation", "mouvement_entree", "mouvement_sortie",

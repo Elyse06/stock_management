@@ -1,190 +1,71 @@
-import { useState, useMemo } from "react";
-import { Box, Tooltip, Typography } from "@mui/material";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS, ERROR_MESSAGES } from "../../../constants/api";
-import { usePagination } from "../../../hooks/usePagination";
-import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { usePermission } from "../../../hooks/usePermission";
-import { useNotification } from "../../../components/common/NotificationProvider";
-import { PageHeader } from "../../../components/common/PageHeader";
-import { ErrorAlert } from "../../../components/common/ErrorAlert";
-import { StatusChip } from "../../../components/common/StatusChip";
-import { CodeChip } from "../../../components/common/CodeChip";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-import { ActionButtons } from "../../../components/common/ActionButtons";
-import { SelectFilter } from "../../../components/common/SelectFilter";
-import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { CommandeFormModal } from "../components/CommandeFormModal";
+import { useMemo, useState } from "react";
+import { Alert, Box, Tooltip, Typography } from "@mui/material";
+
+import { EmptyValue } from "@/components/data-display/EmptyValue";
+import { StatusChip } from "@/components/data-display/StatusChip";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { ErrorAlert } from "@/components/feedback/ErrorAlert";
+import { SelectFilter } from "@/components/forms/SelectFilter";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ActionButtons } from "@/components/table/ActionButtons";
+import { actionsColumn } from "@/components/table/columns";
+import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
+import { API_ENDPOINTS } from "@/config/endpoints";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useCrudMutations } from "@/hooks/useCrudMutations";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { getErrorMessage } from "@/lib/api/errors";
+import { formatDateTime } from "@/utils/formatters";
+
+import { commandesApi } from "../api/commandesApi";
 import { CommandeDetailModal } from "../components/CommandeDetailModal";
-import { formatDateTime } from "../../../utils/formatters";
+import { CommandeFormModal } from "../components/CommandeFormModal";
+import { bornesPeriode, PERIODES, STATUTS_COMMANDE } from "../constants/commande";
+import { useCommandeRoles } from "../hooks/useCommandeRoles";
 
-const STATUTS = [
-  { value: "", label: "Tous statuts" },
-  { value: "EN_ATTENTE", label: "En attente" },
-  { value: "EN_COURS", label: "En cours" },
-  { value: "VALIDEE", label: "Validée" },
-  { value: "REJETEE", label: "Rejetée" },
-];
-
-const PERIODES = [
-  { value: "tous", label: "Toutes les commandes" },
-  { value: "semaine", label: "Cette semaine" },
-  { value: "mois", label: "Ce mois" },
-  { value: "annee", label: "Cette année" },
-];
-
-function getDateRangeForPeriode(periodeId) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (periodeId === "tous") return { debut: null, fin: null };
-  if (periodeId === "semaine") {
-    const debut = new Date(today);
-    const jour = debut.getDay();
-    debut.setDate(debut.getDate() - (jour === 0 ? 6 : jour - 1));
-    const fin = new Date(debut);
-    fin.setDate(fin.getDate() + 6);
-    fin.setHours(23, 59, 59, 999);
-    return { debut, fin };
-  }
-  if (periodeId === "mois") {
-    const debut = new Date(today.getFullYear(), today.getMonth(), 1);
-    const fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    fin.setHours(23, 59, 59, 999);
-    return { debut, fin };
-  }
-  if (periodeId === "annee") {
-    const debut = new Date(today.getFullYear(), 0, 1);
-    const fin = new Date(today.getFullYear(), 11, 31);
-    fin.setHours(23, 59, 59, 999);
-    return { debut, fin };
-  }
-  return { debut: null, fin: null };
-}
-
-const getDemandeurNom = (row) =>
-  row?.demandeur?.nom || row?.employe_demandeur || "—";
-
+const getDemandeurNom = (row) => row?.demandeur?.nom || row?.employe_demandeur || "—";
 const getArticlesLabel = (row) =>
-  (row?.details ?? [])
-    .map((d) => d.article_designation ?? d.article?.designation ?? d.designation)
-    .filter(Boolean)
-    .join(", ");
+  (row?.details ?? []).map((d) => d.article_designation).filter(Boolean).join(", ");
 
 export function CommandesPage() {
-  const notify = useNotification();
-  const queryClient = useQueryClient();
-  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(20);
-  const { canCreateCommande, canValidateCommande, canManageCatalogue } = usePermission();
+  const { canCreateCommande, isDemandeur, isAgentPrincipal, peutTraiter } = useCommandeRoles();
+  const { user } = usePermission();
+  // Le backend ne montre les commandes qu'à partir de l'employé lié au compte (sauf au gestionnaire).
+  const sansEmploye = Boolean(user) && !user.employe && !isAgentPrincipal;
+  const { confirm, dialogProps } = useConfirmDialog();
+  const { remove } = useCrudMutations(commandesApi, [["commandes"]], { deleted: "Commande supprimée avec succès" });
+  const [statut, setStatut] = useState("");
+  const [periode, setPeriode] = useState("tous");
+  const [formOpen, setFormOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
 
-  const isAgentPrincipal = canManageCatalogue && canValidateCommande;
-  const isAgentSecondaire = !canManageCatalogue && canValidateCommande;
-  const isDemandeur = canCreateCommande && !canValidateCommande;
+  const list = usePaginatedList(["commandes"], API_ENDPOINTS.COMMANDES, { statut });
 
-  const [statutFiltre, setStatutFiltre] = useState("");
-  const [periodeFiltre, setPeriodeFiltre] = useState("tous");
-  const [commandeToEdit, setCommandeToEdit] = useState(null);
-  const [selectedCommande, setSelectedCommande] = useState(null);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-
-  const { data, isLoading, isPlaceholderData, error } = useQuery({
-    queryKey: ["commandes", { page: paginationModel.page + 1, pageSize: paginationModel.pageSize, statut: statutFiltre }],
-    queryFn: async () => {
-      const params = { page: paginationModel.page + 1, page_size: paginationModel.pageSize };
-      if (statutFiltre) params.statut = statutFiltre;
-
-      const { data } = await apiClient.get(API_ENDPOINTS.COMMANDES, { params });
-      return {
-        commandes: data.results ?? data,
-        totalCount: data.count ?? (data.results ?? data).length,
-      };
-    },
-    placeholderData: keepPreviousData,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id) => {
-      await apiClient.delete(`${API_ENDPOINTS.COMMANDES}${id}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["commandes"] });
-    },
-  });
-
-  const commandesFiltrees = useMemo(() => {
-    const allCommandes = data?.commandes || [];
-    const { debut, fin } = getDateRangeForPeriode(periodeFiltre);
-    if (!debut || !fin) return allCommandes;
-
-    return allCommandes.filter((commande) => {
-      const commandeDate = new Date(commande.date_commande);
-      commandeDate.setHours(0, 0, 0, 0);
-      return commandeDate >= debut && commandeDate <= fin;
+  // Le backend ne filtre pas par date : la période s'applique à la page affichée.
+  const rows = useMemo(() => {
+    const bornes = bornesPeriode(periode);
+    if (!bornes) return list.rows;
+    return list.rows.filter((c) => {
+      const date = new Date(c.date_commande);
+      return date >= bornes.debut && date <= bornes.fin;
     });
-  }, [data?.commandes, periodeFiltre]);
+  }, [list.rows, periode]);
 
-  const openFormModalForCreate = () => {
-    setCommandeToEdit(null);
-    setIsFormModalOpen(true);
-  };
-
-  const closeFormModal = () => {
-    setIsFormModalOpen(false);
-    setCommandeToEdit(null);
-  };
-
-  const openDetailModal = async (commande) => {
-    try {
-      const { data } = await apiClient.get(`${API_ENDPOINTS.COMMANDES}${commande.commande_id}/`);
-      setSelectedCommande(data);
-      setIsDetailModalOpen(true);
-    } catch {
-      notify.error("Impossible de charger les détails de la commande.");
-    }
-  };
-
-  const closeDetailModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedCommande(null);
-  };
-
-  const handleDelete = (commande) => {
-    confirm(
-      "Supprimer la commande",
-      `Êtes-vous sûr de vouloir supprimer la commande #${commande.commande_id} ?`,
-      async () => {
-        try {
-          await deleteMutation.mutateAsync(commande.commande_id);
-          notify.success("Commande supprimée avec succès");
-        } catch {
-          notify.error("Suppression impossible (commande probablement traitée ou référencée).");
-        }
-      }
+  const askDelete = (commande) =>
+    confirm("Supprimer la commande", `Êtes-vous sûr de vouloir supprimer la commande #${commande.commande_id} ?`, () =>
+      remove.mutate(commande.commande_id),
     );
-  };
 
   const columns = [
-    {
-      field: "date_commande",
-      headerName: "Date demande",
-      getText: (row) => formatDateTime(row.date_commande),
-      renderCell: (params) => formatDateTime(params.value),
-    },
-    {
-      field: "demandeur",
-      headerName: "Demandeur",
-      getText: getDemandeurNom,
-      renderCell: (params) => getDemandeurNom(params.row),
-    },
+    { field: "date_commande", headerName: "Date demande", getText: (row) => formatDateTime(row.date_commande), renderCell: ({ value }) => formatDateTime(value) },
+    { field: "demandeur", headerName: "Demandeur", getText: getDemandeurNom, renderCell: ({ row }) => getDemandeurNom(row) },
     {
       field: "article_designation",
       headerName: "Articles",
       getText: getArticlesLabel,
-      renderCell: (params) => {
-        const label = getArticlesLabel(params.row);
+      renderCell: ({ row }) => {
+        const label = getArticlesLabel(row);
         if (!label) return <EmptyValue />;
         return (
           <Tooltip title={label}>
@@ -198,107 +79,56 @@ export function CommandesPage() {
     {
       field: "statut",
       headerName: "Statut",
-      getText: (row) => row.statut,
       autoExtraWidth: 40,
-      renderCell: (params) => {
-        const statusValue = params.value === "VALIDEE" ? "TRAITE" : params.value;
-        return <StatusChip status={statusValue} />;
-      },
+      renderCell: ({ value }) => <StatusChip status={value === "VALIDEE" ? "TRAITE" : value} />,
     },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 160,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => {
-        const commande = params.row;
-        const peutTraiter =
-          (isAgentPrincipal && commande.statut === "EN_COURS") ||
-          (isAgentSecondaire && commande.statut === "EN_ATTENTE");
-        const peutSupprimer = isDemandeur && commande.statut === "EN_ATTENTE";
-
+    actionsColumn(
+      ({ row }) => {
+        const traitable = peutTraiter(row);
+        // Le backend n'autorise la suppression que d'une commande EN_ATTENTE, par son demandeur.
+        const supprimable = isDemandeur && row.statut === "EN_ATTENTE";
         return (
           <ActionButtons
-            onView={() => openDetailModal(commande)}
-            onValidate={peutTraiter ? () => openDetailModal(commande) : null}
-            onDelete={peutSupprimer ? () => handleDelete(commande) : null}
-            canValidate={peutTraiter}
-            canDelete={peutSupprimer}
+            onView={() => setSelected(row)}
+            onValidate={traitable ? () => setSelected(row) : null}
+            onDelete={supprimable ? () => askDelete(row) : null}
+            canValidate={traitable}
+            canDelete={supprimable}
           />
         );
       },
-    },
+      160,
+    ),
   ];
 
   return (
     <Box>
       <PageHeader
         actionLabel="Nouvelle demande"
-        onAction={openFormModalForCreate}
+        onAction={() => setFormOpen(true)}
         canAction={canCreateCommande}
         onReset={() => {
-          setStatutFiltre("");
-          setPeriodeFiltre("tous");
+          setStatut("");
+          setPeriode("tous");
         }}
-        hasFilters={Boolean(statutFiltre || periodeFiltre !== "tous")}
+        hasFilters={Boolean(statut || periode !== "tous")}
       >
-        <SelectFilter
-          label="Période"
-          value={periodeFiltre}
-          onChange={(value) => {
-            setPeriodeFiltre(value);
-            resetPage();
-          }}
-          options={PERIODES}
-          minWidth={200}
-        />
-        <SelectFilter
-          label="Statut"
-          value={statutFiltre}
-          onChange={(value) => {
-            setStatutFiltre(value);
-            resetPage();
-          }}
-          options={STATUTS}
-          minWidth={150}
-        />
+        <SelectFilter label="Période" value={periode} onChange={setPeriode} options={PERIODES} minWidth={200} />
+        <SelectFilter label="Statut" value={statut} onChange={setStatut} options={STATUTS_COMMANDE} />
       </PageHeader>
-      <ErrorAlert error={error?.message} />
+      <ErrorAlert error={list.error && getErrorMessage(list.error)} />
+      {sansEmploye && (
+        <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
+          Votre compte n'est rattaché à aucun employé : aucune commande ne peut vous être affichée. Demandez à un
+          administrateur de vous associer à votre fiche employé.
+        </Alert>
+      )}
 
-      <PaginatedDataGrid
-        rows={commandesFiltrees}
-        columns={columns}
-        loading={isLoading || isPlaceholderData}
-        rowCount={data?.totalCount || 0}
-        paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
-        getRowId={(row) => row.commande_id}
-        noRowsLabel="Aucune commande trouvée"
-      />
+      <PaginatedDataGrid {...list.gridProps} rows={rows} columns={columns} getRowId={(row) => row.commande_id} noRowsLabel="Aucune commande trouvée" />
 
-      <CommandeFormModal
-        isOpen={isFormModalOpen}
-        onClose={closeFormModal}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["commandes"] })}
-        commandeToEdit={commandeToEdit}
-      />
-      <CommandeDetailModal
-        commande={selectedCommande}
-        isOpen={isDetailModalOpen}
-        onClose={closeDetailModal}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["commandes"] })}
-      />
-      <ConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        message={confirmState.message}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      <CommandeFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} />
+      <CommandeDetailModal commande={selected} isOpen={Boolean(selected)} onClose={() => setSelected(null)} />
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
 }

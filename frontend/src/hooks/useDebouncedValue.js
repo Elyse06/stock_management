@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-/** Renvoie `value` après `delay` ms sans changement (évite une requête par frappe). */
+/** Renvoie ``value`` après ``delay`` ms sans changement (évite une requête par frappe). */
 export function useDebouncedValue(value, delay = 400) {
   const [debounced, setDebounced] = useState(value);
 

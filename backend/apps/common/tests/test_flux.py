@@ -15,6 +15,7 @@ from apps.notifications.tasks import (
 )
 from apps.stock.models import (
     Affectation,
+    DetailMouvement,
     InventaireSession,
     LigneInventaire,
     Mouvement,
@@ -80,6 +81,43 @@ class WorkflowCommandeTests(TestCase):
         self.assertEqual(self.c_gest.post(url, {"statut": "VALIDEE", "magasin_source": self.magasin.pk},
                                           format="json").status_code, 400)
 
+    def test_fourniture_attribuee_a_un_employe(self):
+        """Une fourniture peut désormais être attribuée à un employé (et pas seulement à une direction, un site...)."""
+        ramette = f.article("RAM")
+        f.mouvement(Mouvement.Type.ENTREE, ramette, 10, destination=self.magasin)
+        reponse = self.c_dem.post("/api/commandes/commandes/", {
+            "objet": "Papier",
+            "details": [{"article": ramette.pk, "quantite": 4, "attributions": [
+                {"employe_beneficiaire": self.demandeur.pk, "quantite": 4, "quantite_demandee": 4},
+            ]}],
+        }, format="json")
+        self.assertEqual(reponse.status_code, 201, reponse.data)
+        url = f"/api/commandes/commandes/{reponse.data['commande_id']}/traiter/"
+        attribution = AttributionDetailCommande.objects.get()
+        self.assertEqual(self.c_chef.post(url, {"statut": "EN_COURS"}, format="json").status_code, 200)
+        reponse = self.c_gest.post(url, {
+            "statut": "VALIDEE", "magasin_source": self.magasin.pk,
+            "validations": [{"attribution_id": attribution.pk, "statut": "VALIDEE", "quantite_validee": 4}],
+        }, format="json")
+        self.assertEqual(reponse.status_code, 200, reponse.data)
+        self.assertEqual(stock_article_magasin(ramette, self.magasin.pk), 6)
+        sortie = DetailMouvement.objects.get(article=ramette, mouvement__type_mouvement=Mouvement.Type.SORTIE)
+        self.assertEqual(sortie.affectation.employe, self.demandeur)
+
+    def test_attribution_d_une_fourniture_reaffectee_a_un_employe(self):
+        ramette = f.article("RAM2")
+        commande = Commande.objects.create(employe_demandeur=self.demandeur)
+        detail = DetailCommande.objects.create(commande=commande, article=ramette, quantite=3)
+        attribution = AttributionDetailCommande.objects.create(
+            detail_commande=detail, affectation=Affectation.resoudre(self.dir_), quantite=3,
+        )
+        reponse = self.c_dem.patch(f"/api/commandes/attribution-detail-commande/{attribution.pk}/", {
+            "employe_beneficiaire": self.demandeur.pk,
+        }, format="json")
+        self.assertEqual(reponse.status_code, 200, reponse.data)
+        attribution.refresh_from_db()
+        self.assertEqual(attribution.affectation.employe, self.demandeur)
+
     def test_validation_d_une_attribution_etrangere_refusee(self):
         autre = Commande.objects.create(employe_demandeur=self.demandeur)
         detail = DetailCommande.objects.create(commande=autre, article=self.article, quantite=1)
@@ -95,22 +133,56 @@ class WorkflowCommandeTests(TestCase):
         etrangere.refresh_from_db()
         self.assertEqual(etrangere.statut, "EN_ATTENTE")
 
-    def test_notification_echappe_le_html(self):
-        Employer.objects.filter(pk=self.demandeur.pk).update(emp_nom="<script>x</script>")
-        commande = Commande.objects.create(employe_demandeur=self.demandeur, objet="<b>objet</b>")
+    def _corps(self, email):
+        message = next(m for m in mail.outbox if m.to == [email])
+        return message.body
+
+    def test_notification_courte_et_personnalisee(self):
+        Employer.objects.filter(pk=self.demandeur.pk).update(emp_nom="RABE Marie")
+        Employer.objects.filter(pk=self.gest.pk).update(emp_nom="RAKOTO Jean")
+        commande = Commande.objects.create(employe_demandeur=self.demandeur, objet="Bureau")
         Commande.objects.filter(pk=commande.pk).update(statut=Commande.Statut.EN_COURS)
         notifier_changement_statut_commande.apply(args=(commande.pk, "EN_ATTENTE", "EN_COURS"))
-        self.assertEqual(len(mail.outbox), 2)
-        html = "".join(m.alternatives[0][0] for m in mail.outbox)
-        self.assertNotIn("<script>", html)
-        self.assertIn("&lt;b&gt;objet&lt;/b&gt;", html)
+
+        # Un e-mail par destinataire : personne ne voit l'adresse des autres.
+        self.assertEqual(sorted(m.to[0] for m in mail.outbox), ["dem@test.mg", "gest@test.mg"])
+        self.assertTrue(all(len(m.to) == 1 and m.content_subtype == "plain" for m in mail.outbox))  # texte brut, sans HTML
+        self.assertEqual(
+            self._corps("gest@test.mg"),
+            f"Bonjour RAKOTO Jean,\nLa commande n°{commande.pk} de RABE Marie a été pré-validée "
+            "et attend votre validation finale.",
+        )
+        self.assertEqual(
+            self._corps("dem@test.mg"),
+            f"Bonjour RABE Marie,\nVotre commande n°{commande.pk} a été pré-validée et est en cours de traitement.",
+        )
+        self.assertTrue(all(len(m.body.splitlines()) <= 3 for m in mail.outbox))
+
+    def test_refus_avec_motif(self):
+        commande = Commande.objects.create(employe_demandeur=self.demandeur, commentaire_agent="Stock\névacué")
+        notifier_changement_statut_commande.apply(args=(commande.pk, "EN_COURS", "REJETEE"))
+        corps = self._corps("dem@test.mg")
+        self.assertIn("refusée lors de la validation finale. Motif : Stock évacué.", corps)
+        self.assertEqual(len(corps.splitlines()), 2)  # le retour à la ligne saisi ne casse pas le format
+
+    def test_destinataire_sans_employe_rattache(self):
+        f.utilisateur("catalogue@test.mg", [a.CAT_GERE])
+        article = f.article("ART8", seuil=5)
+        f.mouvement(Mouvement.Type.ENTREE, article, 2, destination=self.magasin)
+        notifier_stock_bas.apply(kwargs={"code_article": article.pk, "magasin_id": self.magasin.pk})
+        self.assertTrue(self._corps("catalogue@test.mg").startswith("Bonjour,\n"))
 
     def test_alerte_stock_bas(self):
         article = f.article("ART9", seuil=5)
         f.mouvement(Mouvement.Type.ENTREE, article, 2, destination=self.magasin)
         notifier_stock_bas.apply(kwargs={"code_article": article.pk, "magasin_id": self.magasin.pk})
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(sorted(mail.outbox[0].to), ["gest@test.mg"])
+        self.assertEqual([m.to for m in mail.outbox], [["gest@test.mg"]])
+        self.assertEqual(
+            mail.outbox[0].body,
+            f"Bonjour {self.gest.emp_nom},\nLe stock de « Article ART9 » (ART9) au Central est de 2, "
+            "sous le seuil de 5 : pensez à le réapprovisionner.",
+        )
+        self.assertEqual(mail.outbox[0].subject, "Stock bas : Article ART9 (Central)")
 
 
 class UnitesTests(TestCase):
@@ -189,6 +261,18 @@ class UnitesTests(TestCase):
         self.assertEqual(stock_article_magasin(article, self.magasin.pk), 3)
         self.assertEqual(validateur.post(f"/api/stock/inventaires/{session.pk}/valider/").status_code, 400)
         self.assertEqual(self.client.delete(f"/api/stock/inventaires/{session.pk}/").status_code, 400)
+
+
+    def test_sortie_d_une_fourniture_vers_un_employe(self):
+        ramette = f.article("RAM3")
+        employe = f.employe("E1", self.dir_)
+        f.mouvement(Mouvement.Type.ENTREE, ramette, 5, destination=self.magasin)
+        reponse = self.client.post("/api/stock/mouvements/", {
+            "type_mouvement": "SORTIE", "magasin_source": self.magasin.pk,
+            "details": [{"article": "RAM3", "quantite": 2, "employe_beneficiaire": employe.pk}],
+        }, format="json")
+        self.assertEqual(reponse.status_code, 201, reponse.data)
+        self.assertEqual(stock_article_magasin(ramette, self.magasin.pk), 3)
 
 
 class ImportsTests(TestCase):

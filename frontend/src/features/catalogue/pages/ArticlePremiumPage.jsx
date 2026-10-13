@@ -3,9 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Box, Button, Tabs, Tab, CircularProgress, Typography } from "@mui/material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS } from "../../../constants/api";
-import { useNotification } from "../../../components/common/NotificationProvider";
+import { getErrorMessage } from "@/lib/api/errors";
+import { getFicheArticle } from "../api/catalogueApi";
 import { ArticleIdentityCard } from "../components/ArticleIdentityCard";
 import { ArticleSyntheseTab } from "../components/ArticleSyntheseTab";
 import { ArticleHistoriqueTab } from "../components/ArticleHistoriqueTab";
@@ -22,20 +21,11 @@ const TABS = [
 export function ArticlePremiumPage() {
   const { code_article } = useParams();
   const navigate = useNavigate();
-  const notify = useNotification();
   const [activeTab, setActiveTab] = useState(0);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["article", "fiche-complete", code_article],
-    queryFn: async () => {
-      const { data } = await apiClient.get(
-        `${API_ENDPOINTS.ARTICLES}${code_article}/fiche-complete/`
-      );
-      return data;
-    },
-    onError: () => {
-      notify.error("Impossible de charger la fiche article.");
-    },
+    queryFn: ({ signal }) => getFicheArticle(code_article, { signal }),
   });
 
   const handleTabChange = (_, newValue) => setActiveTab(newValue);
@@ -74,7 +64,7 @@ export function ArticlePremiumPage() {
           }}
         >
           <Typography color="error.main">
-            {error?.message || "Article non trouvé."}
+            {error ? getErrorMessage(error, "Impossible de charger la fiche article.") : "Article non trouvé."}
           </Typography>
         </Box>
       </Box>

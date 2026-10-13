@@ -2,12 +2,10 @@ import { Box, Typography, Divider, Chip } from "@mui/material";
 import {
   Inventory as InventoryIcon,
   Category as CategoryIcon,
-  Label as LabelIcon,
   Straighten as StraightenIcon,
-  QrCode as QrCodeIcon,
   Warning as WarningIcon,
 } from "@mui/icons-material";
-import { CodeChip } from "../../../components/common/CodeChip";
+import { CodeChip } from "@/components/data-display/CodeChip";
 
 export function ArticleIdentityCard({ article, stocks_par_magasin }) {
   const stock_total = Object.values(stocks_par_magasin).reduce((sum, val) => {

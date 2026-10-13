@@ -1,0 +1,8 @@
+# Configuration du lint : « ruff check . » depuis ce dossier.
+target-version = "py312"
+line-length = 120
+extend-exclude = ["*/migrations/*"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["E501"]

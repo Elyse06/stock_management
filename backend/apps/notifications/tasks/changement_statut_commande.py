@@ -1,57 +1,44 @@
 import logging
 
 from celery import shared_task
-from django.utils.html import format_html
 
 from apps.commande.models import Commande
 from apps.common.emails import envoyer_notification
-from apps.notifications.destinataires import (
-    emails_chefs_direction,
-    emails_gestionnaires,
-)
+from apps.notifications import destinataires
 
 logger = logging.getLogger("apps.notifications")
 S = Commande.Statut
 
 
+def _motif(commande):
+    return f" Motif : {commande.commentaire_agent}." if commande.commentaire_agent.strip() else ""
+
+
 def _messages(commande, ancien, nouveau):
+    """Liste de ``(destinataires, sujet, message)`` pour une transition de statut."""
     demandeur = commande.employe_demandeur
-    email_demandeur = [demandeur.emp_utilisateur_id.utilisateur_mail]
-    numero = commande.commande_id
+    au_demandeur = destinataires.employe(demandeur)
+    numero = f"n°{commande.commande_id}"
 
     if ancien is None and nouveau == S.EN_ATTENTE:
-        return [(
-            emails_chefs_direction(demandeur.emp_dir_id),
-            "Nouvelle demande à pré-valider",
-            format_html(
-                "Une nouvelle commande <strong>#{}</strong> a été créée par <strong>{}</strong> "
-                "et attend votre pré-validation.", numero, demandeur.emp_nom,
-            ),
-        )]
+        return [(destinataires.chefs_direction(demandeur.emp_dir_id), "Commande à pré-valider",
+                 f"La commande {numero} de {demandeur.emp_nom} attend votre pré-validation.")]
     if ancien == S.EN_ATTENTE and nouveau == S.EN_COURS:
         return [
-            (email_demandeur, "Demande en cours de traitement", format_html(
-                "Votre commande <strong>#{}</strong> a été pré-validée et est en cours de traitement "
-                "par le gestionnaire de stock.", numero,
-            )),
-            (emails_gestionnaires(), "Nouvelle demande à valider", format_html(
-                "La commande <strong>#{}</strong> de {} a été pré-validée et attend votre validation finale.",
-                numero, demandeur.emp_nom,
-            )),
+            (au_demandeur, "Commande pré-validée",
+             f"Votre commande {numero} a été pré-validée et est en cours de traitement."),
+            (destinataires.gestionnaires(), "Commande à valider",
+             f"La commande {numero} de {demandeur.emp_nom} a été pré-validée et attend votre validation finale."),
         ]
     if ancien == S.EN_ATTENTE and nouveau == S.REJETEE:
-        return [(email_demandeur, "Demande refusée", format_html(
-            "Votre commande <strong>#{}</strong> a été refusée lors de la pré-validation.", numero,
-        ))]
+        return [(au_demandeur, "Commande refusée",
+                 f"Votre commande {numero} a été refusée lors de la pré-validation.{_motif(commande)}")]
     if ancien == S.EN_COURS and nouveau == S.VALIDEE:
-        return [(email_demandeur, "Demande validée", format_html(
-            "Bonne nouvelle ! Votre commande <strong>#{}</strong> a été validée et le stock a été débité.",
-            numero,
-        ))]
+        return [(au_demandeur, "Commande validée",
+                 f"Votre commande {numero} a été validée et les articles sont sortis du stock.")]
     if ancien == S.EN_COURS and nouveau == S.REJETEE:
-        return [(email_demandeur, "Demande refusée", format_html(
-            "Votre commande <strong>#{}</strong> a été refusée lors de la validation finale.", numero,
-        ))]
+        return [(au_demandeur, "Commande refusée",
+                 f"Votre commande {numero} a été refusée lors de la validation finale.{_motif(commande)}")]
     return []
 
 
@@ -64,20 +51,14 @@ def notifier_changement_statut_commande(self, commande_id, ancien_statut, nouvea
     )
     if commande is None:
         return "Commande introuvable"
-    demandeur = commande.employe_demandeur
-    if not demandeur or not demandeur.emp_utilisateur_id:
-        return "Demandeur sans utilisateur lié"
+    if not commande.employe_demandeur:
+        return "Commande sans demandeur"
 
     try:
-        for destinataires, titre, message in _messages(commande, ancien_statut, nouveau_statut):
-            envoyer_notification(
-                destinataires,
-                sujet=f"Gestion de Stock : {titre} (Commande #{commande.commande_id})",
-                titre=titre,
-                message_html=message,
-                lignes=[("Objet", commande.objet or "-"), ("Statut actuel", commande.get_statut_display())],
-            )
+        for a_qui, sujet, message in _messages(commande, ancien_statut, nouveau_statut):
+            envoyer_notification(a_qui, sujet=f"{sujet} (n°{commande.commande_id})", message=message)
     except Exception as exc:
+        # Erreur d'envoi (SMTP indisponible...) : nouvelle tentative plus tard.
         logger.warning("Échec de notification pour la commande #%s : %s", commande_id, exc)
         raise self.retry(exc=exc) from exc
     return "Succès"

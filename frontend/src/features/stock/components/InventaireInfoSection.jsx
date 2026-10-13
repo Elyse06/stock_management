@@ -4,10 +4,10 @@ import {
   CheckCircle as CheckCircleIcon,
   Assignment as AssignmentIcon,
 } from "@mui/icons-material";
-import { StatusChip } from "../../../components/common/StatusChip";
-import { InfoTile } from "../../../components/common/InfoTile";
-import { formatDateTime } from "../../../utils/formatters";
-import { getLieuMeta } from "./lieuMeta";
+import { StatusChip } from "@/components/data-display/StatusChip";
+import { InfoTile } from "@/components/data-display/InfoTile";
+import { formatDateTime } from "@/utils/formatters";
+import { getLieuMeta } from "../utils/lieuMeta";
 
 export function InventaireInfoSection({ session }) {
   const { Icon: LieuIcon, label: lieuType } = getLieuMeta(session);

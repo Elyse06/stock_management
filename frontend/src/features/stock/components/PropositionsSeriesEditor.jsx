@@ -108,7 +108,7 @@ export function PropositionsSeriesEditor({
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
           <TextField size="small" placeholder="N° de série" value={nouveauNs} onChange={(e) => setNouveauNs(e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
           <FormControl size="small" sx={{ minWidth: 100 }}>
-            <Select value={nouveauEtat} onChange={(e) => setNouveauEtat(e.target.value)}>
+            <Select value={nouveauEtat} onChange={(e) => setNouveauEtat(e.target.value)} inputProps={{ "aria-label": "État de la nouvelle unité" }}>
               {ETATS_AJOUT.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
             </Select>
           </FormControl>
@@ -143,7 +143,7 @@ export function PropositionsSeriesEditor({
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
               <FormControl size="small" sx={{ flex: 1, minWidth: 180 }}>
                 <InputLabel>Unité à retirer</InputLabel>
-                <Select value="" label="Unité à retirer" onChange={(e) => handleAddRetrait(e.target.value)}>
+                <Select value="" label="Unité à retirer" onChange={(e) => handleAddRetrait(e.target.value)} inputProps={{ "aria-label": "Unité à retirer" }}>
                   {unitesDisponibles.map((u) => (
                     <MenuItem key={u.unite_id} value={u.unite_id}>
                       {u.numero_de_serie} {u.etat && `(${u.etat})`}
@@ -187,7 +187,7 @@ export function PropositionsSeriesEditor({
             />
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Nouvel état</InputLabel>
-              <Select value={etatChangement} onChange={(e) => setEtatChangement(e.target.value)} label="Nouvel état">
+              <Select value={etatChangement} onChange={(e) => setEtatChangement(e.target.value)} label="Nouvel état" inputProps={{ "aria-label": "Nouvel état" }}>
                 {ETATS_CHANGE.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
               </Select>
             </FormControl>
@@ -200,6 +200,7 @@ export function PropositionsSeriesEditor({
                 <Select
                   value=""
                   label="Unité concernée"
+                  inputProps={{ "aria-label": "Unité concernée" }}
                   onChange={(e) => {
                     const unite = unitesExistantes.find((u) => String(u.unite_id) === String(e.target.value));
                     if (unite) {
@@ -217,7 +218,7 @@ export function PropositionsSeriesEditor({
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Nouvel état</InputLabel>
-                <Select value={etatChangement} onChange={(e) => setEtatChangement(e.target.value)} label="Nouvel état">
+                <Select value={etatChangement} onChange={(e) => setEtatChangement(e.target.value)} label="Nouvel état" inputProps={{ "aria-label": "Nouvel état" }}>
                   {ETATS_CHANGE.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
                 </Select>
               </FormControl>

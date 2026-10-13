@@ -1,362 +1,124 @@
 import { useState } from "react";
-import { Box, TextField } from "@mui/material";
-import { Search as SearchIcon } from "@mui/icons-material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS } from "../../../constants/api";
-import { usePagination } from "../../../hooks/usePagination";
-import { usePermission } from "../../../hooks/usePermission";
-import { useNotification } from "../../../components/common/NotificationProvider";
-import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { PageHeader } from "../../../components/common/PageHeader";
-import { ErrorAlert } from "../../../components/common/ErrorAlert";
-import { ActionButtons } from "../../../components/common/ActionButtons";
-import { SelectFilter } from "../../../components/common/SelectFilter";
-import { PaginatedDataGrid } from "../../../components/common/PaginatedDataGrid";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
-import { EmployeeFormModal } from "../components/EmployeeFormModal";
+import { Box } from "@mui/material";
+
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { ErrorAlert } from "@/components/feedback/ErrorAlert";
+import { SearchField } from "@/components/forms/SearchField";
+import { SelectFilter } from "@/components/forms/SelectFilter";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ActionButtons } from "@/components/table/ActionButtons";
+import { actionsColumn } from "@/components/table/columns";
+import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
+import { API_ENDPOINTS } from "@/config/endpoints";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useCrudMutations } from "@/hooks/useCrudMutations";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { toOptions, useDirections, useServices, useSites } from "@/hooks/useReferenceData";
+import { getErrorMessage } from "@/lib/api/errors";
+
+import { employeesApi, ORGANISATION_KEYS } from "../api/organisationApi";
 import { EmployeeDetailModal } from "../components/EmployeeDetailModal";
+import { EmployeeFormModal } from "../components/EmployeeFormModal";
 import { EmployeeImportModal } from "../components/EmployeeImportModal";
+import { MatriculeChip } from "../components/MatriculeChip";
+
+const FILTRES_VIDES = { site: "", direction: "", service: "" };
 
 export function EmployeesPage() {
-  const notify = useNotification();
-  const queryClient = useQueryClient();
-  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const { paginationModel, setPaginationModel, resetPage } = usePagination(25);
   const { canManageEmployee } = usePermission();
+  const { confirm, dialogProps } = useConfirmDialog();
+  const { remove, invalidate } = useCrudMutations(employeesApi, ORGANISATION_KEYS, { deleted: "Employé supprimé avec succès" });
+  const { data: sites = [] } = useSites();
+  const { data: directions = [] } = useDirections();
+  const { data: services = [] } = useServices();
 
   const [search, setSearch] = useState("");
-  const [siteFiltre, setSiteFiltre] = useState("");
-  const [directionFiltre, setDirectionFiltre] = useState("");
-  const [serviceFiltre, setServiceFiltre] = useState("");
+  const [filtres, setFiltres] = useState(FILTRES_VIDES);
+  const [modal, setModal] = useState({ type: null, employee: null });
+  const debouncedSearch = useDebouncedValue(search);
 
-  const [employeeToEdit, setEmployeeToEdit] = useState(null);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const list = usePaginatedList(
+    ["employees"],
+    API_ENDPOINTS.EMPLOYEES,
+    { search: debouncedSearch, emp_site_id: filtres.site, emp_dir_id: filtres.direction, emp_serv_id: filtres.service },
+  );
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: [
-      "employees",
-      {
-        page: paginationModel.page + 1,
-        pageSize: paginationModel.pageSize,
-        search,
-        site: siteFiltre,
-        direction: directionFiltre,
-        service: serviceFiltre,
-      },
-    ],
-    queryFn: async () => {
-      const params = {
-        page: paginationModel.page + 1,
-        page_size: paginationModel.pageSize,
-      };
-      if (search) params.search = search;
-      if (siteFiltre) params.emp_site_id = siteFiltre;
-      if (directionFiltre) params.emp_dir_id = directionFiltre;
-      if (serviceFiltre) params.emp_serv_id = serviceFiltre;
+  const ouvrir = (type, employee = null) => setModal({ type, employee });
+  const fermer = () => setModal({ type: null, employee: null });
+  const filtre = (cle) => (valeur) => setFiltres((prev) => ({ ...prev, [cle]: valeur }));
 
-      const { data } = await apiClient.get(API_ENDPOINTS.EMPLOYEES, { params });
-      return {
-        employees: data.results ?? data,
-        totalCount: data.count ?? (data.results ?? data).length,
-      };
-    },
-    keepPreviousData: true,
-  });
-
-  const { data: sites = [] } = useQuery({
-    queryKey: ["sites", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.SITES, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-
-  const { data: directions = [] } = useQuery({
-    queryKey: ["directions", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.DIRECTIONS, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-
-  const { data: services = [] } = useQuery({
-    queryKey: ["services", "options"],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.SERVICES, { params: { page_size: 100 } });
-      return data.results ?? data;
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id) => {
-      await apiClient.delete(`${API_ENDPOINTS.EMPLOYEES}${id}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employees"] });
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-      queryClient.invalidateQueries({ queryKey: ["directions"] });
-      queryClient.invalidateQueries({ queryKey: ["sites"] });
-    },
-  });
-
-  const handleDelete = (employee) => {
+  const askDelete = (employee) =>
     confirm(
       "Supprimer l'employé",
       `Êtes-vous sûr de vouloir supprimer ${employee.emp_nom} (${employee.emp_matricule}) ?`,
-      async () => {
-        try {
-          await deleteMutation.mutateAsync(employee.emp_id);
-          notify.success("Employé supprimé avec succès");
-        } catch {
-          notify.error("Suppression impossible (employé probablement référencé ailleurs).");
-        }
-      }
+      () => remove.mutate(employee.emp_id),
     );
-  };
-
-  const openDetailModal = async (employee) => {
-    try {
-      const { data } = await apiClient.get(`${API_ENDPOINTS.EMPLOYEES}${employee.emp_id}/`);
-      setSelectedEmployee(data);
-      setIsDetailModalOpen(true);
-    } catch {
-      notify.error("Impossible de charger les détails de l'employé.");
-    }
-  };
-
-  const openFormModalForEdit = async (employee) => {
-    try {
-      const { data } = await apiClient.get(`${API_ENDPOINTS.EMPLOYEES}${employee.emp_id}/`);
-      setEmployeeToEdit(data);
-      setIsFormModalOpen(true);
-    } catch {
-      notify.error("Impossible de charger les détails de l'employé à modifier.");
-    }
-  };
 
   const columns = [
-    {
-      field: "emp_matricule",
-      headerName: "Matricule",
-      width: 120,
-      renderCell: (params) => (
-        <Box
-          sx={{
-            fontFamily: "monospace",
-            fontWeight: 700,
-            bgcolor: "#FFF8E1",
-            color: "#E65100",
-            border: "1px solid #FFE082",
-            borderRadius: 1,
-            px: 1,
-            py: 0.5,
-            fontSize: 12,
-          }}
-        >
-          {params.value}
-        </Box>
-      ),
-    },
-    {
-      field: "emp_nom",
-      headerName: "Nom & Prénoms",
-      flex: 1,
-      minWidth: 180,
-    },
-    {
-      field: "emp_fonction",
-      headerName: "Fonction",
-      width: 150,
-    },
-    {
-      field: "direction_libelle",
-      headerName: "Direction",
-      width: 180,
-    },
-    {
-      field: "service_libelle",
-      headerName: "Service",
-      width: 150,
-    },
-    {
-      field: "site_nom",
-      headerName: "Site",
-      width: 150,
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 160,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      headerAlign: "center",
-      align: "center",
-      renderCell: (params) => (
+    { field: "emp_matricule", headerName: "Matricule", autoExtraWidth: 20, renderCell: ({ value }) => <MatriculeChip value={value} /> },
+    { field: "emp_nom", headerName: "Nom & Prénoms" },
+    { field: "emp_fonction", headerName: "Fonction" },
+    { field: "direction_libelle", headerName: "Direction" },
+    { field: "service_libelle", headerName: "Service" },
+    { field: "site_nom", headerName: "Site" },
+    actionsColumn(
+      ({ row }) => (
         <ActionButtons
-          onView={() => openDetailModal(params.row)}
-          onEdit={canManageEmployee ? () => openFormModalForEdit(params.row) : null}
-          onDelete={canManageEmployee ? () => handleDelete(params.row) : null}
+          onView={() => ouvrir("detail", row)}
+          onEdit={canManageEmployee ? () => ouvrir("form", row) : null}
+          onDelete={canManageEmployee ? () => askDelete(row) : null}
         />
       ),
-    },
-  ];
-
-  const siteOptions = [
-    { value: "", label: "Tous les sites" },
-    ...sites.map((s) => ({ value: s.site_id, label: s.site_nom })),
-  ];
-
-  const directionOptions = [
-    { value: "", label: "Toutes les directions" },
-    ...directions.map((d) => ({ value: d.dir_id, label: d.dir_libelle })),
-  ];
-
-  const serviceOptions = [
-    { value: "", label: "Tous les services" },
-    ...services.map((s) => ({ value: s.serv_id, label: s.serv_libelle })),
+      160,
+    ),
   ];
 
   return (
     <Box>
       <PageHeader
         actionLabel="Nouvel Employé"
-        onAction={() => {
-          setEmployeeToEdit(null);
-          setIsFormModalOpen(true);
-        }}
+        onAction={() => ouvrir("form")}
         canAction={canManageEmployee}
         secondaryActionLabel="Importer"
-        onSecondaryAction={() => setIsImportModalOpen(true)}
+        onSecondaryAction={() => ouvrir("import")}
         canSecondaryAction={canManageEmployee}
         onReset={() => {
           setSearch("");
-          setSiteFiltre("");
-          setDirectionFiltre("");
-          setServiceFiltre("");
-          resetPage();
+          setFiltres(FILTRES_VIDES);
         }}
-        hasFilters={Boolean(search || siteFiltre || directionFiltre || serviceFiltre)}
+        hasFilters={Boolean(search || filtres.site || filtres.direction || filtres.service)}
       >
-        <TextField
-          placeholder="Rechercher par nom, matricule, fonction..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            resetPage();
-          }}
-          size="small"
-          sx={{ flex: 1 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <SearchIcon fontSize="small" sx={{ color: "text.secondary", mr: 1 }} />
-              ),
-            },
-          }}
-        />
-        <SelectFilter
-          label="Site"
-          value={siteFiltre}
-          onChange={(value) => {
-            setSiteFiltre(value);
-            resetPage();
-          }}
-          options={siteOptions}
-          minWidth={150}
-        />
+        <SearchField value={search} onChange={setSearch} placeholder="Rechercher par nom, matricule, fonction..." />
+        <SelectFilter label="Site" value={filtres.site} onChange={filtre("site")} options={toOptions(sites, (s) => s.site_id, (s) => s.site_nom, "Tous les sites")} />
         <SelectFilter
           label="Direction"
-          value={directionFiltre}
-          onChange={(value) => {
-            setDirectionFiltre(value);
-            resetPage();
-          }}
-          options={directionOptions}
+          value={filtres.direction}
+          onChange={filtre("direction")}
+          options={toOptions(directions, (d) => d.dir_id, (d) => d.dir_libelle, "Toutes les directions")}
           minWidth={180}
         />
         <SelectFilter
           label="Service"
-          value={serviceFiltre}
-          onChange={(value) => {
-            setServiceFiltre(value);
-            resetPage();
-          }}
-          options={serviceOptions}
-          minWidth={150}
+          value={filtres.service}
+          onChange={filtre("service")}
+          options={toOptions(services, (s) => s.serv_id, (s) => s.serv_libelle, "Tous les services")}
         />
       </PageHeader>
-      <ErrorAlert error={error?.message} />
+      <ErrorAlert error={list.error && getErrorMessage(list.error)} />
 
-      <PaginatedDataGrid
-        rows={data?.employees || []}
-        columns={columns}
-        loading={isLoading}
-        rowCount={data?.totalCount || 0}
-        paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
-        getRowId={(row) => row.emp_id}
-        noRowsLabel="Aucun employé trouvé"
-      />
+      <PaginatedDataGrid {...list.gridProps} columns={columns} getRowId={(row) => row.emp_id} noRowsLabel="Aucun employé trouvé" />
 
-      <EmployeeFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => {
-          setIsFormModalOpen(false);
-          setEmployeeToEdit(null);
-        }}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["employees"] });
-          queryClient.invalidateQueries({ queryKey: ["services"] });
-          queryClient.invalidateQueries({ queryKey: ["directions"] });
-          queryClient.invalidateQueries({ queryKey: ["sites"] });
-        }}
-        employeeToEdit={employeeToEdit}
-        sites={sites}
-        directions={directions}
-        services={services}
-      />
-
+      <EmployeeFormModal isOpen={modal.type === "form"} onClose={fermer} employeeToEdit={modal.employee} />
       <EmployeeDetailModal
-        employee={selectedEmployee}
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedEmployee(null);
-        }}
-        onEdit={(emp) => {
-          setIsDetailModalOpen(false);
-          setSelectedEmployee(null);
-          setEmployeeToEdit(emp);
-          setIsFormModalOpen(true);
-        }}
+        employee={modal.employee}
+        isOpen={modal.type === "detail"}
+        onClose={fermer}
+        onEdit={canManageEmployee ? (emp) => ouvrir("form", emp) : undefined}
       />
-
-      <EmployeeImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["employees"] });
-          queryClient.invalidateQueries({ queryKey: ["services"] });
-          queryClient.invalidateQueries({ queryKey: ["directions"] });
-          queryClient.invalidateQueries({ queryKey: ["sites"] });
-        }}
-      />
-
-      <ConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        message={confirmState.message}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      <EmployeeImportModal isOpen={modal.type === "import"} onClose={fermer} onSuccess={invalidate} />
+      <ConfirmDialog {...dialogProps} />
     </Box>
   );
 }

@@ -1,67 +1,53 @@
+"""Envoi des e-mails de notification : texte brut, court et personnalisé.
+
+    Bonjour RAKOTO Jean,
+    La commande n°12 de RABE Marie attend votre pré-validation.
+
+Chaque destinataire reçoit son propre e-mail (salutation à son nom, et sans
+voir les adresses des autres, qui figuraient auparavant toutes dans « À »).
+Le message étant en texte brut, aucune valeur saisie ne peut être interprétée
+comme du HTML.
+"""
 import logging
+from typing import NamedTuple
 
 from django.conf import settings
-from django.core.mail import send_mail
-from django.utils.html import escape, format_html, format_html_join
+from django.core.mail import EmailMessage, get_connection
 
 logger = logging.getLogger("apps.notifications")
 
-COULEUR = "#F9A825"
 
-_GABARIT = """<html>
-<body style="font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif; background-color: #FFFFFF; color: #333333; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; border: 1px solid {couleur}; border-radius: 8px; padding: 20px;">
-    <h2 style="color: {couleur}; margin-top: 0; border-bottom: 2px solid {couleur}; padding-bottom: 10px;">{titre}</h2>
-    <p>{message}</p>
-    {tableau}
-    <p style="background-color: #FFF8E1; padding: 15px; border-left: 4px solid {couleur}; border-radius: 4px;">{note}</p>
-    <hr style="border: none; border-top: 1px solid #E0E0E0; margin: 20px 0;">
-    <p style="color: #757575; font-size: 12px; text-align: center;">
-      Notification automatique générée par le Système de Gestion de Stock Paositra.
-    </p>
-  </div>
-</body>
-</html>"""
+class Destinataire(NamedTuple):
+    email: str
+    nom: str = ""  # nom de l'employé rattaché au compte ; vide si aucun
 
 
-def _tableau(lignes):
-    if not lignes:
-        return ""
-    contenu = format_html_join(
-        "",
-        '<tr><td style="padding: 12px; border: 1px solid #E0E0E0; font-weight: bold;">{}</td>'
-        '<td style="padding: 12px; border: 1px solid #E0E0E0;">{}</td></tr>',
-        ((libelle, valeur) for libelle, valeur in lignes),
-    )
-    return format_html(
-        '<table style="width: 100%; border-collapse: collapse; margin: 20px 0; '
-        'background-color: #FAFAFA;">{}</table>',
-        contenu,
-    )
+def _une_ligne(texte):
+    """Retire les retours à la ligne : le message tient sur une ligne, et un sujet n'en accepte aucun."""
+    return " ".join(str(texte).split())
 
 
-def envoyer_notification(destinataires, sujet, titre, message_html, lignes=(), note=""):
-    destinataires = sorted({adresse for adresse in destinataires if adresse})
-    if not destinataires:
+def corps_message(nom, message):
+    salutation = f"Bonjour {_une_ligne(nom)}," if nom and nom.strip() else "Bonjour,"
+    return f"{salutation}\n{_une_ligne(message)}"
+
+
+def envoyer_notification(destinataires, sujet, message):
+    """Envoie à chaque destinataire « Bonjour <nom>, » suivi de ``message`` (une phrase)."""
+    uniques = {}
+    for destinataire in destinataires:
+        if destinataire.email and destinataire.email.lower() not in uniques:
+            uniques[destinataire.email.lower()] = destinataire
+    if not uniques:
         logger.info("Notification « %s » ignorée : aucun destinataire.", sujet)
         return 0
 
-    html = _GABARIT.format(
-        couleur=COULEUR,
-        titre=escape(titre),
-        message=message_html,
-        tableau=_tableau(lignes),
-        note=escape(note or "Vous pouvez consulter le détail directement dans l'application."),
-    )
-    texte = f"{titre}\n\n" + "\n".join(f"{libelle} : {valeur}" for libelle, valeur in lignes)
-
-    envoyes = send_mail(
-        subject=sujet,
-        message=texte,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=destinataires,
-        html_message=html,
-        fail_silently=False,
-    )
-    logger.info("Notification « %s » envoyée à %d destinataire(s).", sujet, len(destinataires))
+    sujet = _une_ligne(sujet)
+    messages = [
+        EmailMessage(sujet, corps_message(d.nom, message), settings.DEFAULT_FROM_EMAIL, [d.email])
+        for d in uniques.values()
+    ]
+    # Une seule connexion SMTP pour tous les envois.
+    envoyes = get_connection(fail_silently=False).send_messages(messages)
+    logger.info("Notification « %s » envoyée à %d destinataire(s).", sujet, envoyes)
     return envoyes

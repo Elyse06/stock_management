@@ -1948,20 +1948,6 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/notifications/test-alerte-stock/:
-    post:
-      operationId: notifications_test_alerte_stock_create
-      description: |-
-        Simule une sortie pour tester l'alerte de stock bas.
-
-        Disponible uniquement en DEBUG (voir urls.py) : elle crée un vrai mouvement.
-      tags:
-      - notifications
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          description: No response body
   /api/stock/details-mouvement/:
     get:
       operationId: stock_details_mouvement_list
@@ -5546,6 +5532,13 @@ components:
         beneficiaire_type:
           type: string
           readOnly: true
+        article_categorie:
+          type: string
+          readOnly: true
+        site_beneficiaire_nom:
+          type: string
+          readOnly: true
+          nullable: true
     PatchedUtilisateur:
       type: object
       properties:
@@ -5751,9 +5744,17 @@ components:
         beneficiaire_type:
           type: string
           readOnly: true
+        article_categorie:
+          type: string
+          readOnly: true
+        site_beneficiaire_nom:
+          type: string
+          readOnly: true
+          nullable: true
       required:
       - affectation
       - article
+      - article_categorie
       - article_code
       - article_designation
       - beneficiaire_type
@@ -5762,6 +5763,7 @@ components:
       - employe_attribue_nom
       - mouvement_entree
       - mouvement_sortie
+      - site_beneficiaire_nom
       - unite_id
     UniteArticleStatutEnum:
       enum:

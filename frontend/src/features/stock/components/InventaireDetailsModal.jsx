@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -20,15 +19,14 @@ import {
   CheckCircle as CheckCircleIcon,
   Inventory as InventoryIcon,
 } from "@mui/icons-material";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../../../api/client";
-import { API_ENDPOINTS } from "../../../constants/api";
-import { usePermission } from "../../../hooks/usePermission";
-import { useNotification } from "../../../components/common/NotificationProvider";
-import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { StatusChip } from "../../../components/common/StatusChip";
-import { CodeChip } from "../../../components/common/CodeChip";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { useQuery } from "@tanstack/react-query";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { inventairesApi } from "../api/stockApi";
+import { useValiderInventaire } from "../hooks/useValiderInventaire";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { StatusChip } from "@/components/data-display/StatusChip";
+import { CodeChip } from "@/components/data-display/CodeChip";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { InventaireInfoSection } from "./InventaireInfoSection";
 import { InventaireStatsCards } from "./InventaireStatsCards";
 import { InventaireArticlesTable } from "./InventaireArticlesTable";
@@ -40,53 +38,20 @@ const aDesPropositions = (ligne) =>
   Object.keys(ligne.propositions_series).length > 0;
 
 export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) {
-  const notify = useNotification();
-  const queryClient = useQueryClient();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { canValidateInventaire } = usePermission();
-  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-  const [validating, setValidating] = useState(false);
+  const { confirm, dialogProps } = useConfirmDialog();
+  const valider = useValiderInventaire();
+  const validating = valider.isPending;
   const id = session?.inventaire_id;
 
   // La liste n'a pas besoin des lignes : on les charge ici, à l'ouverture
   const { data: complet, isLoading, error, refetch } = useQuery({
     queryKey: ["inventaire", id],
-    queryFn: async () => {
-      const { data } = await apiClient.get(`${API_ENDPOINTS.INVENTAIRES}${id}/`);
-      return data;
-    },
+    queryFn: ({ signal }) => inventairesApi.get(id, { signal }),
     enabled: Boolean(isOpen && id),
     staleTime: 1000 * 30,
-  });
-
-  const validerMutation = useMutation({
-    mutationFn: async (inventaireId) => {
-      const { data } = await apiClient.post(
-        `${API_ENDPOINTS.INVENTAIRES}${inventaireId}/valider/`,
-        {}
-      );
-      return data;
-    },
-    onSuccess: () => {
-      notify.success("Inventaire validé avec succès. Le stock a été mis à jour.");
-      if (onSuccess) onSuccess();
-      queryClient.invalidateQueries({ queryKey: ["inventaires"] });
-      queryClient.invalidateQueries({ queryKey: ["inventaire", id] });
-    },
-    onError: (err) => {
-      const detail = err?.response?.data;
-      if (detail && typeof detail === "object") {
-        notify.error(
-          Object.entries(detail)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-            .join(" | ")
-        );
-      } else {
-        notify.error("Erreur lors de la validation de l'inventaire.");
-      }
-    },
-    onSettled: () => setValidating(false),
   });
 
   if (!session) return null;
@@ -102,10 +67,7 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
     confirm(
       "Valider l'inventaire",
       "Voulez-vous vraiment valider cet inventaire ? Cette action est irréversible. Continuer ?",
-      async () => {
-        setValidating(true);
-        await validerMutation.mutateAsync(session.inventaire_id);
-      }
+      () => valider.mutate(session.inventaire_id, { onSuccess: () => onSuccess?.() })
     );
   };
 
@@ -116,7 +78,7 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
       maxWidth="md"
       fullWidth
       fullScreen={fullScreen}
-      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : 2 } }}
+      slotProps={{ paper: { sx: { borderRadius: fullScreen ? 0 : 2 } } }}
     >
       <DialogTitle
         sx={{
@@ -241,13 +203,7 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
         )}
       </DialogActions>
 
-      <ConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        message={confirmState.message}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      <ConfirmDialog {...dialogProps} />
     </Dialog>
   );
 }

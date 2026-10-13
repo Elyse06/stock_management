@@ -1,12 +1,11 @@
 import logging
 
 from celery import shared_task
-from django.utils.html import format_html
 
 from apps.catalogue.models import Article
 from apps.common.emails import envoyer_notification
 from apps.common.stock import stock_article_magasin
-from apps.notifications.destinataires import emails_gestion_catalogue
+from apps.notifications.destinataires import gestion_catalogue
 from apps.stock.models import Magasin
 
 logger = logging.getLogger("apps.notifications")
@@ -25,16 +24,12 @@ def notifier_stock_bas(self, code_article, magasin_id, magasin_nom=None):
 
     try:
         envoyer_notification(
-            emails_gestion_catalogue(),
-            sujet=f"Alerte Stock : {article.designation} ({magasin.magasin_nom})",
-            titre="Alerte Stock Bas",
-            message_html=format_html(
-                "L'article <strong>{}</strong> (Code : {}) a atteint un niveau de stock critique "
-                "dans le magasin <strong>{}</strong>.",
-                article.designation, article.code_article, magasin.magasin_nom,
+            gestion_catalogue(),
+            sujet=f"Stock bas : {article.designation} ({magasin.magasin_nom})",
+            message=(
+                f"Le stock de « {article.designation} » ({article.code_article}) au {magasin.magasin_nom} "
+                f"est de {stock}, sous le seuil de {article.seuil} : pensez à le réapprovisionner."
             ),
-            lignes=[("Magasin", magasin.magasin_nom), ("Stock actuel", stock), ("Seuil d'alerte", article.seuil)],
-            note=f"Merci de vérifier vos approvisionnements pour le magasin {magasin.magasin_nom}.",
         )
     except Exception as exc:
         logger.warning("Échec de l'alerte stock %s / %s : %s", code_article, magasin_id, exc)

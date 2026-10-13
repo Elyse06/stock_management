@@ -1,32 +1,39 @@
-import { useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 
+const FERME = { open: false, title: "", message: "" };
+
+/**
+ * Boîte de confirmation.
+ *
+ * >>> const { confirm, dialogProps } = useConfirmDialog();
+ * >>> confirm("Supprimer", "Êtes-vous sûr ?", () => remove.mutate(id));
+ * >>> <ConfirmDialog {...dialogProps} />
+ */
 export function useConfirmDialog() {
-  const [confirmState, setConfirmState] = useState({
-    open: false,
-    title: "",
-    message: "",
-    onConfirm: null,
-  });
+  const [state, setState] = useState(FERME);
+  const callback = useRef(null);
 
   const confirm = useCallback((title, message, onConfirm) => {
-    setConfirmState({
-      open: true,
-      title,
-      message,
-      onConfirm,
-    });
+    callback.current = onConfirm;
+    setState({ open: true, title, message });
+  }, []);
+
+  const close = useCallback(() => {
+    callback.current = null;
+    setState(FERME);
   }, []);
 
   const handleConfirm = useCallback(() => {
-    if (confirmState.onConfirm) {
-      confirmState.onConfirm();
-    }
-    setConfirmState({ open: false, title: "", message: "", onConfirm: null });
-  }, [confirmState]);
+    const action = callback.current;
+    close();
+    action?.();
+  }, [close]);
 
-  const handleCancel = useCallback(() => {
-    setConfirmState({ open: false, title: "", message: "", onConfirm: null });
-  }, []);
-
-  return { confirmState, confirm, handleConfirm, handleCancel };
+  return {
+    confirm,
+    confirmState: state,
+    handleConfirm,
+    handleCancel: close,
+    dialogProps: { ...state, onConfirm: handleConfirm, onCancel: close },
+  };
 }

@@ -1,6 +1,6 @@
 import { Box, Typography, Avatar } from "@mui/material";
 
-export function StatCard({ icon, label, value, color = "primary", onClick, badge }) {
+export function StatCard({ icon, label, value, onClick, badge }) {
   return (
     <Box
       onClick={onClick}

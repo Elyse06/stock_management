@@ -10,7 +10,6 @@ import {
  */
 export function WizardActions({
   activeStep,
-  totalSteps,
   onBack,
   onNext,
   onSubmit,

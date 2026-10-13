@@ -3,6 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.catalogue.models import Article, Categorie, Fournisseur
+from apps.catalogue.services.codes_categorie import code_categorie_disponible
 from apps.common.imports import detecter_index_entete as _detecter_index_entete
 from apps.common.imports import (
     executer_avec_dry_run,
@@ -78,12 +79,11 @@ class ResolveurAffectation:
 
 
 def get_or_create_categorie(famille):
-    famille = (texte_ou_vide(famille) or "DIVERS")[:20]
-    categorie, _ = Categorie.objects.get_or_create(
-        cat_libelle=famille,
-        defaults={"cat_description": f"Créée automatiquement à l'import ({famille})"},
-    )
-    return categorie
+    famille = " ".join((texte_ou_vide(famille) or "DIVERS").split())
+    existante = Categorie.objects.filter(cat_description__iexact=famille).order_by("categorie_id").first()
+    if existante:
+        return existante
+    return Categorie.objects.create(cat_libelle=code_categorie_disponible(famille), cat_description=famille)
 
 
 def get_or_create_fournisseur(nom):

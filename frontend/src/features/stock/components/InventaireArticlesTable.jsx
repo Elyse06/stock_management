@@ -8,9 +8,9 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
-import { CodeChip } from "../../../components/common/CodeChip";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-import { StyledTable } from "../../../components/wizard/StyledTable";
+import { CodeChip } from "@/components/data-display/CodeChip";
+import { EmptyValue } from "@/components/data-display/EmptyValue";
+import { StyledTable } from "@/components/table/StyledTable";
 
 const COLUMNS = [
   { label: "Article" },

@@ -8,6 +8,8 @@ from .unite_article import UniteArticleSerializer
 
 
 class DetailMouvementListSerializer(serializers.ListSerializer):
+    """Charge en une requête les QR codes de tous les détails de la liste."""
+
     def to_representation(self, data):
         details = list(data.all() if hasattr(data, "all") else data)
         self.child.qr_cache = qr_payloads_par_code(
@@ -49,9 +51,6 @@ class DetailMouvementSerializer(BeneficiaireWriteMixin, serializers.ModelSeriali
 
     def validate(self, attrs):
         self.valider_beneficiaire_unique(attrs)
-        article = attrs.get("article") or (self.instance.article if self.instance else None)
-        if article and not article.is_immobilisation and attrs.get("employe_beneficiaire"):
-            raise serializers.ValidationError("Une fourniture ne peut pas être attribuée à un employé.")
         return attrs
 
     def _appliquer_affectation(self, validated_data):

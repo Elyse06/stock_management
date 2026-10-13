@@ -1,28 +1,25 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DEFAULT_PAGE_SIZE } from "@/constants/pagination";
 
-export function usePagination(initialPageSize = 25) {
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: initialPageSize,
-  });
+/**
+ * État de pagination (page indexée à 0). Si ``resetOn`` change (filtres),
+ * la page revient à 0.
+ */
+export function usePagination(initialPageSize = DEFAULT_PAGE_SIZE, resetOn) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: initialPageSize });
 
   const resetPage = useCallback(() => {
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setPaginationModel((prev) => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, []);
 
-  const changePage = useCallback((newPage) => {
-    setPaginationModel((prev) => ({ ...prev, page: newPage }));
-  }, []);
+  const signature = JSON.stringify(resetOn ?? null);
+  const previous = useRef(signature);
+  useEffect(() => {
+    if (previous.current !== signature) {
+      previous.current = signature;
+      resetPage();
+    }
+  }, [signature, resetPage]);
 
-  const changePageSize = useCallback((newPageSize) => {
-    setPaginationModel({ page: 0, pageSize: newPageSize });
-  }, []);
-
-  return {
-    paginationModel,
-    setPaginationModel,
-    resetPage,
-    changePage,
-    changePageSize,
-  };
+  return { paginationModel, setPaginationModel, resetPage };
 }

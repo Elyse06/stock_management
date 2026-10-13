@@ -27,6 +27,8 @@ class AttributionDetailCommandeSerializer(BeneficiaireWriteMixin, serializers.Mo
             "statut", "motif_refus",
             "code_unique", "date_acquisition", "qr_code_data",
         ]
+        # statut / quantite_validee / motif_refus ne changent QUE via l'action
+        # « traiter » : sinon un demandeur pourrait valider sa propre attribution.
         read_only_fields = [  # noqa: RUF012
             "id", "detail_commande", "code_unique", "qr_code_data", "date_acquisition",
             "statut", "quantite_validee", "motif_refus",
@@ -38,9 +40,6 @@ class AttributionDetailCommandeSerializer(BeneficiaireWriteMixin, serializers.Mo
             raise serializers.ValidationError(
                 "Un bénéficiaire est requis : employé, direction, salle ou site."
             )
-        detail = attrs.get("detail_commande", getattr(self.instance, "detail_commande", None))
-        if detail and not detail.article.is_immobilisation and attrs.get("employe_beneficiaire"):
-            raise serializers.ValidationError("Une fourniture ne peut pas être attribuée à un employé.")
         return attrs
 
     def create(self, validated_data):

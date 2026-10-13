@@ -13,6 +13,7 @@ from apps.stock.models import (
 
 @transaction.atomic
 def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
+    """Transfert = retour au magasin puis nouvelle sortie vers le nouveau bénéficiaire."""
     unite = (
         UniteArticle.objects.select_for_update()
         .select_related(
@@ -41,8 +42,6 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
         raise serializers.ValidationError(
             "Le nouveau bénéficiaire doit être différent du bénéficiaire actuel."
         )
-    if not unite.article.is_immobilisation and isinstance(nouveau_beneficiaire, Employer):
-        raise serializers.ValidationError("Une fourniture ne peut être transférée qu'à une direction.")
 
     mouvement_retour = Mouvement.objects.create(
         type_mouvement=Mouvement.Type.RETOUR,

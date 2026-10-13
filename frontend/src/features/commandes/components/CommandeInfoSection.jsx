@@ -6,8 +6,8 @@ import {
   AssignmentInd as AssignmentIndIcon,
   Comment as CommentIcon,
 } from "@mui/icons-material";
-import { EmptyValue } from "../../../components/common/EmptyValue";
-import { formatDateTime } from "../../../utils/formatters";
+import { EmptyValue } from "@/components/data-display/EmptyValue";
+import { formatDateTime } from "@/utils/formatters";
 
 const TRAITANT_LABEL = {
   EN_COURS: "Pré-validé par",
