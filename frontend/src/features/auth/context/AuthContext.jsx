@@ -47,6 +47,12 @@ export function AuthProvider({ children }) {
     return me;
   }, []);
 
+  const changerMotDePasse = useCallback(async (ancien, nouveau) => {
+    const me = await authApi.changerMotDePasse(ancien, nouveau);
+    setUser(me);
+    return me;
+  }, []);
+
   const logout = useCallback(() => {
     authApi.logout();
     resetSession();
@@ -60,12 +66,13 @@ export function AuthProvider({ children }) {
       login,
       logout,
       refreshUser,
+      changerMotDePasse,
       /** Vrai si l'utilisateur possède TOUTES les actions. */
       hasAction: (...ids) => ids.every((id) => actions.has(id)),
       /** Vrai si l'utilisateur possède AU MOINS UNE des actions (ou si la liste est vide). */
       hasAnyAction: (...ids) => ids.length === 0 || ids.some((id) => actions.has(id)),
     };
-  }, [user, initializing, login, logout, refreshUser]);
+  }, [user, initializing, login, logout, refreshUser, changerMotDePasse]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

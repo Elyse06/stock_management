@@ -21,6 +21,7 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { employeesApi, ORGANISATION_KEYS } from "../api/organisationApi";
 import { EmployeeDetailModal } from "../components/EmployeeDetailModal";
 import { EmployeeFormModal } from "../components/EmployeeFormModal";
+import { EmailImportModal } from "../components/email-import/EmailImportModal";
 import { EmployeeImportModal } from "../components/EmployeeImportModal";
 import { MatriculeChip } from "../components/MatriculeChip";
 
@@ -81,8 +82,13 @@ export function EmployeesPage() {
         actionLabel="Nouvel Employé"
         onAction={() => ouvrir("form")}
         canAction={canManageEmployee}
-        secondaryActionLabel="Importer"
-        onSecondaryAction={() => ouvrir("import")}
+        secondaryMenu={{
+          label: "Importer",
+          items: [
+            { label: "Employés", onClick: () => ouvrir("import") },
+            { label: "Adresses électroniques", onClick: () => ouvrir("import-emails") },
+          ],
+        }}
         canSecondaryAction={canManageEmployee}
         onReset={() => {
           setSearch("");
@@ -118,6 +124,7 @@ export function EmployeesPage() {
         onEdit={canManageEmployee ? (emp) => ouvrir("form", emp) : undefined}
       />
       <EmployeeImportModal isOpen={modal.type === "import"} onClose={fermer} onSuccess={invalidate} />
+      <EmailImportModal isOpen={modal.type === "import-emails"} onClose={fermer} />
       <ConfirmDialog {...dialogProps} />
     </Box>
   );

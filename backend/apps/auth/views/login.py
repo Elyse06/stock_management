@@ -18,6 +18,8 @@ from apps.utilisateur.models import Utilisateur
 
 logger = logging.getLogger("apps.auth")
 
+# Hash factice : permet de passer le même temps de calcul que l'utilisateur
+# existe ou non (empêche de deviner les e-mails valides par le temps de réponse).
 @cache
 def _hash_factice():
     return make_password("mot-de-passe-factice-pour-temps-constant")
@@ -43,6 +45,7 @@ def login_view(request):
         return Response({"detail": "Identifiants invalides."}, status=status.HTTP_401_UNAUTHORIZED)
 
     def _mettre_a_jour_hash(mot_de_passe):
+        # Re-hash transparent si l'algorithme ou le nombre d'itérations a évolué.
         user.utilisateur_mdp = make_password(mot_de_passe)
         user.save(update_fields=["utilisateur_mdp"])
 
@@ -51,4 +54,4 @@ def login_view(request):
         return Response({"detail": "Identifiants invalides."}, status=status.HTTP_401_UNAUTHORIZED)
 
     access, refresh = generer_tokens(user)
-    return Response({"access": access, "refresh": refresh})
+    return Response({"access": access, "refresh": refresh, "mdp_a_changer": user.mdp_a_changer})

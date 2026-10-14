@@ -6,6 +6,7 @@ from apps.common.permissions import get_user_actions
 
 
 def _employe(employee):
+    """Résumé de l'employé lié (None si le compte n'est rattaché à personne)."""
     if employee is None:
         return None
     return {
@@ -24,5 +25,7 @@ def me_view(request):
         "utilisateur_id": user.utilisateur_id,
         "utilisateur_mail": user.utilisateur_mail,
         "actions": sorted(get_user_actions(user)),
+        "mdp_a_changer": user.mdp_a_changer,
+        # Évite au frontend de charger tous les employés pour retrouver le sien.
         "employe": _employe(get_request_employee(request)),
     })

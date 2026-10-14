@@ -15,6 +15,8 @@ export function ProtectedRoute({ children, actions = [] }) {
 
   if (loading) return <PageLoader fullScreen />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
+  // Mot de passe temporaire : il doit être changé avant tout (le serveur bloque aussi le reste).
+  if (user.mdp_a_changer) return <Navigate to="/changer-mot-de-passe" replace state={{ from: location }} />;
   if (!hasAnyAction(...actions)) return <ForbiddenPage />;
   return children;
 }

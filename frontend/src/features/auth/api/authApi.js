@@ -23,6 +23,13 @@ export async function restoreSession() {
   return fetchCurrentUser();
 }
 
+/** Change son mot de passe ; les anciens jetons sont révoqués, les nouveaux sont enregistrés. */
+export async function changerMotDePasse(ancien, nouveau) {
+  const { data } = await apiClient.post(API_ENDPOINTS.CHANGER_MOT_DE_PASSE, { ancien, nouveau });
+  setTokens({ access: data.access, refresh: data.refresh });
+  return fetchCurrentUser();
+}
+
 export function logout() {
   clearTokens();
 }

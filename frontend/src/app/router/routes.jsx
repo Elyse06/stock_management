@@ -11,6 +11,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 const page = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
 
 const LoginPage = page(() => import("@/features/auth/pages/LoginPage"), "LoginPage");
+const ChangerMotDePassePage = page(() => import("@/features/auth/pages/ChangerMotDePassePage"), "ChangerMotDePassePage");
 const DashboardPage = page(() => import("@/features/dashboard/pages/DashboardPage"), "DashboardPage");
 const ArticlePremiumPage = page(() => import("@/features/catalogue/pages/ArticlePremiumPage"), "ArticlePremiumPage");
 const ArticleListPage = page(() => import("@/features/catalogue/pages/ArticleListPage"), "ArticleListPage");
@@ -83,6 +84,7 @@ export function AppRoutes() {
     <Suspense fallback={<PageLoader fullScreen />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/changer-mot-de-passe" element={<ChangerMotDePassePage />} />
         <Route
           element={
             <ProtectedRoute>

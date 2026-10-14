@@ -1,5 +1,6 @@
-import { Box, Typography, Button } from "@mui/material";
-import { Add as AddIcon } from "@mui/icons-material";
+import { useState } from "react";
+import { Box, Typography, Button, Menu, MenuItem } from "@mui/material";
+import { Add as AddIcon, ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 
 export function PageHeader({
   title,
@@ -10,11 +11,13 @@ export function PageHeader({
   secondaryActionLabel,
   onSecondaryAction,
   canSecondaryAction = true,
+  secondaryMenu,
   children,
   onReset,
   hasFilters,
 }) {
   const hasFilterBar = Boolean(children);
+  const [ancreMenu, setAncreMenu] = useState(null);
 
   return (
     <Box
@@ -76,6 +79,34 @@ export function PageHeader({
         >
           {secondaryActionLabel}
         </Button>
+      )}
+      {/* Action secondaire à plusieurs choix : secondaryMenu = { label, items: [{ label, onClick }] } */}
+      {canSecondaryAction && secondaryMenu && (
+        <>
+          <Button
+            variant="outlined"
+            endIcon={<ExpandMoreIcon />}
+            onClick={(e) => setAncreMenu(e.currentTarget)}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(ancreMenu)}
+            sx={{ ml: actionLabel ? 0 : { xs: 0, sm: "auto" }, width: { xs: "100%", sm: "auto" } }}
+          >
+            {secondaryMenu.label}
+          </Button>
+          <Menu anchorEl={ancreMenu} open={Boolean(ancreMenu)} onClose={() => setAncreMenu(null)}>
+            {secondaryMenu.items.map((item) => (
+              <MenuItem
+                key={item.label}
+                onClick={() => {
+                  setAncreMenu(null);
+                  item.onClick();
+                }}
+              >
+                {item.label}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
       )}
     </Box>
   );

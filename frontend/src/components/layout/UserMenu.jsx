@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, Divider, IconButton, Menu, MenuItem, Typography } from "@mui/material";
-import { Logout as LogoutIcon } from "@mui/icons-material";
+import { Key as KeyIcon, Logout as LogoutIcon } from "@mui/icons-material";
 
 export function UserMenu({ user, onLogout }) {
   const [anchor, setAnchor] = useState(null);
+  const navigate = useNavigate();
   const email = user?.utilisateur_mail || "Utilisateur";
 
   return (
@@ -18,6 +20,15 @@ export function UserMenu({ user, onLogout }) {
           <Typography variant="body2">{email}</Typography>
         </MenuItem>
         <Divider />
+        <MenuItem
+          onClick={() => {
+            setAnchor(null);
+            navigate("/changer-mot-de-passe");
+          }}
+        >
+          <KeyIcon fontSize="small" sx={{ mr: 1 }} />
+          Changer mon mot de passe
+        </MenuItem>
         <MenuItem
           onClick={() => {
             setAnchor(null);

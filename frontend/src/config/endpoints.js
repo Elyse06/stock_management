@@ -3,6 +3,7 @@ export const API_ENDPOINTS = Object.freeze({
   // Authentification
   LOGIN: "/api/auth/login/",
   ME: "/api/auth/me/",
+  CHANGER_MOT_DE_PASSE: "/api/auth/changer-mot-de-passe/",
   REFRESH: "/api/auth/refresh/",
 
   // Catalogue
@@ -37,6 +38,7 @@ export const API_ENDPOINTS = Object.freeze({
   DIRECTIONS: "/api/employee/direction/",
   EMPLOYEES: "/api/employee/employee/",
   EMPLOYEES_IMPORT: "/api/employee/employee/import/",
+  EMPLOYEES_IMPORT_EMAILS: "/api/employee/employee/import-emails/",
   SERVICES: "/api/employee/service/",
   SITES: "/api/employee/sites/",
 
