@@ -1,90 +1,88 @@
+name: tahiry
+
+x-backend: &backend
+  build: ./backend
+  image: tahiry-backend:latest
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-backend-env: &backend-env
+  DB_ENGINE: mssql
+  DB_HOST: db
+  DB_PORT: "1433"
+  DB_USER: sa
+  DB_TRUST_CERT: "yes"
+  REDIS_URL: redis://redis:6379/0
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,192.168.88.239}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+  #À passer à True derrière un proxy HTTPS.
+  SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-False}
+  SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-0}
+
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    restart: unless-stopped
+    platform: linux/amd64
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${DB_PASSWORD:-StockDb!Password1}
-      MSSQL_PID: Developer
-    volumes:
-      - mssql_data:/var/opt/mssql
+      MSSQL_PID: ${MSSQL_PID:-Express}
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?Renseigner DB_PASSWORD dans le fichier .env}
     ports:
-      - "1433:1433"
+      - "${PORT_SQLSERVER:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
-
-  db_init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    restart: "no"
-    depends_on:
-      db:
-        condition: service_healthy
-    entrypoint: >
-      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P "${DB_PASSWORD:-StockDb!Password1}" -C
-      -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_NAME:-stock_db}') CREATE DATABASE [${DB_NAME:-stock_db}]; ALTER DATABASE [${DB_NAME:-stock_db}] SET COMPATIBILITY_LEVEL = 160"
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
-    ports:
-      - "6379:6379"
 
   backend:
-    build: ./backend
-    restart: unless-stopped
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
-    env_file:
-      - ./backend/.env
-    depends_on:
-      db_init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
+    <<: *backend
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "1"
+    expose:
+      - "8000"
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "2"]
+    environment:
+      <<: *backend-env
 
   frontend:
-    build: ./frontend
-    restart: unless-stopped
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /
+    environment:
+      BACKEND_URL: http://backend:8000
+      API_ORIGIN: ""
     ports:
-      - "5173:5173"
-    env_file:
-      - ./frontend/.env
+      - "${PORT_APPLICATION:-8080}:8080"
     depends_on:
       - backend
-
-  celery_worker:
-    build: ./backend
     restart: unless-stopped
-    command: celery -A config worker -l info
-    volumes:
-      - ./backend:/app
-    env_file:
-      - ./backend/.env
-    depends_on:
-      - db_init
-      - redis
-
-  celery_beat:
-    build: ./backend
-    restart: unless-stopped
-    command: celery -A config beat -l info
-    volumes:
-      - ./backend:/app
-    env_file:
-      - ./backend/.env
-    depends_on:
-      - db_init
-      - redis
 
 volumes:
-  mssql_data:
+  sqlserver-data:
+  redis-data:

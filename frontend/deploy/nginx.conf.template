@@ -1,0 +1,63 @@
+# Gabarit traité par l'image nginx (envsubst) : ${API_ORIGIN} et ${BACKEND_URL} sont remplacés au démarrage.
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # En-têtes de sécurité (aussi sur les réponses d'erreur).
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ${API_ORIGIN}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+
+    # Fichiers fingerprintés par Vite : cache long et immuable.
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # index.html ne doit jamais être mis en cache (il référence les fichiers de la version courante).
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ${API_ORIGIN}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    # API Django relayée sous la même adresse que l'application (pas de CORS à configurer).
+    # Résolution par le DNS interne de Docker à chaque requête : nginx démarre même si le
+    # backend n'est pas encore prêt, et suit ses redémarrages.
+    location /api/ {
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $backend "${BACKEND_URL}";
+        proxy_pass $backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 20m;      # imports Excel (10 Mo maximum côté serveur)
+        proxy_read_timeout 180s;       # imports et assistant IA
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Application monopage : toute route inconnue renvoie index.html.
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # Pas de fichiers cachés (.env, .git...).
+    location ~ /\. {
+        deny all;
+    }
+}

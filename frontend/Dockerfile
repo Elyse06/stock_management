@@ -12,7 +12,9 @@ RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 
-ENV API_ORIGIN=http://localhost:8000
+# API_ORIGIN (ex. https://api.tahiry.mg) alimente la politique CSP « connect-src » ;
+ENV API_ORIGIN=http://localhost:8000 \
+    BACKEND_URL=http://backend:8000
 COPY deploy/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
