@@ -20,6 +20,7 @@ const MODELE = ["Adresse électronique", "Prénom et nom", "Type", "Matricule"];
 const EXEMPLE = { "Adresse électronique": "jean.rakoto@paositra.mg", "Prénom et nom": "RAKOTO Jean", Type: "Agent", Matricule: "8101" };
 const COULEUR = { ERREUR: "error", "IGNORÉ": "default", "CRÉÉ": "success", "MIS À JOUR": "info", "RATTACHÉ": "info" };
 
+/** Import des adresses de connexion : crée, rattache ou met à jour le compte de chaque employé (par matricule). */
 export function EmailImportModal({ isOpen, onClose }) {
   const queryClient = useQueryClient();
   const { fichier, rapport, etape, loading, erreur, overwrite, setOverwrite, ETAPES, choisirFichier, previsualiser, confirmer } =
@@ -67,10 +68,15 @@ export function EmailImportModal({ isOpen, onClose }) {
           {etape === ETAPES.CONFIRME && rapport ? (
             <>
               <ImportResultCard rapport={rapport} libelle="compte(s)" />
-              {identifiants.length > 0 && <IdentifiantsCrees identifiants={identifiants} motDePasse={rapport.mot_de_passe_temporaire} />}
+              {identifiants.length > 0 && <IdentifiantsCrees identifiants={identifiants} />}
             </>
           ) : (
             <>
+              <Alert severity="info" variant="outlined">
+                Seules les colonnes « Adresse électronique » et « Matricule » sont utilisées. Un employé sans compte reçoit un
+                compte au profil standard ; après la confirmation, un e-mail lui envoie le lien de l'application et un
+                mot de passe temporaire personnel, à changer à sa première connexion.
+              </Alert>
               <FileDropZone fichier={fichier} onChoisir={choisirFichier} disabled={loading} extensions={EXTENSIONS_EMAILS} />
               {loading && <LinearProgress />}
               {erreur && <Alert severity="error">{erreur}</Alert>}

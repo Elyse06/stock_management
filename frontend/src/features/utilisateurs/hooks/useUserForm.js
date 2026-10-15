@@ -56,8 +56,8 @@ export function useUserForm({ open, initialData, isSelf }) {
     const e = {};
     if (!mail.trim()) e.mail = "L'adresse email est obligatoire.";
     else if (!EMAIL_RE.test(mail.trim())) e.mail = "Adresse email invalide.";
-    if (!isEdit && !password) e.password = "Le mot de passe est obligatoire.";
-    else if (password) e.password = verifierMotDePasse(password);
+    // Mot de passe facultatif : sans saisie, un mot de passe temporaire est envoyé par e-mail.
+    if (password) e.password = verifierMotDePasse(password);
     if (actionsRetenues.length === 0) e.actions = "Accordez au moins une permission.";
     const nettoye = Object.fromEntries(Object.entries(e).filter(([, v]) => v));
     setErrors(nettoye);

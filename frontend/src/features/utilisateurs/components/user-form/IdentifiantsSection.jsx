@@ -50,7 +50,7 @@ export function IdentifiantsSection({ form, disabled }) {
         <TextField
           fullWidth
           size="small"
-          label={form.isEdit ? "Nouveau mot de passe" : "Mot de passe"}
+          label={form.isEdit ? "Nouveau mot de passe" : "Mot de passe (facultatif)"}
           type={visible ? "text" : "password"}
           value={form.password}
           onChange={(e) => {
@@ -60,9 +60,10 @@ export function IdentifiantsSection({ form, disabled }) {
           error={Boolean(form.errors.password)}
           helperText={
             form.errors.password ||
-            (form.isEdit ? "Laissez vide pour le conserver" : `${PASSWORD_MIN_LENGTH} caractères minimum, pas uniquement des chiffres`)
+            (form.isEdit
+              ? "Laissez vide pour le conserver"
+              : `Laissez vide pour envoyer par e-mail un mot de passe temporaire, à changer à la première connexion (${PASSWORD_MIN_LENGTH} caractères minimum si saisi)`)
           }
-          required={!form.isEdit}
           autoComplete="new-password"
           disabled={disabled}
           slotProps={{

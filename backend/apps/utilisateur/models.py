@@ -5,9 +5,8 @@ class Utilisateur(models.Model):
     utilisateur_id = models.AutoField(primary_key=True)
     utilisateur_mail = models.EmailField(unique=True)
     utilisateur_mdp = models.CharField(max_length=255)
-    # Vrai tant que l'utilisateur garde un mot de passe temporaire (comptes créés par import) :
-    # il doit le changer avant de pouvoir utiliser l'application.
     mdp_a_changer = models.BooleanField(default=False)
+    acces_envoye_le = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "t_utilisateur"

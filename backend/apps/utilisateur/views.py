@@ -1,11 +1,15 @@
+from django.db import transaction
 from django.db.models import Prefetch
-from rest_framework import filters, viewsets
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
 
 from apps.common import actions
 from apps.common.permissions import HasAction
 from apps.employee.models import Employer
 
+from .acces import demander_envoi_acces, preparer_sans_mot_de_passe
 from .models import Action, Autoriser, Utilisateur
 from .serializers import ActionSerializer, AutoriserSerializer, UtilisateurSerializer
 
@@ -29,6 +33,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         ).order_by("utilisateur_id")
 
     def perform_update(self, serializer):
+        # Empêche un administrateur de se retirer lui-même la gestion des utilisateurs.
         nouvelles_actions = serializer.validated_data.get("actions")
         if (
             serializer.instance.pk == self.request.user.pk
@@ -39,6 +44,18 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
                 {"actions": "Vous ne pouvez pas retirer votre propre droit de gestion des utilisateurs."}
             )
         serializer.save()
+
+    @action(detail=True, methods=["post"], url_path="renvoyer-acces")
+    def renvoyer_acces(self, request, pk=None):
+        """Renvoie un nouveau mot de passe temporaire à un compte pas encore activé."""
+        compte = self.get_object()
+        if not compte.mdp_a_changer:
+            raise ValidationError({"detail": "Ce compte est déjà activé : l'utilisateur a choisi son mot de passe."})
+        with transaction.atomic():
+            preparer_sans_mot_de_passe(compte)  # l'ancien mot de passe temporaire cesse de fonctionner
+            compte.save(update_fields=["utilisateur_mdp", "mdp_a_changer", "acces_envoye_le"])
+            demander_envoi_acces(compte)
+        return Response({"detail": f"Un nouvel accès va être envoyé à {compte.utilisateur_mail}."}, status=status.HTTP_202_ACCEPTED)
 
     def perform_destroy(self, instance):
         if instance.pk == self.request.user.pk:

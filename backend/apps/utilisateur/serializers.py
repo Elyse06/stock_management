@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from apps.employee.models import Employer
 
+from .acces import demander_envoi_acces, preparer_sans_mot_de_passe
 from .models import Action, Autoriser, Utilisateur
 from .roles import determiner_role
 
@@ -31,9 +32,13 @@ class UtilisateurSerializer(serializers.ModelSerializer):
             "utilisateur_id", "utilisateur_mail", "utilisateur_mdp",
             "actions", "actions_liste",
             "emp_id", "emp_id_lie", "emp_nom", "emp_fonction", "direction_libelle",
-            "role_id", "role_nom",
+            "role_id", "role_nom", "mdp_a_changer", "acces_envoye_le",
         ]
+        read_only_fields = ["mdp_a_changer", "acces_envoye_le"]  # noqa: RUF012
 
+    # ------------------------------------------------------------------
+    # Lecture (exploite les prefetch de la vue : aucune requête par ligne)
+    # ------------------------------------------------------------------
     def _toutes_actions(self):
         if not hasattr(self, "_cache_toutes_actions"):
             self._cache_toutes_actions = set(Action.objects.values_list("action_id", flat=True))
@@ -94,6 +99,9 @@ class UtilisateurSerializer(serializers.ModelSerializer):
     def get_role_nom(self, obj):
         return self._role(obj)[1]
 
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
     def validate_actions(self, value):
         inconnues = sorted(set(value) - self._toutes_actions())
         if inconnues:
@@ -108,6 +116,9 @@ class UtilisateurSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(list(exc.messages)) from exc
         return value
 
+    # ------------------------------------------------------------------
+    # Écriture
+    # ------------------------------------------------------------------
     def _synchroniser_actions(self, instance, action_ids):
         if action_ids is None:
             return
@@ -148,15 +159,17 @@ class UtilisateurSerializer(serializers.ModelSerializer):
         action_ids = validated_data.pop("actions", None)
         emp_id = validated_data.pop("emp_id", serializers.empty)
         password = validated_data.pop("utilisateur_mdp", "")
-        if not password:
-            raise serializers.ValidationError(
-                {"utilisateur_mdp": "Le mot de passe est obligatoire à la création."}
-            )
         instance = Utilisateur(**validated_data)
-        instance.utilisateur_mdp = make_password(password)
+        if password:
+            instance.utilisateur_mdp = make_password(password)
+        else:
+            # Sans mot de passe saisi : un mot de passe temporaire est envoyé par e-mail.
+            preparer_sans_mot_de_passe(instance)
         instance.save()
         self._synchroniser_actions(instance, action_ids)
         self._synchroniser_employe(instance, emp_id)
+        if not password:
+            demander_envoi_acces(instance)
         return instance
 
     @transaction.atomic

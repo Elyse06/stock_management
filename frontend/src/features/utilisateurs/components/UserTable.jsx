@@ -1,9 +1,9 @@
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, Avatar, Chip, IconButton, Tooltip } from "@mui/material";
-import { Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
+import { Visibility as VisibilityIcon, Edit as EditIcon, Delete as DeleteIcon, ForwardToInbox as ForwardToInboxIcon } from "@mui/icons-material";
 import { PRESET_ROLES } from "../constants/roles";
 import { THEME } from "../constants/theme";
 
-export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermissions, currentUserId }) {
+export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermissions, onRenvoyerAcces, currentUserId }) {
   if (isLoading) {
     return (
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
@@ -52,7 +52,18 @@ export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermission
                     </Avatar>
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{user.utilisateur_mail}</Typography>
-                      <Typography variant="caption" color="text.secondary">ID #{user.utilisateur_id}</Typography>
+                      {user.mdp_a_changer ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                          <Chip size="small" label="Activation en attente" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600, bgcolor: "#FFF4E5", color: "#B54708" }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {user.acces_envoye_le
+                              ? `accès envoyé le ${new Date(user.acces_envoye_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`
+                              : "accès en cours d'envoi"}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">ID #{user.utilisateur_id}</Typography>
+                      )}
                     </Box>
                   </Box>
                 </TableCell>
@@ -81,6 +92,14 @@ export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermission
                 </TableCell>
                 <TableCell align="right">
                   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
+                    {user.mdp_a_changer && onRenvoyerAcces && (
+                      <Tooltip title="Renvoyer l'accès par e-mail">
+                        <IconButton size="small" aria-label="Renvoyer l'accès" sx={{ color: THEME.primary }}
+                          onClick={(e) => { e.stopPropagation(); onRenvoyerAcces(user); }}>
+                          <ForwardToInboxIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Modifier le compte">
                       <IconButton size="small" sx={{ color: THEME.primary }} onClick={(e) => { e.stopPropagation(); onEdit(user); }}>
                         <EditIcon fontSize="small" />

@@ -192,6 +192,8 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
+APP_URL = env_str("APP_URL", "http://localhost:8080").rstrip("/")
+
 EMAIL_BACKEND = env_str("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env_str("EMAIL_HOST", "localhost")
 EMAIL_PORT = env_int("EMAIL_PORT", 587)

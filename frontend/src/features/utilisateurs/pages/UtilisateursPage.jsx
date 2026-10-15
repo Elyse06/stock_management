@@ -13,7 +13,7 @@ import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { useEmployees } from "@/hooks/useReferenceData";
 import { getErrorMessage, getFieldErrors } from "@/lib/api/errors";
 
-import { utilisateursApi } from "../api/utilisateursApi";
+import { renvoyerAcces, utilisateursApi } from "../api/utilisateursApi";
 import { RolesMatrixTab } from "../components/RolesMatrixTab";
 import { UserFilters } from "../components/UserFilters";
 import { UserFormDialog } from "../components/UserFormDialog";
@@ -73,6 +73,22 @@ export function UtilisateursPage() {
     onError: (err) => notify.error(getErrorMessage(err, MESSAGES.DELETE_FAILED)),
   });
 
+  const renvoi = useMutation({
+    mutationFn: (user) => renvoyerAcces(user.utilisateur_id),
+    onSuccess: (data) => {
+      rafraichir();
+      notify.success(data?.detail || "Un nouvel accès va être envoyé.");
+    },
+    onError: (err) => notify.error(getErrorMessage(err, "Impossible de renvoyer l'accès.")),
+  });
+
+  const demanderRenvoi = (user) =>
+    confirm(
+      "Renvoyer l'accès ?",
+      `Un nouveau mot de passe temporaire sera envoyé à « ${user.utilisateur_mail} ». Le précédent cessera de fonctionner.`,
+      () => renvoi.mutate(user),
+    );
+
   const ouvrirForm = (user = null) => {
     enregistrement.reset();
     setForm({ open: true, user });
@@ -112,6 +128,7 @@ export function UtilisateursPage() {
             onEdit={ouvrirForm}
             onDelete={demanderSuppression}
             onViewPermissions={setApercu}
+            onRenvoyerAcces={demanderRenvoi}
           />
         </Box>
       )}

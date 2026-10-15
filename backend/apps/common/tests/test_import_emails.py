@@ -1,4 +1,6 @@
-from django.contrib.auth.hashers import check_password
+import re
+
+from django.core import mail
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -32,27 +34,29 @@ class ImportEmailsTests(TestCase):
         self.assertEqual(reponse.status_code, 200, reponse.data)
         return reponse
 
-    def test_creation_du_compte_avec_mot_de_passe_temporaire(self):
-        reponse = self.importer(("Jean.Rakoto@Paositra.mg", 8101))  # matricule numérique, comme dans Excel
-        rapport = reponse.data
+    def test_creation_du_compte_et_envoi_de_l_acces(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            rapport = self.importer(("Jean.Rakoto@Paositra.mg", 8101)).data  # matricule numérique, comme dans Excel
         self.assertEqual((rapport["lignes_creees"], rapport["lignes_erreur"]), (1, 0))
+        self.assertEqual(rapport["identifiants"], [{"matricule": "8101", "nom": self.rakoto.emp_nom, "email": "jean.rakoto@paositra.mg"}])
+        self.assertNotIn("mot_de_passe_temporaire", rapport)  # aucun mot de passe dans la réponse
         self.rakoto.refresh_from_db()
         compte = self.rakoto.emp_utilisateur_id
-        self.assertEqual(compte.utilisateur_mail, "jean.rakoto@paositra.mg")  # en minuscules
-        self.assertTrue(check_password("0000", compte.utilisateur_mdp))
+        self.assertEqual(compte.utilisateur_mail, "jean.rakoto@paositra.mg")
         self.assertTrue(compte.mdp_a_changer)
-        self.assertEqual(rapport["mot_de_passe_temporaire"], "0000")
-        self.assertEqual(rapport["identifiants"], [{"matricule": "8101", "nom": self.rakoto.emp_nom, "email": "jean.rakoto@paositra.mg"}])
+        self.assertIsNotNone(compte.acces_envoye_le)
         self.assertEqual(sorted(Autoriser.objects.filter(autoriser_utilisateur_id=compte).values_list("autoriser_action_id_id", flat=True)),
                          sorted([a.CAT_LIRE, a.COM_DEM, a.MOV_LIRE]))
-        connexion = APIClient().post("/api/auth/login/", {"utilisateur_mail": "jean.rakoto@paositra.mg", "password": "0000"}, format="json")
+        self.assertEqual([m.to for m in mail.outbox], [["jean.rakoto@paositra.mg"]])
+        mot_de_passe = re.search(r"mot de passe temporaire (\S+) ;", mail.outbox[0].body).group(1)
+        connexion = APIClient().post("/api/auth/login/", {"utilisateur_mail": "jean.rakoto@paositra.mg", "password": mot_de_passe}, format="json")
         self.assertEqual((connexion.status_code, connexion.data["mdp_a_changer"]), (200, True))
 
-    def test_apercu_sans_ecriture_ni_mot_de_passe(self):
-        rapport = self.client.post(URL, {"fichier": fichier_excel(lignes(("jean@paositra.mg", "8101"))), "dry_run": "true"}).data
-        self.assertEqual(rapport["lignes_creees"], 1)
-        self.assertEqual(rapport["identifiants"], [])
-        self.assertNotIn("mot_de_passe_temporaire", rapport)
+    def test_apercu_sans_ecriture_ni_envoi(self):
+        with self.captureOnCommitCallbacks(execute=True) as rappels:
+            rapport = self.client.post(URL, {"fichier": fichier_excel(lignes(("jean@paositra.mg", "8101"))), "dry_run": "true"}).data
+        self.assertEqual((rapport["lignes_creees"], rapport["identifiants"]), (1, []))
+        self.assertEqual((rappels, mail.outbox), ([], []))
         self.assertFalse(Utilisateur.objects.filter(utilisateur_mail="jean@paositra.mg").exists())
 
     def test_mise_a_jour_de_l_adresse_d_un_compte_existant(self):

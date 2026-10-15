@@ -1,22 +1,13 @@
-import { Alert, Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
-import { Download as DownloadIcon } from "@mui/icons-material";
+import { Alert, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
-import { exportToCSV } from "@/utils/export";
-
-/** Comptes créés par l'import : mot de passe temporaire commun, à changer à la première connexion. */
-export function IdentifiantsCrees({ identifiants, motDePasse }) {
-  const telecharger = () =>
-    exportToCSV(identifiants.map((i) => ({ ...i, mot_de_passe: motDePasse })), "comptes_crees", [
-      { label: "Matricule", field: "matricule" },
-      { label: "Employé", field: "nom" },
-      { label: "Adresse électronique", field: "email" },
-      { label: "Mot de passe temporaire", field: "mot_de_passe" },
-    ]);
+/** Comptes créés par l'import : chacun reçoit par e-mail le lien de l'application et un mot de passe temporaire. */
+export function IdentifiantsCrees({ identifiants }) {
   return (
     <Box>
       <Alert severity="info" sx={{ mb: 1.5 }}>
-        {identifiants.length} compte(s) créé(s) avec le mot de passe temporaire <strong>{motDePasse}</strong>. Chaque employé
-        devra le changer à sa première connexion : tant que ce n'est pas fait, le compte n'a accès à rien d'autre.
+        {identifiants.length} compte(s) créé(s). Chaque employé reçoit à son adresse un e-mail contenant le lien de
+        l'application et un mot de passe temporaire personnel, qu'il devra changer à sa première connexion. Le suivi des
+        envois et le renvoi d'un accès se font depuis la page Utilisateurs.
       </Alert>
       <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 240 }}>
         <Table size="small" stickyHeader aria-label="Comptes créés">
@@ -38,9 +29,6 @@ export function IdentifiantsCrees({ identifiants, motDePasse }) {
           </TableBody>
         </Table>
       </TableContainer>
-      <Button variant="outlined" startIcon={<DownloadIcon />} onClick={telecharger} sx={{ mt: 1.5 }}>
-        Télécharger la liste des comptes (CSV)
-      </Button>
     </Box>
   );
 }

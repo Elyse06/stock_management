@@ -4,16 +4,16 @@ Colonnes utilisées : « Adresse électronique » et « Matricule » (les autres
 Pour chaque ligne, l'employé est retrouvé par son matricule, puis :
 - s'il a déjà un compte : l'adresse de connexion du compte est mise à jour ;
 - sinon, si un compte libre porte déjà cette adresse : ce compte lui est rattaché ;
-- sinon : un compte est créé, avec les droits du profil standard et le mot de passe
-  temporaire « 0000 », que l'employé doit changer à sa première connexion (le serveur
-  bloque toute autre action tant que ce n'est pas fait).
+- sinon : un compte est créé, avec les droits du profil standard et sans mot de passe
+  utilisable ; après la confirmation, un mot de passe temporaire aléatoire est envoyé à
+  l'adresse avec le lien de l'application (voir apps.utilisateur.acces). L'employé doit le
+  changer à sa première connexion. Rien n'est envoyé lors d'un aperçu.
 
 Comme l'import des employés, chaque ligne est traitée dans son propre savepoint.
 """
 import re
 import unicodedata
 
-from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
@@ -21,10 +21,8 @@ from django.db import transaction
 from apps.common import actions
 from apps.common.imports import executer_avec_dry_run, texte_ou_vide
 from apps.employee.models import Employer
+from apps.utilisateur.acces import demander_envoi_acces, preparer_sans_mot_de_passe
 from apps.utilisateur.models import Action, Autoriser, Utilisateur
-
-# Mot de passe des comptes créés ; il doit être changé à la première connexion.
-MOT_DE_PASSE_TEMPORAIRE = "0000"
 
 # Droits des comptes créés : ceux du profil standard du formulaire de création de compte.
 ACTIONS_PAR_DEFAUT = (actions.CAT_LIRE, actions.MOV_LIRE, actions.COM_DEM)
@@ -102,13 +100,14 @@ def _traiter_ligne(email_brut, matricule_brut, overwrite):
         employe.save(update_fields=["emp_utilisateur_id"])
         return "RATTACHE", employe, "Compte existant rattaché à l'employé.", False
 
-    compte = Utilisateur.objects.create(
-        utilisateur_mail=email, utilisateur_mdp=make_password(MOT_DE_PASSE_TEMPORAIRE), mdp_a_changer=True,
-    )
+    compte = Utilisateur(utilisateur_mail=email)
+    preparer_sans_mot_de_passe(compte)
+    compte.save()
+    demander_envoi_acces(compte)  # exécuté seulement si l'import est confirmé (pas lors de l'aperçu)
     _attribuer_droits_par_defaut(compte)
     employe.emp_utilisateur_id = compte
     employe.save(update_fields=["emp_utilisateur_id"])
-    return "CREE", employe, "Compte créé (profil standard, mot de passe à changer à la première connexion).", True
+    return "CREE", employe, "Compte créé (profil standard) ; un e-mail d'accès sera envoyé.", True
 
 
 _COMPTEURS = {"CREE": "lignes_creees", "MAJ": "lignes_maj", "RATTACHE": "lignes_maj", "IGNORE": "lignes_ignorees"}
@@ -157,6 +156,4 @@ def importer_emails(df, overwrite=True, dry_run=True):
             if cree and not dry_run:
                 rapport["identifiants"].append({"matricule": detail["matricule"], "nom": employe.emp_nom, "email": detail["email"]})
     rapport["count_total"] = rapport["lignes_creees"] + rapport["lignes_maj"]
-    if rapport["identifiants"]:  # comptes réellement créés (confirmation, pas l'aperçu)
-        rapport["mot_de_passe_temporaire"] = MOT_DE_PASSE_TEMPORAIRE
     return rapport
