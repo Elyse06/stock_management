@@ -12,6 +12,7 @@ const page = (loader, name) => lazy(() => loader().then((module) => ({ default: 
 
 const LoginPage = page(() => import("@/features/auth/pages/LoginPage"), "LoginPage");
 const ChangerMotDePassePage = page(() => import("@/features/auth/pages/ChangerMotDePassePage"), "ChangerMotDePassePage");
+const ActivationPage = page(() => import("@/features/auth/pages/ActivationPage"), "ActivationPage");
 const DashboardPage = page(() => import("@/features/dashboard/pages/DashboardPage"), "DashboardPage");
 const ArticlePremiumPage = page(() => import("@/features/catalogue/pages/ArticlePremiumPage"), "ArticlePremiumPage");
 const ArticleListPage = page(() => import("@/features/catalogue/pages/ArticleListPage"), "ArticleListPage");
@@ -85,6 +86,7 @@ export function AppRoutes() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/changer-mot-de-passe" element={<ChangerMotDePassePage />} />
+        <Route path="/activation" element={<ActivationPage />} />
         <Route
           element={
             <ProtectedRoute>

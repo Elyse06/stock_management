@@ -55,10 +55,10 @@ export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermission
                       {user.mdp_a_changer ? (
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
                           <Chip size="small" label="Activation en attente" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600, bgcolor: "#FFF4E5", color: "#B54708" }} />
-                          <Typography variant="caption" color="text.secondary">
-                            {user.acces_envoye_le
-                              ? `accès envoyé le ${new Date(user.acces_envoye_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`
-                              : "accès en cours d'envoi"}
+                          <Typography variant="caption" color={user.acces_expire ? "error" : "text.secondary"}>
+                            {!user.acces_envoye_le
+                              ? "lien en cours d'envoi"
+                              : `lien ${user.acces_expire ? "expiré, envoyé" : "envoyé"} le ${new Date(user.acces_envoye_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`}
                           </Typography>
                         </Box>
                       ) : (
@@ -93,7 +93,7 @@ export function UserTable({ users, isLoading, onEdit, onDelete, onViewPermission
                 <TableCell align="right">
                   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
                     {user.mdp_a_changer && onRenvoyerAcces && (
-                      <Tooltip title="Renvoyer l'accès par e-mail">
+                      <Tooltip title="Renvoyer le lien d'activation par e-mail">
                         <IconButton size="small" aria-label="Renvoyer l'accès" sx={{ color: THEME.primary }}
                           onClick={(e) => { e.stopPropagation(); onRenvoyerAcces(user); }}>
                           <ForwardToInboxIcon fontSize="small" />

@@ -4,6 +4,8 @@ export const API_ENDPOINTS = Object.freeze({
   LOGIN: "/api/auth/login/",
   ME: "/api/auth/me/",
   CHANGER_MOT_DE_PASSE: "/api/auth/changer-mot-de-passe/",
+  ACTIVATION_VERIFIER: "/api/auth/activation/verifier/",
+  ACTIVATION: "/api/auth/activation/",
   REFRESH: "/api/auth/refresh/",
 
   // Catalogue

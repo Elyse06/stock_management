@@ -85,7 +85,7 @@ export function UtilisateursPage() {
   const demanderRenvoi = (user) =>
     confirm(
       "Renvoyer l'accès ?",
-      `Un nouveau mot de passe temporaire sera envoyé à « ${user.utilisateur_mail} ». Le précédent cessera de fonctionner.`,
+      `Un nouveau lien d'activation sera envoyé à « ${user.utilisateur_mail} ». Le précédent cessera de fonctionner.`,
       () => renvoi.mutate(user),
     );
 

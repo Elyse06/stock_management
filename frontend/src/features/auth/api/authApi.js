@@ -30,6 +30,19 @@ export async function changerMotDePasse(ancien, nouveau) {
   return fetchCurrentUser();
 }
 
+/** Vérifie un lien d'activation : { utilisateur_mail, nom } ou erreur 400 (lien expiré, utilisé...). */
+export async function verifierActivation(jeton) {
+  const { data } = await publicClient.post(API_ENDPOINTS.ACTIVATION_VERIFIER, { jeton });
+  return data;
+}
+
+/** Active le compte avec le mot de passe choisi ; l'utilisateur est ensuite connecté. */
+export async function activerCompte(jeton, nouveau) {
+  const { data } = await publicClient.post(API_ENDPOINTS.ACTIVATION, { jeton, nouveau });
+  setTokens({ access: data.access, refresh: data.refresh });
+  return fetchCurrentUser();
+}
+
 export function logout() {
   clearTokens();
 }

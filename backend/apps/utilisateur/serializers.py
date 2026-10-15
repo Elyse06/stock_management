@@ -1,7 +1,11 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.employee.models import Employer
@@ -25,6 +29,7 @@ class UtilisateurSerializer(serializers.ModelSerializer):
     direction_libelle = serializers.SerializerMethodField()
     role_id = serializers.SerializerMethodField()
     role_nom = serializers.SerializerMethodField()
+    acces_expire = serializers.SerializerMethodField()
 
     class Meta:
         model = Utilisateur
@@ -32,13 +37,15 @@ class UtilisateurSerializer(serializers.ModelSerializer):
             "utilisateur_id", "utilisateur_mail", "utilisateur_mdp",
             "actions", "actions_liste",
             "emp_id", "emp_id_lie", "emp_nom", "emp_fonction", "direction_libelle",
-            "role_id", "role_nom", "mdp_a_changer", "acces_envoye_le",
+            "role_id", "role_nom", "mdp_a_changer", "acces_envoye_le", "acces_expire",
         ]
         read_only_fields = ["mdp_a_changer", "acces_envoye_le"]  # noqa: RUF012
 
-    # ------------------------------------------------------------------
-    # Lecture (exploite les prefetch de la vue : aucune requête par ligne)
-    # ------------------------------------------------------------------
+    def get_acces_expire(self, obj):
+        if not obj.mdp_a_changer or obj.acces_envoye_le is None:
+            return False
+        return timezone.now() > obj.acces_envoye_le + timedelta(hours=settings.ACTIVATION_DUREE_HEURES)
+
     def _toutes_actions(self):
         if not hasattr(self, "_cache_toutes_actions"):
             self._cache_toutes_actions = set(Action.objects.values_list("action_id", flat=True))
@@ -99,9 +106,6 @@ class UtilisateurSerializer(serializers.ModelSerializer):
     def get_role_nom(self, obj):
         return self._role(obj)[1]
 
-    # ------------------------------------------------------------------
-    # Validation
-    # ------------------------------------------------------------------
     def validate_actions(self, value):
         inconnues = sorted(set(value) - self._toutes_actions())
         if inconnues:
@@ -116,9 +120,6 @@ class UtilisateurSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(list(exc.messages)) from exc
         return value
 
-    # ------------------------------------------------------------------
-    # Écriture
-    # ------------------------------------------------------------------
     def _synchroniser_actions(self, instance, action_ids):
         if action_ids is None:
             return
@@ -163,7 +164,6 @@ class UtilisateurSerializer(serializers.ModelSerializer):
         if password:
             instance.utilisateur_mdp = make_password(password)
         else:
-            # Sans mot de passe saisi : un mot de passe temporaire est envoyé par e-mail.
             preparer_sans_mot_de_passe(instance)
         instance.save()
         self._synchroniser_actions(instance, action_ids)

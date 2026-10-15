@@ -48,9 +48,11 @@ class ImportEmailsTests(TestCase):
         self.assertEqual(sorted(Autoriser.objects.filter(autoriser_utilisateur_id=compte).values_list("autoriser_action_id_id", flat=True)),
                          sorted([a.CAT_LIRE, a.COM_DEM, a.MOV_LIRE]))
         self.assertEqual([m.to for m in mail.outbox], [["jean.rakoto@paositra.mg"]])
-        mot_de_passe = re.search(r"mot de passe temporaire (\S+) ;", mail.outbox[0].body).group(1)
-        connexion = APIClient().post("/api/auth/login/", {"utilisateur_mail": "jean.rakoto@paositra.mg", "password": mot_de_passe}, format="json")
-        self.assertEqual((connexion.status_code, connexion.data["mdp_a_changer"]), (200, True))
+        jeton = re.search(r"/activation#(\S+)", mail.outbox[0].body).group(1)
+        activation = APIClient().post("/api/auth/activation/", {"jeton": jeton, "nouveau": "Rakoto-Paositra-26"}, format="json")
+        self.assertEqual(activation.status_code, 200)
+        connexion = APIClient().post("/api/auth/login/", {"utilisateur_mail": "jean.rakoto@paositra.mg", "password": "Rakoto-Paositra-26"}, format="json")
+        self.assertEqual((connexion.status_code, connexion.data["mdp_a_changer"]), (200, False))
 
     def test_apercu_sans_ecriture_ni_envoi(self):
         with self.captureOnCommitCallbacks(execute=True) as rappels:

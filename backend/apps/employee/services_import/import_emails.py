@@ -5,9 +5,8 @@ Pour chaque ligne, l'employé est retrouvé par son matricule, puis :
 - s'il a déjà un compte : l'adresse de connexion du compte est mise à jour ;
 - sinon, si un compte libre porte déjà cette adresse : ce compte lui est rattaché ;
 - sinon : un compte est créé, avec les droits du profil standard et sans mot de passe
-  utilisable ; après la confirmation, un mot de passe temporaire aléatoire est envoyé à
-  l'adresse avec le lien de l'application (voir apps.utilisateur.acces). L'employé doit le
-  changer à sa première connexion. Rien n'est envoyé lors d'un aperçu.
+  utilisable ; après la confirmation, un lien d'activation est envoyé à l'adresse : l'employé
+  y choisit son mot de passe (voir apps.utilisateur.acces). Rien n'est envoyé lors d'un aperçu.
 
 Comme l'import des employés, chaque ligne est traitée dans son propre savepoint.
 """
@@ -107,7 +106,7 @@ def _traiter_ligne(email_brut, matricule_brut, overwrite):
     _attribuer_droits_par_defaut(compte)
     employe.emp_utilisateur_id = compte
     employe.save(update_fields=["emp_utilisateur_id"])
-    return "CREE", employe, "Compte créé (profil standard) ; un e-mail d'accès sera envoyé.", True
+    return "CREE", employe, "Compte créé (profil standard) ; un lien d'activation sera envoyé.", True
 
 
 _COMPTEURS = {"CREE": "lignes_creees", "MAJ": "lignes_maj", "RATTACHE": "lignes_maj", "IGNORE": "lignes_ignorees"}

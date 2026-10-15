@@ -62,7 +62,7 @@ export function IdentifiantsSection({ form, disabled }) {
             form.errors.password ||
             (form.isEdit
               ? "Laissez vide pour le conserver"
-              : `Laissez vide pour envoyer par e-mail un mot de passe temporaire, à changer à la première connexion (${PASSWORD_MIN_LENGTH} caractères minimum si saisi)`)
+              : `Laissez vide pour envoyer un lien d'activation par e-mail : l'utilisateur choisira son mot de passe (${PASSWORD_MIN_LENGTH} caractères minimum si saisi)`)
           }
           autoComplete="new-password"
           disabled={disabled}

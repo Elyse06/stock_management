@@ -9,6 +9,8 @@ urlpatterns = [
     path("api/auth/refresh/", auth_views.refresh_view, name="refresh"),
     path("api/auth/me/", auth_views.me_view, name="me"),
     path("api/auth/changer-mot-de-passe/", auth_views.changer_mot_de_passe_view, name="changer-mot-de-passe"),
+    path("api/auth/activation/verifier/", auth_views.verifier_activation_view, name="activation-verifier"),
+    path("api/auth/activation/", auth_views.activer_compte_view, name="activation"),
 
     path("api/catalogue/", include("apps.catalogue.urls")),
     path("api/commandes/", include("apps.commande.urls")),

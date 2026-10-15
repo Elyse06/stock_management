@@ -74,8 +74,8 @@ export function EmailImportModal({ isOpen, onClose }) {
             <>
               <Alert severity="info" variant="outlined">
                 Seules les colonnes « Adresse électronique » et « Matricule » sont utilisées. Un employé sans compte reçoit un
-                compte au profil standard ; après la confirmation, un e-mail lui envoie le lien de l'application et un
-                mot de passe temporaire personnel, à changer à sa première connexion.
+                compte au profil standard ; après la confirmation, il reçoit par e-mail un lien d'activation pour choisir
+                son mot de passe.
               </Alert>
               <FileDropZone fichier={fichier} onChoisir={choisirFichier} disabled={loading} extensions={EXTENSIONS_EMAILS} />
               {loading && <LinearProgress />}

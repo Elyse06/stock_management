@@ -193,6 +193,7 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
 APP_URL = env_str("APP_URL", "http://localhost:8080").rstrip("/")
+ACTIVATION_DUREE_HEURES = env_int("ACTIVATION_DUREE_HEURES", 48)
 
 EMAIL_BACKEND = env_str("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env_str("EMAIL_HOST", "localhost")

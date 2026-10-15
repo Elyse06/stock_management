@@ -22,23 +22,25 @@ def _messages(commande, ancien, nouveau):
 
     if ancien is None and nouveau == S.EN_ATTENTE:
         return [(destinataires.chefs_direction(demandeur.emp_dir_id), "Commande à pré-valider",
-                 f"La commande {numero} de {demandeur.emp_nom} attend votre pré-validation.")]
+                 f"La commande de {demandeur.emp_nom} attend votre pré-validation.\n\n"
+                 f"Bien cordialement")]
     if ancien == S.EN_ATTENTE and nouveau == S.EN_COURS:
         return [
-            (au_demandeur, "Commande pré-validée",
-             f"Votre commande {numero} a été pré-validée et est en cours de traitement."),
             (destinataires.gestionnaires(), "Commande à valider",
-             f"La commande {numero} de {demandeur.emp_nom} a été pré-validée et attend votre validation finale."),
+             f"La commande de {demandeur.emp_nom} a été pré-validée et attend votre validation finale.\n\n"
+             f"cordialement"),
         ]
     if ancien == S.EN_ATTENTE and nouveau == S.REJETEE:
         return [(au_demandeur, "Commande refusée",
-                 f"Votre commande {numero} a été refusée lors de la pré-validation.{_motif(commande)}")]
+                 f"Votre commande a été refusée lors de la pré-validation.{_motif(commande)}")]
     if ancien == S.EN_COURS and nouveau == S.VALIDEE:
         return [(au_demandeur, "Commande validée",
-                 f"Votre commande {numero} a été validée et les articles sont sortis du stock.")]
+                 "Votre commande a été validée.\n\n"
+                 "Vous pouvez récupérer les articles auprès du RMG.\n\n\n"
+                 "Bien cordialement")]
     if ancien == S.EN_COURS and nouveau == S.REJETEE:
         return [(au_demandeur, "Commande refusée",
-                 f"Votre commande {numero} a été refusée lors de la validation finale.{_motif(commande)}")]
+                 f"Votre commande a été refusée par les RMG.{_motif(commande)}")]
     return []
 
 

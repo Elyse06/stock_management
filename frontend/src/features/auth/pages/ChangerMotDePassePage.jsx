@@ -4,22 +4,13 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, TextField, Typ
 
 import logo from "@/assets/tahiry-logo.png";
 import { PageLoader } from "@/components/feedback/PageLoader";
-import { PASSWORD_MIN_LENGTH } from "@/constants/permissions";
 import { useNotification } from "@/hooks/useNotification";
 import { getErrorMessage, getFieldErrors } from "@/lib/api/errors";
 
 import { useAuth } from "../context/AuthContext";
+import { AIDE_MOT_DE_PASSE, verifierNouveauMotDePasse } from "../utils/motDePasse";
 
 const VIDE = { ancien: "", nouveau: "", confirmation: "" };
-
-/** Vérifications locales (le serveur applique en plus le refus des mots de passe courants). */
-function verifier({ nouveau, confirmation }) {
-  const erreurs = {};
-  if (nouveau.length < PASSWORD_MIN_LENGTH) erreurs.nouveau = `Au moins ${PASSWORD_MIN_LENGTH} caractères.`;
-  else if (/^\d+$/.test(nouveau)) erreurs.nouveau = "Le mot de passe ne peut pas contenir uniquement des chiffres.";
-  if (confirmation !== nouveau) erreurs.confirmation = "Les deux mots de passe ne correspondent pas.";
-  return erreurs;
-}
 
 /**
  * Changement de son mot de passe. Obligatoire tant que le compte a un mot de passe temporaire
@@ -53,7 +44,7 @@ export function ChangerMotDePassePage() {
   const envoyer = async (e) => {
     e.preventDefault();
     setErreurGenerale("");
-    const locales = verifier(form);
+    const locales = verifierNouveauMotDePasse(form);
     if (Object.keys(locales).length) return setErreurs(locales);
     setEnvoi(true);
     try {
@@ -90,7 +81,7 @@ export function ChangerMotDePassePage() {
               slotProps={{ htmlInput: { maxLength: 128 } }} sx={{ mb: 2 }} {...champ("ancien")} />
             <TextField fullWidth label="Nouveau mot de passe" type="password" autoComplete="new-password" required
               slotProps={{ htmlInput: { maxLength: 128 } }} sx={{ mb: 2 }} {...champ("nouveau")}
-              helperText={erreurs.nouveau || `Au moins ${PASSWORD_MIN_LENGTH} caractères, pas uniquement des chiffres, pas un mot de passe courant.`} />
+              helperText={erreurs.nouveau || AIDE_MOT_DE_PASSE} />
             <TextField fullWidth label="Confirmer le nouveau mot de passe" type="password" autoComplete="new-password" required
               slotProps={{ htmlInput: { maxLength: 128 } }} sx={{ mb: 3 }} {...champ("confirmation")} />
             <Button type="submit" fullWidth variant="contained" size="large" disabled={envoi} sx={{ py: 1.5, fontWeight: 600 }}>

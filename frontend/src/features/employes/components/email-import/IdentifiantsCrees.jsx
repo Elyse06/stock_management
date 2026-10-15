@@ -1,13 +1,13 @@
 import { Alert, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
-/** Comptes créés par l'import : chacun reçoit par e-mail le lien de l'application et un mot de passe temporaire. */
+/** Comptes créés par l'import : chacun reçoit par e-mail un lien d'activation pour choisir son mot de passe. */
 export function IdentifiantsCrees({ identifiants }) {
   return (
     <Box>
       <Alert severity="info" sx={{ mb: 1.5 }}>
-        {identifiants.length} compte(s) créé(s). Chaque employé reçoit à son adresse un e-mail contenant le lien de
-        l'application et un mot de passe temporaire personnel, qu'il devra changer à sa première connexion. Le suivi des
-        envois et le renvoi d'un accès se font depuis la page Utilisateurs.
+        {identifiants.length} compte(s) créé(s). Chaque employé reçoit à son adresse un lien d'activation personnel,
+        valable quelques jours, pour choisir son mot de passe. Le suivi des envois et le renvoi d'un lien se font depuis
+        la page Utilisateurs.
       </Alert>
       <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 240 }}>
         <Table size="small" stickyHeader aria-label="Comptes créés">
