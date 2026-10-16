@@ -1,19 +1,9 @@
-/**
- * Stockage des jetons JWT.
- *
- * - Le jeton d'accès (courte durée) est gardé UNIQUEMENT en mémoire : il
- *   n'est jamais écrit dans le stockage du navigateur.
- * - Le jeton de rafraîchissement est conservé dans localStorage pour survivre
- *   à un rechargement ; il ne sert qu'à obtenir un nouveau jeton d'accès.
- * - Une déconnexion dans un onglet déconnecte les autres (événement storage).
- */
 const REFRESH_TOKEN_KEY = "stock.refresh_token";
 const LEGACY_KEYS = ["access_token", "refresh_token"];
 
 let accessToken = null;
 let onLogoutCallback = null;
 
-// Nettoyage des clés de l'ancienne version (jeton d'accès persisté).
 LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
 
 export function setTokens({ access, refresh }) {

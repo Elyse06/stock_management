@@ -1,4 +1,5 @@
 import django_filters
+from django.db import transaction
 from django.db.models import Count, F, Q
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
@@ -6,14 +7,16 @@ from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.common.employees import get_request_employee
 from apps.common.localisation import filtre_direction, filtre_salle, filtre_site
 from apps.common.pagination import paginer
-from apps.stock.models import UniteArticle
+from apps.stock.models import DemandeUnite, UniteArticle
 from apps.stock.serializers import (
     RetourUniteSerializer,
     TransfertUniteSerializer,
     UniteArticleSerializer,
 )
+from apps.stock.services.demandes_unites import cloturer_apres_mouvement, verrouiller_demande_a_traiter
 
 from .permissions import UnitePermission
 
@@ -141,20 +144,30 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         unite = self.get_queryset().get(unite_id=pk)
         return Response({**extra, "unite": UniteArticleSerializer(unite).data})
 
+    def _effectuer(self, request, pk, serializer_class, type_demande):
+        """Retour ou transfert, et clôture de la demande éventuelle (demande_id), en UNE transaction :
+        une demande ne peut pas être marquée traitée si le mouvement échoue, et inversement."""
+        serializer = serializer_class(data=_donnees_unite(request, pk))
+        serializer.is_valid(raise_exception=True)
+        demande_id = request.data.get("demande_id")
+        with transaction.atomic():
+            demande = verrouiller_demande_a_traiter(demande_id, pk, type_demande) if demande_id else None
+            resultat = serializer.save()
+            mouvement = resultat if type_demande == DemandeUnite.Type.RETOUR else resultat["sortie"]
+            cloturer_apres_mouvement(pk, type_demande, get_request_employee(request), mouvement, demande,
+                                     serializer.validated_data.get("motif", ""))
+        return resultat
+
     @action(detail=True, methods=["post"], url_path="retourner-stock")
     def retourner_stock(self, request, pk=None):
-        serializer = RetourUniteSerializer(data=_donnees_unite(request, pk))
-        serializer.is_valid(raise_exception=True)
-        mouvement = serializer.save()
+        mouvement = self._effectuer(request, pk, RetourUniteSerializer, DemandeUnite.Type.RETOUR)
         return self._reponse_unite(
             pk, message="Unité retournée au stock avec succès.", mouvement_id=mouvement.mouvement_id,
         )
 
     @action(detail=True, methods=["post"], url_path="transferer")
     def transferer(self, request, pk=None):
-        serializer = TransfertUniteSerializer(data=_donnees_unite(request, pk))
-        serializer.is_valid(raise_exception=True)
-        mouvements = serializer.save()
+        mouvements = self._effectuer(request, pk, TransfertUniteSerializer, DemandeUnite.Type.TRANSFERT)
         return self._reponse_unite(
             pk,
             message="Unité transférée avec succès.",

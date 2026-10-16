@@ -1,22 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-/** Identifiant du panneau latéral (relie le bouton menu au panneau, pour l'accessibilité). */
 export const NAV_DRAWER_ID = "navigation-laterale";
 
-/**
- * Mode d'affichage de la navigation selon la place RÉELLEMENT disponible :
- *  - "complet" : icône + libellé ;
- *  - "serre"   : icône + libellé, espacement réduit (écrans de portable, 1280 px) ;
- *  - "icones"  : icône seule (libellé en infobulle) ;
- *  - "tiroir"  : bouton menu ouvrant un panneau latéral.
- *
- * On mesure plutôt que de fixer des seuils : la longueur du menu dépend des
- * droits (7 rubriques pour un administrateur, 3 pour un demandeur) et des
- * libellés. Des rangées invisibles donnent la largeur nécessaire à chaque mode.
- *
- * Pas d'oscillation à la frontière : en mode tiroir, le bouton menu réduit la
- * place disponible, ce qui retarde naturellement le retour aux icônes.
- */
 export function useNavMode({ forceTiroir = false, deps = [] }) {
   const conteneurRef = useRef(null);
   const mesureCompletRef = useRef(null);
@@ -46,10 +31,8 @@ export function useNavMode({ forceTiroir = false, deps = [] }) {
     mesurer();
     const observateur = new ResizeObserver(mesurer);
     [conteneur, complet, serre, icones].forEach((element) => observateur.observe(element));
-    // Les libellés changent de largeur une fois la police chargée.
     document.fonts?.ready.then(mesurer).catch(() => {});
     return () => observateur.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   let mode = "complet";

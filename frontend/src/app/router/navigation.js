@@ -1,11 +1,3 @@
-/**
- * Déclaration unique des pages : menu, routes et droits requis.
- *
- * ``actions`` : l'utilisateur doit posséder AU MOINS UNE de ces actions
- * (liste vide = tout utilisateur connecté). Ces règles reflètent les
- * permissions du backend ; elles ne servent qu'à l'affichage, l'API
- * revérifie chaque appel.
- */
 import {
   AccountTree as AccountTreeIcon,
   AdminPanelSettings as AdminPanelSettingsIcon,
@@ -26,6 +18,7 @@ import {
   Store as StoreIcon,
   SwapHoriz as SwapHorizIcon,
   UploadFile as UploadFileIcon,
+  Devices as DevicesIcon,
 } from "@mui/icons-material";
 
 import { ACTIONS as A } from "@/constants/permissions";
@@ -38,10 +31,10 @@ export const MENU = [
     label: "Employés",
     Icon: BadgeIcon,
     children: [
-      { path: "/employes", label: "Employé", Icon: BadgeIcon, actions: [] },
-      { path: "/employes/services", label: "Service", Icon: AccountTreeIcon, actions: [] },
-      { path: "/employes/directions", label: "Direction", Icon: BusinessIcon, actions: [] },
-      { path: "/employes/sites", label: "Site", Icon: LocationOnIcon, actions: [] },
+      { path: "/employes", label: "Employé", Icon: BadgeIcon, actions: [A.USR_GERE] },
+      { path: "/employes/services", label: "Service", Icon: AccountTreeIcon, actions: [A.USR_GERE] },
+      { path: "/employes/directions", label: "Direction", Icon: BusinessIcon, actions: [A.USR_GERE] },
+      { path: "/employes/sites", label: "Site", Icon: LocationOnIcon, actions: [A.USR_GERE] },
     ],
   },
   {
@@ -61,13 +54,14 @@ export const MENU = [
     children: [
       { path: "/inventaire/mouvements", label: "Mouvements", Icon: SwapHorizIcon, actions: [A.MOV_LIRE] },
       { path: "/inventaire/sessions", label: "Inventaires", Icon: AssignmentIcon, actions: [A.INV_LIRE] },
-      { path: "/inventaire/unites", label: "Unités Attribués", Icon: ListAltIcon, actions: [A.CAT_LIRE, A.INV_LIRE] },
+      { path: "/inventaire/unites", label: "Unités Attribués", Icon: ListAltIcon, actions: [A.INV_LIRE] },
       { path: "/magasins", label: "Magasins", Icon: StoreIcon, actions: [A.INV_GERE] },
-      { path: "/salles", label: "Salles", Icon: MeetingRoomIcon, actions: [A.CAT_LIRE, A.INV_GERE] },
+      { path: "/salles", label: "Salles", Icon: MeetingRoomIcon, actions: [A.INV_GERE] },
       { path: "/import/immobilisations", label: "Import immobilisations", Icon: UploadFileIcon, actions: [A.CAT_GERE] },
       { path: "/import/fournitures", label: "Import fournitures", Icon: UploadFileIcon, actions: [A.CAT_GERE] },
     ],
   },
+  { path: "/mes-equipements", label: "Mes équipements", Icon: DevicesIcon, actions: [A.COM_DEM] },
   { path: "/commandes", label: "Commandes", Icon: ShoppingCartIcon, actions: [A.COM_DEM, A.COM_VAL] },
   {
     key: "historique",
@@ -81,7 +75,6 @@ export const MENU = [
   },
 ];
 
-/** Droits des pages hors menu (détail, réalisation...). */
 export const EXTRA_ROUTE_ACTIONS = {
   "/catalogue/articles/:code_article": [A.CAT_LIRE],
   "/inventaire/sessions/realisation": [A.INV_GERE],
@@ -89,7 +82,6 @@ export const EXTRA_ROUTE_ACTIONS = {
 
 const flatten = (items) => items.flatMap((item) => (item.children ? flatten(item.children) : [item]));
 
-/** ``{chemin: actions}`` pour toutes les pages déclarées. */
 export const ROUTE_ACTIONS = {
   ...Object.fromEntries(flatten(MENU).map((item) => [item.path, item.actions])),
   ...EXTRA_ROUTE_ACTIONS,

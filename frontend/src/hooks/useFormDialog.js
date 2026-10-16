@@ -1,11 +1,5 @@
 import { useCallback, useState } from "react";
 
-/**
- * État d'une modale de formulaire création / édition.
- *
- * >>> const dialog = useFormDialog(EMPTY_FORM, (row) => ({ nom: row.nom }));
- * >>> dialog.openCreate();  dialog.openEdit(row);  dialog.setField("nom", "x");
- */
 export function useFormDialog(emptyForm, toForm = (row) => ({ ...emptyForm, ...row })) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);

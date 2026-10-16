@@ -4,6 +4,9 @@ import { Close as CloseIcon } from "@mui/icons-material";
 
 import { CodeChip } from "@/components/data-display/CodeChip";
 import { StatusChip } from "@/components/data-display/StatusChip";
+import { BoutonPdf } from "@/components/table/BoutonPdf";
+import { API_ENDPOINTS } from "@/config/endpoints";
+import { usePermission } from "@/features/auth/hooks/usePermission";
 import { toOptions, useMagasins } from "@/hooks/useReferenceData";
 
 import { useTraitementCommande } from "../hooks/useTraitementCommande";
@@ -14,11 +17,11 @@ import { CommandeInfoSection } from "./CommandeInfoSection";
 import { CommandeProgress } from "./CommandeProgress";
 import { CommandeTraitementSection } from "./CommandeTraitementSection";
 
-/** Détail d'une commande ; affiche le traitement si l'utilisateur peut statuer. */
 export function CommandeDetailModal({ commande, isOpen, onClose }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const t = useTraitementCommande({ commande, isOpen, onDone: onClose });
+  const { isGestionnaire } = usePermission();
   const peutTraiter = t.peutTraiter(commande);
   const { data: magasins = [] } = useMagasins({ enabled: Boolean(isOpen && peutTraiter) });
 
@@ -51,9 +54,14 @@ export function CommandeDetailModal({ commande, isOpen, onClose }) {
             )}
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small" aria-label="Fermer">
-          <CloseIcon />
-        </IconButton>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          {isGestionnaire && (
+            <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${commande.commande_id}/pdf/`} nomFichier={`commande_${commande.commande_id}.pdf`} />
+          )}
+          <IconButton onClick={onClose} size="small" aria-label="Fermer">
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>

@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    DemandeUniteViewSet,
     DetailMouvementViewSet,
     ImportFournituresView,
     ImportImmobilisationsView,
@@ -19,6 +20,7 @@ router.register("mouvements", MouvementViewSet, basename="mouvement")
 router.register("salles", SalleViewSet, basename="salle")
 router.register("details-mouvement", DetailMouvementViewSet, basename="detailmouvement")
 router.register("unites-article", UniteArticleViewSet, basename="unite-article")
+router.register("demandes-unites", DemandeUniteViewSet, basename="demande-unite")
 router.register("inventaires", InventaireSessionViewSet, basename="inventaire")
 router.register("lignes-inventaire", LigneInventaireViewSet, basename="ligne-inventaire")
 

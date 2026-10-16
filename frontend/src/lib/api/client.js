@@ -7,7 +7,6 @@ import { getAccessToken, getRefreshToken, setTokens, triggerLogout } from "./tok
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: API_TIMEOUT });
 
-/** Client sans intercepteurs : authentification et rafraîchissement. */
 export const publicClient = axios.create({ baseURL: API_BASE_URL, timeout: API_TIMEOUT });
 
 apiClient.interceptors.request.use((config) => {
@@ -18,7 +17,6 @@ apiClient.interceptors.request.use((config) => {
 
 let refreshPromise = null;
 
-/** Obtient un nouveau jeton d'accès ; une seule requête même si plusieurs appels échouent en même temps. */
 export function refreshAccessToken() {
   const refresh = getRefreshToken();
   if (!refresh) return Promise.reject(new Error("Aucun jeton de rafraîchissement."));
@@ -49,7 +47,6 @@ apiClient.interceptors.response.use(
       request.headers.Authorization = `Bearer ${access}`;
       return apiClient(request);
     } catch {
-      // Jeton expiré ou révoqué (ex. mot de passe changé) : retour à la connexion.
       triggerLogout();
       return Promise.reject(error);
     }

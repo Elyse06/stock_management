@@ -1,4 +1,3 @@
-/** États possibles d'une unité (identiques au backend : UniteArticle.Etat). */
 export const ETATS_UNITE = [
   { value: "BON", label: "Bon" },
   { value: "MOYEN", label: "Moyen" },

@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_PAGE_SIZE } from "@/constants/pagination";
 
-/**
- * État de pagination (page indexée à 0). Si ``resetOn`` change (filtres),
- * la page revient à 0.
- */
 export function usePagination(initialPageSize = DEFAULT_PAGE_SIZE, resetOn) {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: initialPageSize });
 

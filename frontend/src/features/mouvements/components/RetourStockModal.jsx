@@ -8,10 +8,10 @@ import { toOptions, useMagasins } from "@/hooks/useReferenceData";
 import { retournerUnite } from "../api/mouvementsApi";
 import { useUniteAction } from "../hooks/useUniteAction";
 
+import { DemandeBandeau } from "./demandes/DemandeBandeau";
 import { UniteResume } from "./UniteResume";
 
-/** Retour d'une unité attribuée vers un magasin. */
-export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
+export function RetourStockModal({ unite, demande, isOpen, onClose, onSuccess }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { data: magasins = [] } = useMagasins({ enabled: isOpen });
@@ -22,8 +22,8 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
   useEffect(() => {
     if (!isOpen) return;
     setMagasin("");
-    setMotif("");
-  }, [isOpen]);
+    setMotif(demande?.motif || "");
+  }, [isOpen, demande]);
 
   if (!unite) return null;
 
@@ -33,11 +33,9 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
         <Typography variant="h6" component="span" sx={{ display: "block" }}>
           Retour au stock
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Unité #{unite.unite_id}
-        </Typography>
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>
+        <DemandeBandeau demande={demande} />
         <UniteResume unite={unite} />
         <SelectFilter
           label="Magasin destination"
@@ -65,7 +63,13 @@ export function RetourStockModal({ unite, isOpen, onClose, onSuccess }) {
         </Button>
         <Button
           variant="contained"
-          onClick={() => retour.mutate({ magasin_destination: Number(magasin), motif: motif.trim() })}
+          onClick={() =>
+            retour.mutate({
+              magasin_destination: Number(magasin),
+              motif: motif.trim(),
+              ...(demande ? { demande_id: demande.demande_id } : {}),
+            })
+          }
           disabled={retour.isPending || !magasin}
           startIcon={retour.isPending ? <CircularProgress size={16} /> : null}
         >

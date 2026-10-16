@@ -41,7 +41,6 @@ export function useCrudMutations(resource, keys, messages = {}) {
     ...options(messages.deleted ?? "Supprimé avec succès.", MESSAGES.DELETE_FAILED),
   });
 
-  /** Crée ou modifie selon la présence de ``id``. Retourne ``true`` si réussi. */
   const save = async (id, payload) => {
     try {
       if (id !== undefined && id !== null) await update.mutateAsync({ id, payload });

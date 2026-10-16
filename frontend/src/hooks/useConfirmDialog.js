@@ -2,13 +2,6 @@ import { useCallback, useRef, useState } from "react";
 
 const FERME = { open: false, title: "", message: "" };
 
-/**
- * Boîte de confirmation.
- *
- * >>> const { confirm, dialogProps } = useConfirmDialog();
- * >>> confirm("Supprimer", "Êtes-vous sûr ?", () => remove.mutate(id));
- * >>> <ConfirmDialog {...dialogProps} />
- */
 export function useConfirmDialog() {
   const [state, setState] = useState(FERME);
   const callback = useRef(null);

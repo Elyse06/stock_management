@@ -1,8 +1,8 @@
 import { NavLink } from "react-router-dom";
-import { Box, Tab, Tabs } from "@mui/material";
+import { Badge, Box, Tab, Tabs } from "@mui/material";
 
-/** Onglets des sous-pages de la rubrique active. */
-export function SubNavTabs({ parent, activeChild }) {
+/** Onglets des sous-pages de la rubrique active ; ``badges`` = { chemin: nombre } (pastille). */
+export function SubNavTabs({ parent, activeChild, badges = {} }) {
   const index = parent.children.indexOf(activeChild);
   return (
     <Box sx={{ bgcolor: "#FAFAFA", borderBottom: "1px solid #E0E0E0", px: 2 }}>
@@ -20,7 +20,9 @@ export function SubNavTabs({ parent, activeChild }) {
             end
             icon={<Icon fontSize="small" />}
             iconPosition="start"
-            label={label}
+            label={badges[path] ? (
+              <Badge color="warning" badgeContent={badges[path]} sx={{ "& .MuiBadge-badge": { right: -12 } }}>{label}</Badge>
+            ) : label}
             sx={{
               minHeight: 40,
               textTransform: "none",

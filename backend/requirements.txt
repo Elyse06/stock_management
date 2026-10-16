@@ -9,7 +9,8 @@ mssql-django==1.7.4
 celery==5.6.3
 redis==8.1.0 
 pandas==3.0.5
-openpyxl==3.1.5 
+openpyxl==3.1.5
+reportlab==4.4.4
 xlrd==2.0.2
 requests==2.32.5
 gunicorn==26.0.0; sys_platform != "win32"

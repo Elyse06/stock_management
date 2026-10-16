@@ -8,6 +8,8 @@ import logo from "@/assets/tahiry-logo.png";
 import { PageLoader } from "@/components/feedback/PageLoader";
 import { AssistantContext } from "@/features/ai-assistant/context/assistantContext";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useCompteurDemandesUnites } from "@/hooks/useCompteurDemandesUnites";
 
 import { AppNavBar } from "./AppNavBar";
 import { NavDrawer } from "./NavDrawer";
@@ -16,7 +18,6 @@ import { NAV_DRAWER_ID } from "./useNavMode";
 import { useNavigation } from "./useNavigation";
 import { UserMenu } from "./UserMenu";
 
-// L'assistant IA (et ses dépendances) n'est téléchargé qu'à sa première ouverture.
 const AIChatDrawer = lazy(() =>
   import("@/features/ai-assistant/components/AIChatDrawer").then((m) => ({ default: m.AIChatDrawer })),
 );
@@ -24,18 +25,18 @@ const AIChatDrawer = lazy(() =>
 export function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { canManageInventaire } = usePermission();
+  const demandesEnAttente = useCompteurDemandesUnites(canManageInventaire);
   const { items, activeParent, activeChild, isActive } = useNavigation();
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [question, setQuestion] = useState(null);
   const [navMode, setNavMode] = useState("complet");
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
-  // Sur téléphone, toujours le bouton menu : des icônes seules y seraient trop serrées.
   const theme = useTheme();
   const telephone = useMediaQuery(theme.breakpoints.down("sm"));
   const enTiroir = navMode === "tiroir";
 
-  // Ouvert à tous : l'aide à la navigation sert à chacun, et l'API ne fournit que les données autorisées.
   const openAssistant = useCallback((texte) => {
     setAiLoaded(true);
     setAiOpen(true);
@@ -91,7 +92,9 @@ export function MainLayout() {
             </Tooltip>
             <UserMenu user={user} onLogout={handleLogout} />
           </Toolbar>
-          {activeParent && <SubNavTabs parent={activeParent} activeChild={activeChild} />}
+          {activeParent && (
+            <SubNavTabs parent={activeParent} activeChild={activeChild} badges={{ "/inventaire/unites": demandesEnAttente }} />
+          )}
         </AppBar>
 
         <NavDrawer
@@ -103,7 +106,6 @@ export function MainLayout() {
           activeChild={activeChild}
         />
 
-        {/* overflowX "clip" (et non "auto") : sinon les éléments sticky des pages ne collent jamais */}
         <Box component="main" sx={{ flex: 1, p: 3, bgcolor: "#FFFFFF", overflowX: "clip" }}>
           <Suspense fallback={<PageLoader />}>
             <Outlet />

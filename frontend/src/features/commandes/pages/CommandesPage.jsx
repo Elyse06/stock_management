@@ -8,6 +8,7 @@ import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { SelectFilter } from "@/components/forms/SelectFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ActionButtons } from "@/components/table/ActionButtons";
+import { BoutonPdf } from "@/components/table/BoutonPdf";
 import { actionsColumn } from "@/components/table/columns";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
 import { API_ENDPOINTS } from "@/config/endpoints";
@@ -30,8 +31,7 @@ const getArticlesLabel = (row) =>
 
 export function CommandesPage() {
   const { canCreateCommande, isDemandeur, isAgentPrincipal, peutTraiter } = useCommandeRoles();
-  const { user } = usePermission();
-  // Le backend ne montre les commandes qu'à partir de l'employé lié au compte (sauf au gestionnaire).
+  const { user, isGestionnaire } = usePermission();
   const sansEmploye = Boolean(user) && !user.employe && !isAgentPrincipal;
   const { confirm, dialogProps } = useConfirmDialog();
   const { remove } = useCrudMutations(commandesApi, [["commandes"]], { deleted: "Commande supprimée avec succès" });
@@ -42,7 +42,6 @@ export function CommandesPage() {
 
   const list = usePaginatedList(["commandes"], API_ENDPOINTS.COMMANDES, { statut });
 
-  // Le backend ne filtre pas par date : la période s'applique à la page affichée.
   const rows = useMemo(() => {
     const bornes = bornesPeriode(periode);
     if (!bornes) return list.rows;
@@ -88,16 +87,21 @@ export function CommandesPage() {
         // Le backend n'autorise la suppression que d'une commande EN_ATTENTE, par son demandeur.
         const supprimable = isDemandeur && row.statut === "EN_ATTENTE";
         return (
-          <ActionButtons
-            onView={() => setSelected(row)}
-            onValidate={traitable ? () => setSelected(row) : null}
-            onDelete={supprimable ? () => askDelete(row) : null}
-            canValidate={traitable}
-            canDelete={supprimable}
-          />
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <ActionButtons
+              onView={() => setSelected(row)}
+              onValidate={traitable ? () => setSelected(row) : null}
+              onDelete={supprimable ? () => askDelete(row) : null}
+              canValidate={traitable}
+              canDelete={supprimable}
+            />
+            {isGestionnaire && (
+              <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${row.commande_id}/pdf/`} nomFichier={`commande_${row.commande_id}.pdf`} />
+            )}
+          </Box>
         );
       },
-      160,
+      190,
     ),
   ];
 

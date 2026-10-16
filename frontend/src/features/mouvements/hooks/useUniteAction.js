@@ -4,6 +4,7 @@ import { useNotification } from "@/hooks/useNotification";
 import { MESSAGES } from "@/constants/messages";
 import { getErrorMessage } from "@/lib/api/errors";
 
+import { DEMANDES_KEY } from "../api/demandesUnitesApi";
 import { STOCK_KEYS } from "../api/mouvementsApi";
 
 /** Action sur une unité (retour, transfert) : invalide stocks et unités puis notifie. */
@@ -13,7 +14,8 @@ export function useUniteAction(mutationFn, successMessage, onSuccess) {
   return useMutation({
     mutationFn,
     onSuccess: (data) => {
-      STOCK_KEYS.forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+      // Les demandes aussi : un mouvement clôture la demande traitée (ou celles devenues sans objet).
+      [...STOCK_KEYS, DEMANDES_KEY].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
       notify.success(successMessage);
       onSuccess?.(data);
     },

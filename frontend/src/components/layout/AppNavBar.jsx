@@ -5,11 +5,10 @@ import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 
 import { useNavMode } from "./useNavMode";
 
-/** ``densite`` : "large" (icône + libellé), "serre" (espacement réduit) ou "icone". */
 const styleBouton = (actif, densite) => ({
   textTransform: "none",
   whiteSpace: "nowrap",
-  flexShrink: 0, // un bouton ne se comprime jamais : c'est ce qui faisait chevaucher les libellés
+  flexShrink: 0,
   minWidth: densite === "icone" ? 44 : 64,
   px: { large: 2, serre: 1, icone: 1.25 }[densite],
   color: actif ? "primary.main" : "text.secondary",
@@ -21,7 +20,6 @@ const styleBouton = (actif, densite) => ({
   "&:hover": { bgcolor: "tint.main", borderColor: "secondary.main" },
 });
 
-/** Une rubrique : lien direct, ou bouton ouvrant ses sous-pages. */
 function RubriqueBouton({ item, actif, densite = "large", onOuvrir, mesure = false }) {
   const { Icon } = item;
   const compact = densite === "icone";
@@ -53,10 +51,6 @@ function RubriqueBouton({ item, actif, densite = "large", onOuvrir, mesure = fal
 const rangee = { display: "flex", gap: 0.5 };
 const rangeeMesure = { ...rangee, position: "absolute", top: 0, left: 0, width: "max-content", visibility: "hidden", pointerEvents: "none" };
 
-/**
- * Navigation principale. Elle passe d'elle-même en icônes seules puis en mode
- * « tiroir » (signalé par ``onModeChange``) quand la place manque.
- */
 export function AppNavBar({ items, isActive, forceTiroir, onModeChange }) {
   const [ancre, setAncre] = useState(null);
   const [rubrique, setRubrique] = useState(null);
@@ -79,7 +73,6 @@ export function AppNavBar({ items, isActive, forceTiroir, onModeChange }) {
 
   return (
     <Box ref={conteneurRef} sx={{ flex: 1, minWidth: 0, position: "relative", overflow: "hidden" }}>
-      {/* Rangées invisibles servant uniquement à mesurer la place nécessaire à chaque mode. */}
       <Box aria-hidden sx={{ height: 0, overflow: "hidden" }}>
         <Box ref={mesureCompletRef} sx={rangeeMesure}>
           {items.map((item) => (

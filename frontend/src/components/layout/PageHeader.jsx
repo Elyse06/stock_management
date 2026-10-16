@@ -80,7 +80,6 @@ export function PageHeader({
           {secondaryActionLabel}
         </Button>
       )}
-      {/* Action secondaire à plusieurs choix : secondaryMenu = { label, items: [{ label, onClick }] } */}
       {canSecondaryAction && secondaryMenu && (
         <>
           <Button

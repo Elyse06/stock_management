@@ -27,8 +27,9 @@ def notifier_stock_bas(self, code_article, magasin_id, magasin_nom=None):
             gestion_catalogue(),
             sujet=f"Stock bas : {article.designation} ({magasin.magasin_nom})",
             message=(
-                f"Le stock de « {article.designation} » au {magasin.magasin_nom} "
-                f"est de {stock}, sous le seuil de {article.seuil} : pensez à le réapprovisionner."
+                f"\nLe stock de « {article.designation} » au {magasin.magasin_nom} "
+                f"est de {stock}, sous le seuil de {article.seuil} : pensez à le réapprovisionner. \n\n\n"
+                "Bien cordialement"
             ),
         )
     except Exception as exc:

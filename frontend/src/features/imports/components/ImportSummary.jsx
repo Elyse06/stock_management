@@ -10,7 +10,6 @@ export function ImportSummary({ rapport }) {
 
   return (
     <Stack spacing={2}>
-      {/* Stats principales */}
       <Stack direction="row" spacing={2} flexWrap="wrap">
         <StatCard
           label="Lignes OK"
@@ -40,7 +39,6 @@ export function ImportSummary({ rapport }) {
         />
       </Stack>
 
-      {/* Statut global */}
       {rapport.dry_run ? (
         <Alert severity="info" variant="outlined" icon={<InfoIcon />}>
           <strong>Aperçu uniquement</strong>
@@ -51,14 +49,6 @@ export function ImportSummary({ rapport }) {
         </Alert>
       )}
 
-      {/* Ligne d'en-tête détectée */}
-      {rapport.ligne_entete_utilisee && (
-        <Typography variant="body2" color="text.secondary">
-          En-têtes détectés à la ligne <strong>{rapport.ligne_entete_utilisee}</strong> du fichier.
-        </Typography>
-      )}
-
-      {/* Colonnes manquantes */}
       {rapport.colonnes_manquantes?.length > 0 && (
         <Alert severity="warning" variant="outlined">
           <strong>Colonnes attendues absentes :</strong>{" "}

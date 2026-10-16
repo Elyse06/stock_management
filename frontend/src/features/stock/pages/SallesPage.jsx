@@ -16,7 +16,6 @@ const EMPTY_FORM = { nom: "", localite: "" };
 
 export function SallesPage() {
   const { canManageInventaire } = usePermission();
-  // Une salle appartient obligatoirement à un site de type Siège.
   const { data: sites = [] } = useSites({ select: (rows) => rows.filter((s) => s.site_type === "SIEGE") });
 
   const crud = useCrudPage({
@@ -42,7 +41,7 @@ export function SallesPage() {
 
   const columns = [
     { field: "nom", headerName: "Salle" },
-    { field: "localite_nom", headerName: "Site Siège" },
+    { field: "localite_nom", headerName: "Site" },
     ...(canManageInventaire
       ? [actionsColumn(({ row }) => <ActionButtons onEdit={() => crud.dialog.openEdit(row)} onDelete={() => crud.askDelete(row)} />, 130)]
       : []),

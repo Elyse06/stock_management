@@ -46,6 +46,11 @@ def chefs_direction(direction_id):
     return _destinataires((utilisateurs_direction & _utilisateurs_avec(actions.COM_VAL)) - ids_gestionnaires())
 
 
+def gestion_stock():
+    """Gestionnaires du stock : ceux qui effectuent les retours et transferts d'unités (INV_GERE)."""
+    return _destinataires(_utilisateurs_avec(actions.INV_GERE))
+
+
 def gestion_catalogue():
     return _destinataires(_utilisateurs_avec(actions.CAT_GERE))
 

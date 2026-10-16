@@ -1,13 +1,3 @@
-/**
- * Conversion des erreurs HTTP en message lisible.
- *
- * Formats renvoyés par le backend :
- *   {"detail": "..."}                      erreurs générales, 403, 404, 409, 429
- *   {"error": "..."}                       historique, IA
- *   {"champ": ["msg", ...], ...}           erreurs de validation DRF
- *   {"non_field_errors": ["..."]}          validation globale
- *   ["msg", ...]                           liste simple
- */
 import { libelleChamp } from "@/constants/fieldLabels";
 import { MESSAGES } from "@/constants/messages";
 
@@ -38,7 +28,6 @@ function fromPayload(data, fieldLabels) {
 
   const messages = Object.entries(data).map(([champ, valeur]) => {
     const texte = flatten(valeur).join(" ");
-    // Erreurs imbriquées (ex. details[0].quantite) : le texte seul suffit.
     if (/^\d+$/.test(champ) || !texte) return texte;
     return `${fieldLabels?.[champ] ?? libelleChamp(champ)} : ${texte}`;
   });
@@ -61,7 +50,6 @@ export function getErrorMessage(error, fallback = MESSAGES.GENERIC, fieldLabels)
   return fromPayload(data, fieldLabels) || STATUS_MESSAGES[status] || fallback;
 }
 
-/** Erreurs par champ d'un formulaire (``{champ: "message"}``), pour affichage sous les champs. */
 export function getFieldErrors(error) {
   const data = error?.response?.status === 400 ? error.response.data : null;
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};

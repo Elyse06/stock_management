@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { Box, useMediaQuery } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
+import { Badge, Box, Tab, Tabs, useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
@@ -9,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { ETATS_UNITE } from "@/constants/unites";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useCompteurDemandesUnites } from "@/hooks/useCompteurDemandesUnites";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -17,17 +19,17 @@ import { BeneficiaireTypeChips } from "../components/BeneficiaireTypeChips";
 import { EtiquetteModal } from "../components/EtiquetteModal";
 import { RetourStockModal } from "../components/RetourStockModal";
 import { TransfertUniteModal } from "../components/TransfertUniteModal";
+import { DemandesATraiter } from "../components/demandes/DemandesATraiter";
 import { BeneficiairesTable } from "../components/unites/BeneficiairesTable";
 import { DetailBeneficiaire } from "../components/unites/DetailBeneficiaire";
 
 const OPTIONS_ETAT = [{ value: "", label: "Tous les états" }, ...ETATS_UNITE];
 
-/**
- * Unités attribuées : à gauche les bénéficiaires et leur nombre d'articles, à droite
- * le détail du bénéficiaire sélectionné (le premier de la liste par défaut).
- */
 export function UnitesArticlePage() {
   const { canManageInventaire } = usePermission();
+  const [params, setParams] = useSearchParams();
+  const onglet = canManageInventaire && params.get("onglet") === "demandes" ? "demandes" : "unites";
+  const enAttente = useCompteurDemandesUnites(canManageInventaire);
   const theme = useTheme();
   const empile = useMediaQuery(theme.breakpoints.down("lg"));
   const detailRef = useRef(null);
@@ -62,10 +64,28 @@ export function UnitesArticlePage() {
     setEtat("");
   };
 
+  const onglets = canManageInventaire && (
+    <Tabs value={onglet} onChange={(_, v) => setParams(v === "demandes" ? { onglet: "demandes" } : {}, { replace: true })} sx={{ mb: 2 }}>
+      <Tab value="unites" label="Unités attribuées" sx={{ textTransform: "none" }} />
+      <Tab value="demandes" sx={{ textTransform: "none" }}
+        label={<Badge color="warning" badgeContent={enAttente} sx={{ "& .MuiBadge-badge": { right: -14 } }}>Demandes</Badge>} />
+    </Tabs>
+  );
+
+  if (onglet === "demandes") {
+    return (
+      <Box>
+        {onglets}
+        <DemandesATraiter />
+      </Box>
+    );
+  }
+
   return (
     <Box>
+      {onglets}
       <PageHeader onReset={reset} hasFilters={Boolean(searchInput || type || etat)}>
-        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Bénéficiaire, article, n° de série..." minWidth={260} />
+        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Bénéficiaire, article..." minWidth={260} />
         <SelectFilter label="État" value={etat} onChange={setEtat} options={OPTIONS_ETAT} minWidth={160} />
         <BeneficiaireTypeChips value={type} onChange={setType} />
       </PageHeader>

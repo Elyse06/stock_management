@@ -10,12 +10,13 @@ import { beneficiairePayload, CHAMPS_TRANSFERT } from "@/utils/beneficiaire";
 import { transfererUnite } from "../api/mouvementsApi";
 import { useUniteAction } from "../hooks/useUniteAction";
 
+import { DemandeBandeau } from "./demandes/DemandeBandeau";
 import { UniteResume } from "./UniteResume";
 
 const VIDE = { type: "EMPLOYE", item: null };
 
-/** Transfert d'une unité attribuée vers un nouveau bénéficiaire. */
-export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
+/** Transfert d'une unité attribuée vers un nouveau bénéficiaire (pré-rempli si ``demande`` est fournie). */
+export function TransfertUniteModal({ unite, demande, isOpen, onClose, onSuccess }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { data: magasins = [] } = useMagasins({ enabled: isOpen });
@@ -26,10 +27,11 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    setBeneficiaire(VIDE);
+    const propose = demande?.nouveau_beneficiaire;
+    setBeneficiaire(propose?.item ? { type: propose.type, item: propose.item } : VIDE);
     setMagasinSource("");
-    setMotif("");
-  }, [isOpen]);
+    setMotif(demande?.motif || "");
+  }, [isOpen, demande]);
 
   if (!unite) return null;
 
@@ -40,6 +42,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
       magasin_source: Number(magasinSource),
       motif: motif.trim(),
       ...beneficiairePayload(beneficiaire, CHAMPS_TRANSFERT),
+      ...(demande ? { demande_id: demande.demande_id } : {}),
     });
 
   return (
@@ -53,6 +56,7 @@ export function TransfertUniteModal({ unite, isOpen, onClose, onSuccess }) {
         </Typography>
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>
+        <DemandeBandeau demande={demande} />
         <UniteResume unite={unite} />
         <SelectFilter
           label="Magasin source"

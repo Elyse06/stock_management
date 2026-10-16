@@ -1,8 +1,3 @@
-/**
- * Libellés français des champs renvoyés par l'API, pour préfixer les erreurs
- * de validation (« Fonction : Ce champ ne peut être vide. » au lieu du seul
- * message, qui ne disait pas quel champ corriger).
- */
 export const FIELD_LABELS = {
   emp_nom: "Nom", emp_matricule: "Matricule", emp_fonction: "Fonction", emp_contact: "Contact",
   emp_site_id: "Site", emp_dir_id: "Direction", emp_serv_id: "Service",
@@ -20,7 +15,6 @@ export const FIELD_LABELS = {
   motif: "Motif", commentaire: "Commentaire", commentaire_agent: "Commentaire",
 };
 
-/** ``emp_date_entree`` -> « Date entree » quand le champ n'est pas répertorié. */
 export function libelleChamp(champ) {
   if (FIELD_LABELS[champ]) return FIELD_LABELS[champ];
   const texte = champ.replace(/^(emp|cat|dir|serv|site|utilisateur)_/, "").replace(/_/g, " ").trim();

@@ -1,3 +1,4 @@
+from .demande_unite import DemandeUniteViewSet
 from .detail_mouvement import DetailMouvementViewSet
 from .imports import ImportFournituresView, ImportImmobilisationsView
 from .inventaire_session import InventaireSessionViewSet
@@ -8,6 +9,7 @@ from .salle import SalleViewSet
 from .unite_article import UniteArticleViewSet
 
 __all__ = [
+    "DemandeUniteViewSet",
     "DetailMouvementViewSet",
     "ImportFournituresView",
     "ImportImmobilisationsView",

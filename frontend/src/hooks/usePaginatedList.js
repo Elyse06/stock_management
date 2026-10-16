@@ -5,14 +5,6 @@ import { fetchPage } from "@/lib/api/pagination";
 import { usePagination } from "./usePagination";
 import { DEFAULT_PAGE_SIZE } from "@/constants/pagination";
 
-/**
- * Liste paginée côté serveur, prête pour ``PaginatedDataGrid``.
- *
- * >>> const list = usePaginatedList(["categories"], API_ENDPOINTS.CATEGORIES, { search });
- * >>> <PaginatedDataGrid {...list.gridProps} columns={columns} getRowId={...} />
- *
- * Changer un filtre ramène automatiquement à la première page.
- */
 export function usePaginatedList(baseKey, endpoint, filters = {}, options = {}) {
   const { pageSize = DEFAULT_PAGE_SIZE, enabled = true, select } = options;
   const { paginationModel, setPaginationModel } = usePagination(pageSize, filters);

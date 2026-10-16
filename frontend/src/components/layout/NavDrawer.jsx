@@ -16,7 +16,6 @@ const styleLigne = (actif) => ({
   "& .MuiListItemText-primary": { fontWeight: actif ? 600 : 500, color: actif ? "primary.main" : "text.primary" },
 });
 
-/** Lien de navigation : ferme le panneau après le clic. */
 function Lien({ item, actif, onNaviguer, retrait = 2 }) {
   const { Icon } = item;
   return (
@@ -36,14 +35,9 @@ function Lien({ item, actif, onNaviguer, retrait = 2 }) {
   );
 }
 
-/**
- * Navigation en panneau latéral (petits écrans) : liste verticale, sous-rubriques
- * dépliables, rubrique de la page courante dépliée d'office.
- */
 export function NavDrawer({ open, onClose, items, isActive, activeParent, activeChild }) {
   const [deplies, setDeplies] = useState(() => new Set(activeParent ? [activeParent.key] : []));
 
-  // À chaque ouverture, la rubrique de la page courante est dépliée.
   useEffect(() => {
     if (open && activeParent) setDeplies((avant) => new Set(avant).add(activeParent.key));
   }, [open, activeParent]);

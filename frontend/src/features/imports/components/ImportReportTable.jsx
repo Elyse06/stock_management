@@ -51,13 +51,6 @@ export function ImportReportTable({
 
   return (
     <Box>
-      {editable && lignesATraiter.length > 0 && (
-        <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
-          Les lignes affectées au Siège entrent directement en stock. Pour les autres, cochez
-          le bénéficiaire proposé pour l'attribuer à la confirmation ; les lignes non cochées
-          (ou sans correspondance trouvée) seront mises de côté, à saisir manuellement après l'import.
-        </Alert>
-      )}
       {!editable && lignesATraiter.length > 0 && (
         <Alert severity="warning" variant="outlined" sx={{ mb: 1.5 }}>
           <strong>{lignesATraiter.length} ligne(s)</strong> mise(s) de côté — aucune
@@ -65,7 +58,6 @@ export function ImportReportTable({
         </Alert>
       )}
 
-      {/* Barre de filtre */}
       <Stack
         direction="row"
         justifyContent="space-between"
@@ -96,7 +88,6 @@ export function ImportReportTable({
         </ToggleButtonGroup>
       </Stack>
 
-      {/* Tableau style Google Sheet */}
       <TableContainer
         sx={{
           maxHeight: 480,
@@ -165,7 +156,6 @@ export function ImportReportTable({
                         }
                       />
                     ) : (
-                      // « En stock : SIEGE » (affectation Siège ou vide) ou « Attribué — Agence : … »
                       ligne.destination || ligne.attribue_a || "—"
                     )}
                   </DataCell>
@@ -187,11 +177,6 @@ export function ImportReportTable({
   );
 }
 
-// Affiche, pour une ligne mise de côté ("A_TRAITER"), soit une case à cocher
-// permettant de confirmer la suggestion trouvée (Salle/Direction/Agence/
-// Employé), soit un simple texte indiquant qu'aucune correspondance n'a été
-// trouvée. Une fois l'étape d'aperçu passée (editable=false), affiche juste
-// l'état final en lecture seule.
 function SuggestionAffectation({ ligne, editable, confirmee, onChange }) {
   const { suggestion, affectation_texte } = ligne;
 
@@ -237,7 +222,6 @@ function SuggestionAffectation({ ligne, editable, confirmee, onChange }) {
   );
 }
 
-// Cellules de style Google Sheet
 function HeaderCell({ children, width }) {
   return (
     <TableCell

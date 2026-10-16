@@ -7,7 +7,6 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { ROUTE_ACTIONS } from "./navigation";
 import { ProtectedRoute } from "./ProtectedRoute";
 
-/** Charge une page à la demande (un fichier JS par page au lieu d'un bundle unique). */
 const page = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
 
 const LoginPage = page(() => import("@/features/auth/pages/LoginPage"), "LoginPage");
@@ -28,6 +27,7 @@ const RealisationTousInventairePage = page(
 const MouvementsPage = page(() => import("@/features/mouvements/pages/MouvementsPage"), "MouvementsPage");
 const UnitesArticlePage = page(() => import("@/features/mouvements/pages/UnitesArticlePage"), "UnitesArticlePage");
 const CommandesPage = page(() => import("@/features/commandes/pages/CommandesPage"), "CommandesPage");
+const MesEquipementsPage = page(() => import("@/features/mouvements/pages/MesEquipementsPage"), "MesEquipementsPage");
 const HistoriqueGlobalePage = page(() => import("@/features/historique/pages/HistoriqueGlobalePage"), "HistoriqueGlobalePage");
 const HistoriqueLocalisationPage = page(
   () => import("@/features/historique/pages/HistoriqueLocalisationPage"),
@@ -58,6 +58,7 @@ const PAGES = [
   ["/inventaire/unites", UnitesArticlePage],
   ["/inventaire/sessions", InventairePage],
   ["/inventaire/sessions/realisation", RealisationTousInventairePage],
+  ["/mes-equipements", MesEquipementsPage],
   ["/commandes", CommandesPage],
   ["/historique/globale", HistoriqueGlobalePage],
   ["/historique/localisation", HistoriqueLocalisationPage],
@@ -71,7 +72,6 @@ const PAGES = [
   ["/employes/sites", SitesPage],
 ];
 
-/** Anciennes URL conservées pour ne pas casser les favoris. */
 const ALIASES = { "/services": "/employes/services", "/directions": "/employes/directions", "/sites": "/employes/sites" };
 
 const guarded = (path, Component) => (

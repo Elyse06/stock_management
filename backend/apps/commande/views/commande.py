@@ -1,12 +1,15 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
 from apps.commande.access import (
+    est_gestionnaire,
     filtrer_commandes_visibles,
     verifier_commande_modifiable,
 )
+from apps.commande.fiche_pdf import generer_fiche_commande
 from apps.commande.models import Commande
 from apps.commande.serializers import (
     CommandeSerializer,
@@ -15,11 +18,21 @@ from apps.commande.serializers import (
 )
 from apps.commande.utils import QR_SELECT_RELATED
 from apps.common import actions
+from apps.common.pdf import reponse_pdf
 from apps.common.permissions import HasAction
 
 from .permissions import CommandePermission
 
 _EMPLOYE = ("emp_serv_id__serv_dir_id", "emp_dir_id", "emp_site_id")
+
+
+class EstGestionnaireCommandes(BasePermission):
+    """Fiche PDF réservée au gestionnaire (droits « Valider commande » ET « Gérer catalogue »)."""
+
+    message = "Seul le gestionnaire peut télécharger les fiches des commandes."
+
+    def has_permission(self, request, view):
+        return est_gestionnaire(request.user)
 
 
 class CommandeViewSet(viewsets.ModelViewSet):
@@ -59,6 +72,11 @@ class CommandeViewSet(viewsets.ModelViewSet):
         commande = serializer.save()
         commande = self.get_queryset().get(pk=commande.pk)
         return Response(self.get_serializer(commande).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="pdf", permission_classes=[EstGestionnaireCommandes])
+    def pdf(self, request, pk=None):
+        commande = self.get_object()
+        return reponse_pdf(generer_fiche_commande(commande), f"commande_{commande.pk}.pdf")
 
     @action(detail=True, methods=["get"], url_path="recapitulatif")
     def recapitulatif(self, request, pk=None):

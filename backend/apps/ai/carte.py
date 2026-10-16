@@ -35,6 +35,8 @@ PAGES = [
      "description": "Import Excel des immobilisations avec aperçu avant confirmation."},
     {"chemin": "/import/fournitures", "titre": "Import fournitures", "actions": [a.CAT_GERE],
      "description": "Import Excel des fournitures avec aperçu avant confirmation."},
+    {"chemin": "/mes-equipements", "titre": "Mes équipements", "actions": [a.COM_DEM],
+     "description": "Matériel attribué à l'utilisateur et à sa direction ; demandes de retour en stock ou de transfert."},
     {"chemin": "/commandes", "titre": "Commandes", "actions": [a.COM_DEM, a.COM_VAL],
      "description": "Demandes de matériel : création, pré-validation, validation finale."},
     {"chemin": "/historique/globale", "titre": "Historique global", "actions": [a.MOV_LIRE],
@@ -74,12 +76,20 @@ GUIDES = [
         "Pour les articles à numéro de série en écart, renseigner l'ajustement, puis « Enregistrer l'inventaire ».",
         "Un utilisateur ayant le droit de validation valide ensuite la session depuis Inventaires.",
     ]},
+    {"tache": "Demander le retour ou le transfert d'un équipement", "chemin": "/mes-equipements",
+     "actions": [a.COM_DEM], "etapes": [
+        "Ouvrir « Mes équipements » : le matériel qui vous est attribué et celui de votre direction s'affiche.",
+        "Cliquer sur « Retour » ou « Transfert » (ou cocher plusieurs équipements), indiquer le motif et, pour un "
+        "transfert, le nouveau bénéficiaire, puis « Envoyer la demande ».",
+        "Le gestionnaire du stock traite la demande ; vous êtes prévenu par e-mail et le statut s'affiche dans « Mes demandes ».",
+    ]},
     {"tache": "Retourner ou transférer une unité attribuée", "chemin": "/inventaire/unites",
      "actions": [a.INV_GERE], "etapes": [
         "Ouvrir Inventaire > Unités attribuées ; filtrer si besoin (bénéficiaire, article, n° de série, état).",
         "Cliquer sur le bénéficiaire dans le tableau de gauche : ses unités s'affichent à droite.",
         "Cliquer sur « Retour » pour remettre l'unité en magasin, ou « Transfert » pour changer de bénéficiaire.",
         "Le bouton « Étiquette » imprime l'étiquette QR de l'unité.",
+        "Les demandes des bénéficiaires sont dans l'onglet « Demandes » : « Traiter » ouvre le retour ou le transfert pré-rempli.",
     ]},
     {"tache": "Importer des immobilisations ou des fournitures", "chemin": "/import/immobilisations",
      "actions": [a.CAT_GERE], "etapes": [

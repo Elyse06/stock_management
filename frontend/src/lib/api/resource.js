@@ -1,12 +1,6 @@
 import { apiClient } from "./client";
 import { fetchAllPages, fetchPage } from "./pagination";
 
-/**
- * Service REST générique pour une ressource DRF (``ModelViewSet``).
- *
- * >>> const categoriesApi = createResource(API_ENDPOINTS.CATEGORIES);
- * >>> await categoriesApi.list({ page: 0, pageSize: 20, search: "x" });
- */
 export function createResource(endpoint) {
   const url = (id) => `${endpoint}${encodeURIComponent(id)}/`;
   return {

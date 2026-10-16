@@ -27,7 +27,7 @@ def envoyer_acces_compte(self, utilisateur_id):
             [Destinataire(compte.utilisateur_mail, employe.emp_nom if employe else "")],
             sujet="Activation de votre compte Tahiry",
             message = (
-                f"Un compte Tahiry a été créé pour vous (identifiant : {compte.utilisateur_mail}).\n\n"
+                f"\nUn compte Tahiry a été créé pour vous (identifiant : {compte.utilisateur_mail}).\n\n"
                 f"Pour l'activer cliquer sur le lien suivant dans les prochaines {settings.ACTIVATION_DUREE_HEURES} heures :\n\n"
                 f"{creer_lien_activation(compte)}\n\n\n"
                 f"Bien cordialement"

@@ -1,8 +1,3 @@
-/**
- * Données de référence partagées par plusieurs features (listes déroulantes,
- * sélecteurs de bénéficiaire...). Toutes les pages sont chargées (le backend
- * plafonne à 100 lignes par page) et le résultat est mis en cache 10 minutes.
- */
 import { API_ENDPOINTS } from "@/config/endpoints";
 
 import { useOptions } from "./useOptions";
@@ -15,7 +10,6 @@ export const useMagasins = (options) => useOptions("magasins", API_ENDPOINTS.MAG
 export const useSalles = (options) => useOptions("salles", API_ENDPOINTS.SALLES, {}, options);
 export const useArticles = (params = {}, options) => useOptions("articles", API_ENDPOINTS.ARTICLES, params, options);
 
-/** ``[{value: "", label: libelleTous}, ...items]`` pour un ``SelectFilter``. */
 export const toOptions = (items, getValue, getLabel, libelleTous) => [
   ...(libelleTous ? [{ value: "", label: libelleTous }] : []),
   ...items.map((item) => ({ value: getValue(item), label: getLabel(item) })),
