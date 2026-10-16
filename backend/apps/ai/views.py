@@ -58,6 +58,7 @@ def ai_chat(request):
     if not ia_configuree():
         return _non_configuree()
     try:
-        return Response({"success": True, **repondre(request, message, request.data.get("history"))})
+        page = request.data.get("page") if isinstance(request.data.get("page"), str) else None
+        return Response({"success": True, **repondre(request, message, request.data.get("history"), page=page)})
     except ErreurIA as exc:
         return Response({"error": str(exc)}, status=502)

@@ -36,7 +36,7 @@ class AssistantTests(TestCase):
         self.moi = f.employe("M-1", self.dsi)
         self.autre = f.employe("M-2", f.direction("DEX"))
         self.demandeur = f.utilisateur("dem@test.mg", [a.COM_DEM], employe=self.moi)
-        self.admin = f.utilisateur("admin@test.mg", [a.CAT_LIRE, a.CAT_GERE, a.MOV_LIRE, a.INV_LIRE, a.COM_VAL, a.USR_GERE])
+        self.admin = f.utilisateur("admin@test.mg", [a.CAT_LIRE, a.CAT_GERE, a.MOV_LIRE, a.INV_LIRE, a.COM_DEM, a.COM_VAL, a.USR_GERE])
 
     def _discuter(self, user, reponses_du_modele, message="question"):
         client = APIClient()
@@ -47,7 +47,7 @@ class AssistantTests(TestCase):
 
     def test_outils_proposes_selon_les_droits(self):
         noms = {o.nom for o in outils_autorises(Contexte(_Requete(self.demandeur)))}
-        self.assertEqual(noms, {"aide_navigation", "commandes", "rechercher_employes"})
+        self.assertEqual(noms, {"aide_navigation", "commandes", "rechercher_employes", "detail_commande", "demandes_unites", "mes_equipements"})
         tous = {o.nom for o in outils_autorises(Contexte(_Requete(self.admin)))}
         self.assertEqual(tous, set(PAR_NOM))
 
@@ -108,8 +108,9 @@ class AssistantTests(TestCase):
 
     def test_arguments_du_modele_nettoyes(self):
         schema = PAR_NOM["mouvements_recents"].parametres
-        propres = nettoyer_arguments(schema, {"limite": 9999, "jours": -5, "type": "DROP TABLE", "inconnu": 1})
-        self.assertEqual(propres, {"limite": 50, "jours": 1})
+        propres = nettoyer_arguments(schema, {"limite": 9999, "periode": "DROP TABLE", "type": "X", "inconnu": 1,
+                                              "date_debut": "2026-01-01"})
+        self.assertEqual(propres, {"limite": 50, "date_debut": "2026-01-01"})
 
     @override_settings(GROQ_API_KEY="")
     def test_service_non_configure(self):

@@ -50,6 +50,8 @@ class Resultat:
     pour_ia: dict
     tableau: dict | None = None
     liens: list = field(default_factory=list)
+    # Réponses proposées à l'utilisateur (boutons) : [{"libelle": ..., "message": ...}], ex. lever une ambiguïté.
+    choix: list = field(default_factory=list)
 
 
 @dataclass

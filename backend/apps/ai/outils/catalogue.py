@@ -1,7 +1,7 @@
 """Outils du catalogue : recherche d'articles et stock détaillé (droit CAT_LIRE)."""
 from urllib.parse import urlencode
 
-from django.db.models import F, Q
+from django.db.models import F
 
 from apps.catalogue.models import Article
 from apps.common import actions as a
@@ -9,21 +9,20 @@ from apps.common.stock import annoter_stock, stocks_par_magasin
 from apps.stock.models import Magasin
 
 from .base import ErreurOutil, Outil, Resultat, entier, lien, lien_unique, tableau, texte
+from .texte import filtrer_tolerant
 
 TYPES = {"immobilisation": True, "fourniture": False}
+CHAMPS_ARTICLE = ("designation", "code_article", "modele", "categorie__cat_libelle", "categorie__cat_description")
+CANDIDATS_AFFICHES = 6
 
 
 def _rechercher(contexte, texte=None, categorie=None, type=None, stock_max=None, stock_min=None,
                 sous_seuil=False, limite=20):
     articles = annoter_stock(Article.objects.select_related("categorie"))
     if texte:
-        articles = articles.filter(
-            Q(designation__icontains=texte) | Q(code_article__icontains=texte) | Q(modele__icontains=texte)
-        )
+        articles = filtrer_tolerant(articles, texte, CHAMPS_ARTICLE)
     if categorie:
-        articles = articles.filter(
-            Q(categorie__cat_libelle__icontains=categorie) | Q(categorie__cat_description__icontains=categorie)
-        )
+        articles = filtrer_tolerant(articles, categorie, ("categorie__cat_libelle", "categorie__cat_description"))
     if type:
         articles = articles.filter(is_immobilisation=TYPES[type])
     if stock_max is not None:
@@ -41,6 +40,7 @@ def _rechercher(contexte, texte=None, categorie=None, type=None, stock_max=None,
     return Resultat(
         pour_ia={"total": total, "articles": [
             {"code": x.code_article, "designation": x.designation, "categorie": x.categorie.cat_libelle if x.categorie else None,
+             "famille": x.categorie.cat_description if x.categorie else None,
              "stock": x.stock_calcule, "seuil": x.seuil, "type": "immobilisation" if x.is_immobilisation else "fourniture"}
             for x in lignes
         ]},
@@ -52,13 +52,35 @@ def _rechercher(contexte, texte=None, categorie=None, type=None, stock_max=None,
     )
 
 
+def resoudre_article(designation_ou_code):
+    """Un article, ou la liste des candidats si la désignation est ambiguë."""
+    exact = Article.objects.filter(code_article__iexact=designation_ou_code).first()
+    if exact:
+        return exact, []
+    candidats = list(filtrer_tolerant(Article.objects.all(), designation_ou_code, CHAMPS_ARTICLE).order_by("designation")[:20])
+    if len(candidats) == 1:
+        return candidats[0], []
+    return None, candidats
+
+
+def resultat_ambigu(recherche, candidats, question):
+    """Plusieurs articles correspondent : le modèle doit demander lequel ; des boutons sont proposés."""
+    affiches = candidats[:CANDIDATS_AFFICHES]
+    return Resultat(
+        pour_ia={"ambigu": True, "recherche": recherche, "nombre_candidats": len(candidats),
+                 "consigne": "Plusieurs articles correspondent : demander à l'utilisateur lequel, sans choisir à sa place.",
+                 "candidats": [{"code": x.code_article, "designation": x.designation} for x in affiches]},
+        tableau=tableau("Articles correspondants", ["Code", "Désignation"], [[x.code_article, x.designation] for x in affiches], len(candidats)),
+        choix=[{"libelle": f"{x.designation} ({x.code_article})", "message": question.format(code=x.code_article)} for x in affiches],
+    )
+
+
 def _stock_article(contexte, article):
     if not article:
         raise ErreurOutil("Précisez le code ou la désignation de l'article.")
-    trouve = (
-        Article.objects.filter(code_article__iexact=article).first()
-        or Article.objects.filter(designation__icontains=article).order_by("designation").first()
-    )
+    trouve, candidats = resoudre_article(article)
+    if trouve is None and candidats:
+        return resultat_ambigu(article, candidats, "Quel est le stock de l'article {code} ?")
     if trouve is None:
         raise ErreurOutil(f"Aucun article ne correspond à « {article} ».")
     par_magasin = stocks_par_magasin(trouve)
@@ -78,9 +100,10 @@ def _stock_article(contexte, article):
 OUTILS = [
     Outil(
         "rechercher_articles",
-        "Rechercher des articles du catalogue avec leur stock total. Tous les filtres sont facultatifs.",
+        "Rechercher des articles du catalogue avec leur stock total. Tous les filtres sont facultatifs ; la recherche "
+        "tolère les accents, les pluriels et l'ordre des mots.",
         {
-            "texte": texte("Mots à chercher dans la désignation, le code ou le modèle."),
+            "texte": texte("Mots à chercher (désignation, code, modèle, catégorie), ex. « ordinateurs Dell »."),
             "categorie": texte("Catégorie (code ou nom de famille)."),
             "type": texte("Type d'article.", enum=list(TYPES)),
             "stock_max": entier("Stock total maximum (ex. 5 pour « stock inférieur ou égal à 5 »).", 0, 10**6),
@@ -92,7 +115,8 @@ OUTILS = [
     ),
     Outil(
         "stock_article",
-        "Stock détaillé d'UN article, réparti par magasin, à partir de son code ou de sa désignation.",
+        "Stock détaillé d'UN article, réparti par magasin, à partir de son code ou de sa désignation. Si plusieurs "
+        "articles correspondent, renvoie les candidats (« ambigu ») : demander alors à l'utilisateur lequel.",
         {"article": texte("Code ou désignation de l'article.")},
         lambda contexte, article=None: _stock_article(contexte, article or ""),
         (a.CAT_LIRE,),

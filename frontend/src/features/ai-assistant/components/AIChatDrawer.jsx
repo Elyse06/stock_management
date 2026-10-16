@@ -66,8 +66,9 @@ export function AIChatDrawer({ open, onClose, question }) {
       </Box>
 
       <Box role="log" aria-live="polite" sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", gap: 1.5, bgcolor: "#FAFAFA" }}>
-        {chat.messages.map((message) => (
-          <ChatMessage key={message.id} message={message} onNaviguer={naviguer} />
+        {chat.messages.map((message, index) => (
+          <ChatMessage key={message.id} message={message} onNaviguer={naviguer}
+            onChoix={chat.loading ? undefined : envoyer} dernier={index === chat.messages.length - 1} />
         ))}
         {chat.loading && (
           <Paper elevation={0} sx={{ alignSelf: "flex-start", px: 1.5, py: 1, border: "1px solid #E0E0E0", borderRadius: 2, display: "flex", alignItems: "center", gap: 1 }}>

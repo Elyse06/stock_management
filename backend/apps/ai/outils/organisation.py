@@ -2,11 +2,10 @@
 
 Seules les informations professionnelles sont transmises (pas le contact).
 """
-from django.db.models import Q
-
 from apps.employee.models import Employer
 
 from .base import ErreurOutil, Outil, Resultat, entier, lien, tableau, texte
+from .texte import filtrer_tolerant
 
 
 def _employes(contexte, recherche=None, direction=None, limite=10):
@@ -14,11 +13,9 @@ def _employes(contexte, recherche=None, direction=None, limite=10):
         raise ErreurOutil("Précisez un nom, un matricule, une fonction ou une direction.")
     employes = Employer.objects.select_related("emp_dir_id", "emp_serv_id", "emp_site_id")
     if recherche:
-        employes = employes.filter(
-            Q(emp_nom__icontains=recherche) | Q(emp_matricule__iexact=recherche) | Q(emp_fonction__icontains=recherche)
-        )
+        employes = filtrer_tolerant(employes, recherche, ("emp_nom", "emp_matricule", "emp_fonction", "emp_serv_id__serv_libelle"))
     if direction:
-        employes = employes.filter(emp_dir_id__dir_libelle__icontains=direction)
+        employes = filtrer_tolerant(employes, direction, ("emp_dir_id__dir_libelle", "emp_dir_id__dir_description"))
     total = employes.count()
     lignes = list(employes.order_by("emp_nom")[:limite])
 

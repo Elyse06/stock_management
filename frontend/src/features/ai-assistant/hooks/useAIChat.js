@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { getErrorMessage } from "@/lib/api/errors";
 
@@ -15,6 +16,7 @@ const avecId = (message) => ({ ...message, id: ++compteur });
 
 /** Conversation avec l'assistant (historique local, requête annulable). Seul le texte est renvoyé en historique. */
 export function useAIChat() {
+  const location = useLocation();
   const [messages, setMessages] = useState(() => [avecId(ACCUEIL)]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef(null);
@@ -25,15 +27,23 @@ export function useAIChat() {
     async (texte) => {
       const contenu = texte.trim().slice(0, MAX_LONGUEUR_MESSAGE);
       if (!contenu || loading) return;
-      const historique = messages.filter((m) => !m.erreur).map(({ role, content }) => ({ role, content }));
+      // Les outils utilisés par chaque réponse sont renvoyés : l'assistant comprend « et le mois dernier ? ».
+      const historique = messages
+        .filter((m) => !m.erreur)
+        .map(({ role, content, outils }) => (outils?.length ? { role, content, outils } : { role, content }));
       setMessages((prev) => [...prev, avecId({ role: "user", content: contenu })]);
       setLoading(true);
       abortRef.current = new AbortController();
       try {
-        const data = await aiChat(contenu, historique, { signal: abortRef.current.signal });
+        // La page affichée permet de comprendre « combien en reste-t-il ? » sur une fiche article.
+        const page = `${location.pathname}${location.search}`;
+        const data = await aiChat(contenu, historique, { signal: abortRef.current.signal }, page);
         setMessages((prev) => [
           ...prev,
-          avecId({ role: "assistant", content: data.reply, tableaux: data.tableaux || [], liens: data.liens || [] }),
+          avecId({
+            role: "assistant", content: data.reply, tableaux: data.tableaux || [], liens: data.liens || [], choix: data.choix || [],
+            outils: data.outils_utilises || [],
+          }),
         ]);
       } catch (error) {
         if (error?.code === "ERR_CANCELED") return;
@@ -44,7 +54,7 @@ export function useAIChat() {
         abortRef.current = null;
       }
     },
-    [messages, loading],
+    [messages, loading, location.pathname, location.search],
   );
 
   const reinitialiser = useCallback(() => {

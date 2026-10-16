@@ -44,9 +44,14 @@ def notifier_demande_unite(self, demande_id, evenement):
             "refusee": f"a été refusée.{' Motif : ' + demande.commentaire_traitement + '.' if demande.commentaire_traitement else ''}",
             "annulee": f"a été clôturée : {demande.commentaire_traitement.rstrip('.').lower()}.",
         }[evenement]
+        consigne = (
+            "Veuillez retourner le matériel auprès du RMG.\n\n"
+            if evenement == "traitee"
+            else ""
+        )
         sujet = f"Votre demande : {demande.get_statut_display().lower()}"
-        message = (f"\nVotre demande de {action} de {unite} {fin} \n\n"
-                   f"Veuillez retourner le matérielle auprès du RMG \n\n\n"
+        message = (f"\nVotre demande de {action} de {unite} {fin}\n\n"
+                   f"{consigne}"
                    "Bien cordialement")
     try:
         envoyer_notification(a_qui, sujet=sujet, message=message)

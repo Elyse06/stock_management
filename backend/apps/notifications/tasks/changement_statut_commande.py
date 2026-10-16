@@ -33,7 +33,8 @@ def _messages(commande, ancien, nouveau):
     if ancien == S.EN_ATTENTE and nouveau == S.REJETEE:
         return [(au_demandeur, "Commande refusée",
                  f"\nVotre commande a été refusée lors de la pré-validation.\n\n"
-                 f"{_motif(commande)}")]
+                 f"{_motif(commande)} \n\n\n"
+                 "Bien cordialement")]
     if ancien == S.EN_COURS and nouveau == S.VALIDEE:
         return [(au_demandeur, "Commande validée",
                  "\nVotre commande a été validée.\n\n"
@@ -42,7 +43,7 @@ def _messages(commande, ancien, nouveau):
     if ancien == S.EN_COURS and nouveau == S.REJETEE:
         return [(au_demandeur, "Commande refusée",
                  f"\nVotre commande a été refusée par les RMG.\n\n"
-                 f"{_motif(commande)}"
+                 f"{_motif(commande)} \n\n\n"
                  "Bien cordialement")]
     return []
 
@@ -63,7 +64,6 @@ def notifier_changement_statut_commande(self, commande_id, ancien_statut, nouvea
         for a_qui, sujet, message in _messages(commande, ancien_statut, nouveau_statut):
             envoyer_notification(a_qui, sujet=f"{sujet} (n°{commande.commande_id})", message=message)
     except Exception as exc:
-        # Erreur d'envoi (SMTP indisponible...) : nouvelle tentative plus tard.
         logger.warning("Échec de notification pour la commande #%s : %s", commande_id, exc)
         raise self.retry(exc=exc) from exc
     return "Succès"

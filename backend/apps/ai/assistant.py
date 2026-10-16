@@ -47,22 +47,30 @@ def _message_assistant(message):
     return propre
 
 
-def repondre(request, message, historique=None):
+def repondre(request, message, historique=None, page=None, trace=None):
+    """``page`` : chemin affiché dans l'interface ; ``trace`` (liste) reçoit les outils appelés (évaluation)."""
     contexte = Contexte(request)
     outils = {outil.nom: outil for outil in outils_autorises(contexte)}
     schemas = [outil.schema() for outil in outils.values()]
-    messages = construire_messages(contexte, message, historique)
-    tableaux, liens = [], {}
+    messages = construire_messages(contexte, message, historique, page)
+    tableaux, liens, choix = [], {}, []
+    trace = trace if trace is not None else []
 
     for _ in range(MAX_TOURS):
         reponse = completer(messages, tools=schemas, tool_choice="auto", timeout=30, **OPTIONS)
         appels = (reponse.get("tool_calls") or [])[:MAX_APPELS_PAR_TOUR]
         if not appels:
-            return _resultat(reponse.get("content"), tableaux, liens)
+            return _resultat(reponse.get("content"), tableaux, liens, choix, trace)
         messages.append(_message_assistant({**reponse, "tool_calls": appels}))
         for appel in appels:
             contenu, resultat = _executer(appel, outils, contexte)
+            # Trace des outils appelés : évaluation et mémoire des questions de suivi.
+            fonction = appel.get("function") or {}
+            trace.append({"outil": fonction.get("name"), "arguments": fonction.get("arguments"),
+                              "erreur": contenu.get("erreur") if isinstance(contenu, dict) else None})
             if resultat is not None:
+                if resultat.choix:
+                    choix = resultat.choix  # les choix du dernier outil qui en propose
                 if resultat.tableau and resultat.tableau["lignes"]:
                     tableaux.append(resultat.tableau)
                 liens.update({item["chemin"]: item for item in resultat.liens})
@@ -75,12 +83,29 @@ def repondre(request, message, historique=None):
 
     # Trop de tours : on demande une réponse finale sans nouvel appel d'outil.
     reponse = completer(messages, tools=schemas, tool_choice="none", timeout=30, **OPTIONS)
-    return _resultat(reponse.get("content"), tableaux, liens)
+    return _resultat(reponse.get("content"), tableaux, liens, choix, trace)
 
 
-def _resultat(texte, tableaux, liens):
+def _outils_utilises(trace):
+    """Outils appelés avec succès et leurs paramètres : renvoyés par l'interface avec l'historique, ils
+    permettent de comprendre une question de suite (« et le mois dernier ? »)."""
+    utilises = []
+    for appel in trace:
+        if appel.get("erreur"):
+            continue
+        try:
+            arguments = json.loads(appel.get("arguments") or "{}")
+        except (TypeError, ValueError):
+            arguments = {}
+        utilises.append({"outil": appel.get("outil"), "arguments": arguments if isinstance(arguments, dict) else {}})
+    return utilises[-4:]
+
+
+def _resultat(texte, tableaux, liens, choix=(), trace=()):
     return {
         "reply": (texte or "").strip() or "Je n'ai pas pu formuler de réponse. Pouvez-vous reformuler ?",
         "tableaux": tableaux[-TABLEAUX_MAX:],
         "liens": list(liens.values())[:5],
+        "choix": list(choix)[:6],
+        "outils_utilises": _outils_utilises(trace),
     }

@@ -1,8 +1,8 @@
 """Registre des outils de l'assistant."""
-from . import catalogue, commandes, navigation, organisation, stock
+from . import analyses, catalogue, commandes, navigation, organisation, stock, suivi
 from .base import Contexte, ErreurOutil, Outil, Resultat
 
-TOUS = [*navigation.OUTILS, *catalogue.OUTILS, *stock.OUTILS, *commandes.OUTILS, *organisation.OUTILS]
+TOUS = [*navigation.OUTILS, *catalogue.OUTILS, *stock.OUTILS, *analyses.OUTILS, *suivi.OUTILS, *commandes.OUTILS, *organisation.OUTILS]
 PAR_NOM = {outil.nom: outil for outil in TOUS}
 
 
