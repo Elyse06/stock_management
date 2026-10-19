@@ -68,7 +68,7 @@ class Outil:
     def schema(self):
         return {"type": "function", "function": {
             "name": self.nom, "description": self.description,
-            "parameters": {"type": "object", "properties": self.parametres, "required": []},
+            "parameters": {"type": "object", "properties": self.parametres},
         }}
 
     def appeler(self, contexte, arguments):

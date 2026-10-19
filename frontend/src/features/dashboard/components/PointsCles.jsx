@@ -7,9 +7,9 @@ const PASTILLE = { critique: "#F04438", attention: "#FECA05", info: "#7FA8D6", o
 const QUESTION = "Fais-moi une synthèse de l'état du stock et des points d'attention.";
 const SUGGESTIONS = ["Quels articles réapprovisionner en priorité ?", "Résume les mouvements du mois."];
 
-/** Points clés calculés à partir des données ; l'assistant permet d'approfondir. */
+/** Points clés calculés à partir des données ; l'assistant (gestionnaires) permet d'approfondir. */
 export function PointsCles({ points }) {
-  const { ouvrir } = useAssistant();
+  const { ouvrir, disponible } = useAssistant();
   return (
     <Box
       sx={{
@@ -42,24 +42,28 @@ export function PointsCles({ points }) {
           </Box>
         ))}
       </Box>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 2, position: "relative" }}>
-        {SUGGESTIONS.map((suggestion) => (
-          <Box key={suggestion} component="button" type="button" onClick={() => ouvrir(suggestion)}
-            sx={{ font: "inherit", fontSize: 12, color: "#FFFFFF", cursor: "pointer", px: 1.25, py: 0.5, borderRadius: 10,
-              bgcolor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", textAlign: "left",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.18)" } }}>
-            {suggestion}
+      {disponible && (
+        <>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 2, position: "relative" }}>
+            {SUGGESTIONS.map((suggestion) => (
+              <Box key={suggestion} component="button" type="button" onClick={() => ouvrir(suggestion)}
+                sx={{ font: "inherit", fontSize: 12, color: "#FFFFFF", cursor: "pointer", px: 1.25, py: 0.5, borderRadius: 10,
+                  bgcolor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", textAlign: "left",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.18)" } }}>
+                {suggestion}
+              </Box>
+            ))}
           </Box>
-        ))}
-      </Box>
-      <Button
-        onClick={() => ouvrir(QUESTION)}
-        startIcon={<AutoAwesomeIcon />}
-        sx={{ mt: 2, alignSelf: "flex-start", textTransform: "none", fontWeight: 600, color: "#022B54", bgcolor: "#FECA05",
-          borderRadius: 2, px: 2, "&:hover": { bgcolor: "#FFDD55" } }}
-      >
-        Analyser avec l'assistant
-      </Button>
+          <Button
+            onClick={() => ouvrir(QUESTION)}
+            startIcon={<AutoAwesomeIcon />}
+            sx={{ mt: 2, alignSelf: "flex-start", textTransform: "none", fontWeight: 600, color: "#022B54", bgcolor: "#FECA05",
+              borderRadius: 2, px: 2, "&:hover": { bgcolor: "#FFDD55" } }}
+          >
+            Analyser avec l'assistant
+          </Button>
+        </>
+      )}
     </Box>
   );
 }

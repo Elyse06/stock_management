@@ -57,4 +57,5 @@ export const API_ENDPOINTS = Object.freeze({
   // Assistant IA
   AI_SEARCH: "/api/ai/search/",
   AI_CHAT: "/api/ai/chat/",
+  AI_CHAT_FLUX: "/api/ai/chat/flux/",
 });

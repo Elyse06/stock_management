@@ -72,21 +72,33 @@ Exemples :
   consommation(article="CART-HP")."""
 
 
-def get_chat_system_prompt(contexte, page=None) -> str:
+# Consignes FIXES : identiques pour tous et à chaque appel. Le service d'IA met en cache le début des requêtes
+# (consignes puis définitions des outils) : la partie en cache ne compte pas dans la limite de débit. Tout ce qui
+# varie (date, utilisateur, page) est donc placé dans la question, jamais ici.
+SYSTEME = f"""Tu es l'assistant de « Tahiry », l'application de gestion de stock de Paositra Malagasy.
+Tu réponds aux questions sur les DONNÉES de l'application et tu aides à S'Y RETROUVER (où aller, comment faire).
+Le contexte (date du jour, utilisateur et ses droits, page affichée) est indiqué entre crochets au début de la
+dernière question de l'utilisateur.
+
+{CONSIGNES}
+"""
+
+
+def get_chat_system_prompt() -> str:
+    return SYSTEME
+
+
+def contexte_question(contexte, page=None) -> str:
+    """Contexte variable placé en tête de la question : date, utilisateur, droits, page affichée."""
     employe = contexte.employe
     qui = f"{employe.emp_nom} ({employe.emp_fonction})" if employe else contexte.request.user.utilisateur_mail
     droits = [libelle for code, libelle in CAPACITES.items() if code in contexte.actions] or ["aucun droit particulier"]
     aujourd_hui = timezone.localdate()
     description = decrire_page(page, contexte) if page else None
-    ou = (f"\nL'utilisateur consulte actuellement {description} : une question sans précision (« combien en reste-t-il ? »)"
+    ou = (f" Il consulte actuellement {description} : une question sans précision (« combien en reste-t-il ? »)"
           " porte probablement sur cet élément.") if description else ""
-    return f"""Tu es l'assistant de « Tahiry », l'application de gestion de stock de Paositra Malagasy.
-Nous sommes le {JOURS[aujourd_hui.weekday()]} {aujourd_hui:%d/%m/%Y}. Tu parles à {qui}, qui peut : {", ".join(droits)}.{ou}
-
-Tu réponds aux questions sur les DONNÉES de l'application et tu aides à S'Y RETROUVER (où aller, comment faire).
-
-{CONSIGNES}
-"""
+    return (f"[Contexte : nous sommes le {JOURS[aujourd_hui.weekday()]} {aujourd_hui:%d/%m/%Y}. "
+            f"Utilisateur : {qui}, qui peut : {', '.join(droits)}.{ou}]")
 
 
 def _outils_utilises(outils):
@@ -124,7 +136,7 @@ def nettoyer_historique(historique) -> list:
 
 def construire_messages(contexte, message: str, historique=None, page=None) -> list:
     return [
-        {"role": "system", "content": get_chat_system_prompt(contexte, page)},
+        {"role": "system", "content": SYSTEME},
         *nettoyer_historique(historique),
-        {"role": "user", "content": message},
+        {"role": "user", "content": f"{contexte_question(contexte, page)}\n\n{message}"},
     ]

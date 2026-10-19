@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.ai.chat_prompts import get_chat_system_prompt
+from apps.ai.chat_prompts import construire_messages, contexte_question, get_chat_system_prompt
 from apps.ai.outils import PAR_NOM, Contexte
 from apps.ai.outils.periodes import plage
 from apps.common import actions as a
@@ -63,7 +63,7 @@ class ComprehensionTests(TestCase):
 
     def test_choix_transmis_a_l_interface(self):
         client = APIClient()
-        client.force_authenticate(self.user)
+        client.force_authenticate(f.utilisateur("gestionnaire@test.mg", [a.CAT_LIRE, a.MOV_LIRE, a.COM_VAL, a.CAT_GERE]))
         reponses = [appel("stock_article", article="cartouche"), {"role": "assistant", "content": "Laquelle ?"}]
         with patch("apps.ai.assistant.completer", side_effect=reponses):
             data = client.post("/api/ai/chat/", {"message": "stock des cartouches"}, format="json").data
@@ -94,17 +94,30 @@ class ComprehensionTests(TestCase):
         })
 
     def test_contexte_de_la_page(self):
-        consignes = get_chat_system_prompt(self.contexte, "/catalogue/articles/LAPDELL")
-        self.assertIn("la fiche de l'article « Ordinateur portable Dell Latitude » (code LAPDELL)", consignes)
-        self.assertIn("vendredi" if timezone.localdate().weekday() == 4 else "Nous sommes le", consignes)
+        contexte = contexte_question(self.contexte, "/catalogue/articles/LAPDELL")
+        self.assertIn("la fiche de l'article « Ordinateur portable Dell Latitude » (code LAPDELL)", contexte)
+        self.assertIn(timezone.localdate().strftime("%d/%m/%Y"), contexte)
         sans_droit = Contexte(_Requete(f.utilisateur("demandeur@test.mg", [a.COM_DEM])))
-        self.assertNotIn("consulte actuellement", get_chat_system_prompt(sans_droit, "/catalogue/articles/LAPDELL"))
-        self.assertNotIn("consulte actuellement", get_chat_system_prompt(self.contexte, "javascript:alert(1)"))
+        self.assertNotIn("consulte actuellement", contexte_question(sans_droit, "/catalogue/articles/LAPDELL"))
+        self.assertNotIn("consulte actuellement", contexte_question(self.contexte, "javascript:alert(1)"))
+
+    def test_consignes_identiques_pour_tous_pour_le_cache_du_service(self):
+        # Le début des requêtes (consignes) ne doit dépendre ni de l'utilisateur, ni de la page, ni de la date :
+        # c'est ce qui permet au service d'IA de le mettre en cache (hors limite de débit).
+        autre = Contexte(_Requete(f.utilisateur("autre@test.mg", [a.COM_DEM])))
+        premier = construire_messages(self.contexte, "Q", [], "/catalogue/articles/LAPDELL")
+        second = construire_messages(autre, "Q", [], "/")
+        self.assertEqual(premier[0], second[0])
+        self.assertEqual(premier[0]["content"], get_chat_system_prompt())
+        self.assertNotIn(timezone.localdate().strftime("%d/%m/%Y"), premier[0]["content"])
+        self.assertTrue(premier[-1]["content"].startswith("[Contexte : nous sommes le "))
+        self.assertTrue(premier[-1]["content"].endswith("\n\nQ"))
 
     def test_page_transmise_par_l_interface(self):
         client = APIClient()
-        client.force_authenticate(self.user)
+        client.force_authenticate(f.utilisateur("gestionnaire@test.mg", [a.CAT_LIRE, a.MOV_LIRE, a.COM_VAL, a.CAT_GERE]))
         with patch("apps.ai.assistant.completer", return_value={"role": "assistant", "content": "ok"}) as modele:
             client.post("/api/ai/chat/", {"message": "Combien en reste-t-il ?", "page": "/catalogue/articles/LAPDELL"}, format="json")
-        consignes = modele.call_args.args[0][0]["content"]
-        self.assertIn("code LAPDELL", consignes)
+        question = modele.call_args.args[0][-1]["content"]
+        self.assertIn("code LAPDELL", question)
+        self.assertNotIn("LAPDELL", modele.call_args.args[0][0]["content"])

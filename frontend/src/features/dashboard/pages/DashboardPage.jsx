@@ -29,18 +29,20 @@ import { dateDuJour, formatNombre, pointsCles, prenom, salutation, variation } f
 
 /** Accueil pour un utilisateur sans accès aux statistiques (le backend exige CAT_LIRE ou MOV_LIRE). */
 function Bienvenue({ nom }) {
-  const { ouvrir } = useAssistant();
+  const { ouvrir, disponible } = useAssistant();
   return (
     <Paper variant="outlined" sx={{ p: 4, textAlign: "center", maxWidth: 640, mx: "auto", mt: 4, borderRadius: 3 }}>
       <Typography variant="h2" gutterBottom>
         {salutation()}{nom ? `, ${nom}` : ""}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Utilisez le menu pour accéder aux fonctionnalités de votre profil, ou demandez à l'assistant.
+        Utilisez le menu pour accéder aux fonctionnalités de votre profil{disponible ? ", ou demandez à l'assistant" : ""}.
       </Typography>
-      <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => ouvrir("Que puis-je faire dans l'application ?")}>
-        Que puis-je faire ?
-      </Button>
+      {disponible && (
+        <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => ouvrir("Que puis-je faire dans l'application ?")}>
+          Que puis-je faire ?
+        </Button>
+      )}
     </Paper>
   );
 }
@@ -48,7 +50,7 @@ function Bienvenue({ nom }) {
 export function DashboardPage() {
   const { canSeeDashboard, user } = usePermission();
   const queryClient = useQueryClient();
-  const { ouvrir } = useAssistant();
+  const { ouvrir, disponible: assistantDisponible } = useAssistant();
   const d = useDashboardData(canSeeDashboard);
   const [modalKPI, setModalKPI] = useState(null);
   const nom = prenom(user?.employe?.emp_nom);
@@ -78,10 +80,12 @@ export function DashboardPage() {
               <RefreshIcon />
             </IconButton>
           </Tooltip>
-          <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => ouvrir()}
-            sx={{ textTransform: "none", fontWeight: 600, borderRadius: 2, boxShadow: "none" }}>
-            Demander à l'assistant
-          </Button>
+          {assistantDisponible && (
+            <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => ouvrir()}
+              sx={{ textTransform: "none", fontWeight: 600, borderRadius: 2, boxShadow: "none" }}>
+              Demander à l'assistant
+            </Button>
+          )}
         </Box>
       </Box>
 

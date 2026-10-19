@@ -63,7 +63,7 @@ def parametres_periode():
     """Paramètres communs des outils datés."""
     return {
         "periode": {"type": "string", "enum": PERIODES,
-                    "description": "Période relative (« la semaine dernière » = semaine_derniere). À préférer aux dates."},
-        "date_debut": {"type": "string", "description": "Date de début AAAA-MM-JJ (seulement si l'utilisateur donne une date précise)."},
-        "date_fin": {"type": "string", "description": "Date de fin AAAA-MM-JJ (incluse)."},
+                    "description": "Période relative, à préférer aux dates."},
+        "date_debut": {"type": "string", "description": "AAAA-MM-JJ, seulement pour une date précise."},
+        "date_fin": {"type": "string", "description": "AAAA-MM-JJ, incluse."},
     }

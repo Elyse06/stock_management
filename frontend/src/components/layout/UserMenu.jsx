@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Avatar, Divider, IconButton, Menu, MenuItem, Typography } from "@mui/material";
 import { Key as KeyIcon, Logout as LogoutIcon } from "@mui/icons-material";
 
-export function UserMenu({ user, onLogout }) {
+export function UserMenu({ user, onLogout, onChangerMotDePasse }) {
   const [anchor, setAnchor] = useState(null);
-  const navigate = useNavigate();
   const email = user?.utilisateur_mail || "Utilisateur";
 
   return (
@@ -23,7 +22,7 @@ export function UserMenu({ user, onLogout }) {
         <MenuItem
           onClick={() => {
             setAnchor(null);
-            navigate("/changer-mot-de-passe");
+            onChangerMotDePasse();
           }}
         >
           <KeyIcon fontSize="small" sx={{ mr: 1 }} />

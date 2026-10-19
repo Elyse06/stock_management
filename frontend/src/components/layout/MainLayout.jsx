@@ -7,6 +7,7 @@ import { AutoAwesome as MagicIcon, Menu as MenuIcon } from "@mui/icons-material"
 import logo from "@/assets/tahiry-logo.png";
 import { PageLoader } from "@/components/feedback/PageLoader";
 import { AssistantContext } from "@/features/ai-assistant/context/assistantContext";
+import { MotDePasseDrawer } from "@/features/auth/components/MotDePasseDrawer";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useCompteurDemandesUnites } from "@/hooks/useCompteurDemandesUnites";
@@ -25,12 +26,13 @@ const AIChatDrawer = lazy(() =>
 export function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { canManageInventaire } = usePermission();
+  const { canManageInventaire, isGestionnaire } = usePermission();
   const demandesEnAttente = useCompteurDemandesUnites(canManageInventaire);
   const { items, activeParent, activeChild, isActive } = useNavigation();
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [question, setQuestion] = useState(null);
+  const [motDePasseOuvert, setMotDePasseOuvert] = useState(false);
   const [navMode, setNavMode] = useState("complet");
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
   const theme = useTheme();
@@ -38,11 +40,12 @@ export function MainLayout() {
   const enTiroir = navMode === "tiroir";
 
   const openAssistant = useCallback((texte) => {
+    if (!isGestionnaire) return;
     setAiLoaded(true);
     setAiOpen(true);
     if (typeof texte === "string" && texte.trim()) setQuestion({ texte, id: Date.now() });
-  }, []);
-  const assistant = useMemo(() => ({ ouvrir: openAssistant }), [openAssistant]);
+  }, [isGestionnaire]);
+  const assistant = useMemo(() => ({ ouvrir: openAssistant, disponible: isGestionnaire }), [openAssistant, isGestionnaire]);
 
   const handleLogout = () => {
     logout();
@@ -74,22 +77,27 @@ export function MainLayout() {
             />
             <AppNavBar items={items} isActive={isActive} forceTiroir={telephone} onModeChange={setNavMode} />
 
-            <Tooltip title="Assistant IA">
-              <IconButton
-                onClick={() => openAssistant()}
-                aria-label="Ouvrir l'assistant IA"
-                sx={{
-                  ml: { xs: 0, sm: 1 },
-                  flexShrink: 0,
-                  bgcolor: "tint.main",
-                  border: "1px solid",
-                  borderColor: "secondary.main",
-                  "&:hover": { bgcolor: "tint.light", borderColor: "secondary.dark" },
-                }}
-              >
-                <MagicIcon sx={{ color: "secondary.dark", fontSize: 22 }} />
-              </IconButton>
-            </Tooltip>
+            {isGestionnaire && (
+              <Tooltip title="Assistant IA">
+                <IconButton
+                  onClick={() => openAssistant()}
+                  aria-label="Ouvrir l'assistant IA"
+                  sx={{
+                    ml: { xs: 0, sm: 1 },
+                    flexShrink: 0,
+                    width: 38,
+                    height: 38,
+                    bgcolor: "primary.main",
+                    boxShadow: (t) => `0 0 0 2px ${t.palette.secondary.main}`,
+                    transition: "background-color .15s, transform .15s",
+                    "&:hover": { bgcolor: "primary.dark", transform: "translateY(-1px)" },
+                    "&:focus-visible": { outline: "2px solid", outlineColor: "primary.light", outlineOffset: 3 },
+                  }}
+                >
+                  <MagicIcon sx={{ color: "secondary.main", fontSize: 21 }} />
+                </IconButton>
+              </Tooltip>
+            )}
             <UserMenu user={user} onLogout={handleLogout} />
           </Toolbar>
           {activeParent && (
@@ -112,7 +120,9 @@ export function MainLayout() {
           </Suspense>
         </Box>
 
-        {aiLoaded && (
+        <MotDePasseDrawer open={motDePasseOuvert} onClose={() => setMotDePasseOuvert(false)} />
+
+        {isGestionnaire && aiLoaded && (
           <Suspense fallback={null}>
             <AIChatDrawer open={aiOpen} onClose={() => setAiOpen(false)} question={question} />
           </Suspense>
