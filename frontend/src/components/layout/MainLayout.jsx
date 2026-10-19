@@ -7,7 +7,6 @@ import { AutoAwesome as MagicIcon, Menu as MenuIcon } from "@mui/icons-material"
 import logo from "@/assets/tahiry-logo.png";
 import { PageLoader } from "@/components/feedback/PageLoader";
 import { AssistantContext } from "@/features/ai-assistant/context/assistantContext";
-import { MotDePasseDrawer } from "@/features/auth/components/MotDePasseDrawer";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useCompteurDemandesUnites } from "@/hooks/useCompteurDemandesUnites";
@@ -19,6 +18,7 @@ import { NAV_DRAWER_ID } from "./useNavMode";
 import { useNavigation } from "./useNavigation";
 import { UserMenu } from "./UserMenu";
 
+// L'assistant IA (et ses dépendances) n'est téléchargé qu'à sa première ouverture.
 const AIChatDrawer = lazy(() =>
   import("@/features/ai-assistant/components/AIChatDrawer").then((m) => ({ default: m.AIChatDrawer })),
 );
@@ -27,18 +27,20 @@ export function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { canManageInventaire, isGestionnaire } = usePermission();
+  // Demandes de retour ou de transfert à traiter : pastille sur l'onglet « Unités attribuées ».
   const demandesEnAttente = useCompteurDemandesUnites(canManageInventaire);
   const { items, activeParent, activeChild, isActive } = useNavigation();
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [question, setQuestion] = useState(null);
-  const [motDePasseOuvert, setMotDePasseOuvert] = useState(false);
   const [navMode, setNavMode] = useState("complet");
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
+  // Sur téléphone, toujours le bouton menu : des icônes seules y seraient trop serrées.
   const theme = useTheme();
   const telephone = useMediaQuery(theme.breakpoints.down("sm"));
   const enTiroir = navMode === "tiroir";
 
+  // Réservé aux gestionnaires du stock (vérifié aussi par l'API) : invisible pour les autres.
   const openAssistant = useCallback((texte) => {
     if (!isGestionnaire) return;
     setAiLoaded(true);
@@ -87,6 +89,7 @@ export function MainLayout() {
                     flexShrink: 0,
                     width: 38,
                     height: 38,
+                    // Mêmes couleurs que le panneau de l'assistant : bleu Paositra, étoiles et liseré jaunes.
                     bgcolor: "primary.main",
                     boxShadow: (t) => `0 0 0 2px ${t.palette.secondary.main}`,
                     transition: "background-color .15s, transform .15s",
@@ -114,13 +117,12 @@ export function MainLayout() {
           activeChild={activeChild}
         />
 
+        {/* overflowX "clip" (et non "auto") : sinon les éléments sticky des pages ne collent jamais */}
         <Box component="main" sx={{ flex: 1, p: 3, bgcolor: "#FFFFFF", overflowX: "clip" }}>
           <Suspense fallback={<PageLoader />}>
             <Outlet />
           </Suspense>
         </Box>
-
-        <MotDePasseDrawer open={motDePasseOuvert} onClose={() => setMotDePasseOuvert(false)} />
 
         {isGestionnaire && aiLoaded && (
           <Suspense fallback={null}>

@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Avatar, Divider, IconButton, Menu, MenuItem, Typography } from "@mui/material";
 import { Key as KeyIcon, Logout as LogoutIcon } from "@mui/icons-material";
 
-export function UserMenu({ user, onLogout, onChangerMotDePasse }) {
+import { MotDePasseDrawer } from "@/features/auth/components/MotDePasseDrawer";
+
+/**
+ * Menu du compte : changement de mot de passe et déconnexion. Le panneau du mot de passe est géré
+ * ici même : le menu fonctionne seul, sans rien attendre de la mise en page qui l'affiche.
+ */
+export function UserMenu({ user, onLogout }) {
   const [anchor, setAnchor] = useState(null);
+  const [motDePasseOuvert, setMotDePasseOuvert] = useState(false);
   const email = user?.utilisateur_mail || "Utilisateur";
 
   return (
@@ -22,7 +28,7 @@ export function UserMenu({ user, onLogout, onChangerMotDePasse }) {
         <MenuItem
           onClick={() => {
             setAnchor(null);
-            onChangerMotDePasse();
+            setMotDePasseOuvert(true);
           }}
         >
           <KeyIcon fontSize="small" sx={{ mr: 1 }} />
@@ -38,6 +44,7 @@ export function UserMenu({ user, onLogout, onChangerMotDePasse }) {
           Déconnexion
         </MenuItem>
       </Menu>
+      <MotDePasseDrawer open={motDePasseOuvert} onClose={() => setMotDePasseOuvert(false)} />
     </>
   );
 }
