@@ -92,7 +92,7 @@ export function UnitesArticlePage() {
     <Box>
       {onglets}
       <PageHeader onReset={reset} hasFilters={Boolean(searchInput || type || etat || typeArticle)}>
-        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Bénéficiaire, article, n° de série..." minWidth={260} />
+        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Bénéficiaire, article,..." minWidth={260} />
         <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
         <SelectFilter label="État" value={etat} onChange={setEtat} options={OPTIONS_ETAT} minWidth={160} />
         <BeneficiaireTypeChips value={type} onChange={setType} />

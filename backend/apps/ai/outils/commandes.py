@@ -29,7 +29,7 @@ def _commandes(contexte, statut=None, periode=None, date_debut=None, date_fin=No
     )
 
     def articles(c):
-        return ", ".join(f"{d.article.designation} ×{d.quantite}" for d in c.details.all())
+        return ", ".join(f"{d.libelle} ×{d.quantite}" for d in c.details.all())
 
     return Resultat(
         pour_ia={

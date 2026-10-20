@@ -8,19 +8,19 @@ class RecapitulatifAttributionSerializer(serializers.ModelSerializer):
     beneficiaire_type = serializers.CharField(read_only=True)
     article_designation = serializers.CharField(
         source='detail_commande.article.designation',
-        read_only=True
+        read_only=True, default=None
     )
     article_code = serializers.CharField(
         source='detail_commande.article.code_article',
-        read_only=True
+        read_only=True, default=None
     )
     is_immobilisation = serializers.BooleanField(
         source='detail_commande.article.is_immobilisation',
-        read_only=True
+        read_only=True, default=None
     )
     mode_suivi = serializers.CharField(
         source='detail_commande.article.mode_suivi',
-        read_only=True
+        read_only=True, default=None
     )
 
     class Meta:

@@ -90,6 +90,7 @@ export const EXTRA_ROUTE_ACTIONS = {
   // Fiche d'article : suivi du stock seulement (pas les profils Standard ni Chef hiérarchique).
   "/catalogue/articles/:code_article": [A.MOV_LIRE, A.CAT_GERE],
   "/inventaire/sessions/realisation": [A.INV_GERE],
+  "/commandes/nouvelle": [A.COM_DEM],
 };
 
 const flatten = (items) => items.flatMap((item) => (item.children ? flatten(item.children) : [item]));

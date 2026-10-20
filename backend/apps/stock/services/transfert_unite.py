@@ -50,7 +50,7 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
         magasin_destination=magasin_source,
     )
     DetailMouvement.objects.create(
-        mouvement=mouvement_retour, article=unite.article, quantite=1, affectation=unite.affectation,
+        mouvement=mouvement_retour, article=unite.article, quantite=1, affectation=unite.affectation, unite=unite,
     )
     unite.retourner_stock()
 
@@ -62,7 +62,10 @@ def transferer_unite(unite_id, nouveau_beneficiaire, magasin_source, motif=""):
     )
     detail_sortie = DetailMouvement.objects.create(
         mouvement=mouvement_sortie, article=unite.article, quantite=1,
-        affectation=Affectation.resoudre(nouveau_beneficiaire),
+        affectation=Affectation.resoudre(nouveau_beneficiaire), unite=unite,
     )
+    # Le retour et la nouvelle sortie forment un seul transfert (accusé PDF en deux parties).
+    mouvement_retour.mouvement_lie = mouvement_sortie
+    mouvement_retour.save(update_fields=["mouvement_lie"])
     unite.attribuer(beneficiaire=nouveau_beneficiaire, mouvement_sortie=detail_sortie)
     return {"retour": mouvement_retour, "sortie": mouvement_sortie}

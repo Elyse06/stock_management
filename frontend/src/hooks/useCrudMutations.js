@@ -41,11 +41,11 @@ export function useCrudMutations(resource, keys, messages = {}) {
     ...options(messages.deleted ?? "Supprimé avec succès.", MESSAGES.DELETE_FAILED),
   });
 
+  /** Crée ou modifie selon la présence de ``id``. Retourne l'objet renvoyé par l'API (ou ``true``) si réussi, ``false`` sinon. */
   const save = async (id, payload) => {
     try {
-      if (id !== undefined && id !== null) await update.mutateAsync({ id, payload });
-      else await create.mutateAsync(payload);
-      return true;
+      const data = id !== undefined && id !== null ? await update.mutateAsync({ id, payload }) : await create.mutateAsync(payload);
+      return data || true;
     } catch {
       return false;
     }

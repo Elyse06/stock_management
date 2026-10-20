@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.catalogue.models import Article
+from apps.common.stock import stock_article_magasin
 from apps.stock.models import (
     Affectation,
     DetailMouvement,
@@ -49,6 +50,27 @@ def _attribuer_premieres_unites(article, quantite, detail, beneficiaire):
         unite.attribuer(beneficiaire=beneficiaire, mouvement_sortie=detail)
 
 
+def _verifier_stock_fournitures(attributions, magasin):
+    """Les fournitures sorties ne peuvent pas dépasser le stock du magasin (un article qui vient d'être
+    créé pour une demande de nouvel article a un stock nul tant que l'entrée n'est pas faite)."""
+    besoins = {}
+    for detail, attribution in attributions:
+        if not detail.article.is_immobilisation:
+            besoins.setdefault(detail.article, 0)
+            besoins[detail.article] += int(attribution.quantite_validee)
+    for article, quantite in besoins.items():
+        disponible = stock_article_magasin(article, magasin.pk)
+        if disponible < quantite:
+            raise serializers.ValidationError(
+                f"Stock insuffisant pour '{article.designation}' au magasin « {magasin.magasin_nom} ». "
+                f"Disponible: {nombre_entier(disponible)}, Requis: {quantite}."
+            )
+
+
+def nombre_entier(valeur):
+    return int(valeur) if valeur == int(valeur) else valeur
+
+
 @transaction.atomic
 def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_data=None):
     """Crée le mouvement de SORTIE correspondant aux attributions validées."""
@@ -77,10 +99,11 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_da
         (detail, attribution)
         for detail in details
         for attribution in detail.attributions.all()
-        if attribution.statut == "VALIDEE"
+        if attribution.statut == "VALIDEE" and detail.article_id is not None
     ]
     if not attributions:
         return None
+    _verifier_stock_fournitures(attributions, magasin)
 
     mouvement = Mouvement.objects.create(
         type_mouvement=Mouvement.Type.SORTIE, magasin_source=magasin, origine=origine, motif=motif,

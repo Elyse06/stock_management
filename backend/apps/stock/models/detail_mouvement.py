@@ -21,6 +21,7 @@ class DetailMouvement(models.Model):
         related_name="details_mouvement_entree",
     )
     code_tracabilite = models.CharField(max_length=100, blank=True, null=True,)
+    unite = models.ForeignKey("stock.UniteArticle", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = "t_detail_mouvement"

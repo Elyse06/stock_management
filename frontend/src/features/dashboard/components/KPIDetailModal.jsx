@@ -7,6 +7,7 @@ import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { SearchField } from "@/components/forms/SearchField";
 import { SelectFilter } from "@/components/forms/SelectFilter";
 import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
+import { BoutonPdf } from "@/components/table/BoutonPdf";
 import { PaginationBar } from "@/components/table/PaginationBar";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { MouvementFormModal } from "@/features/mouvements/components/MouvementFormModal";
@@ -23,7 +24,7 @@ const FERME = { open: false, article: null, quantite: 1 };
 export function KPIDetailModal({ kpiType, isOpen, onClose }) {
   const navigate = useNavigate();
   const { canManageMouvements } = usePermission();
-  const { config, list, search, setSearch, mois, setMois, typeArticle, setTypeArticle, totalQuantite } = useKPIDetail(kpiType, isOpen);
+  const { config, list, urlPdf, search, setSearch, mois, setMois, typeArticle, setTypeArticle, totalQuantite } = useKPIDetail(kpiType, isOpen);
   const [entree, setEntree] = useState(FERME);
 
   if (!config) return null;
@@ -62,6 +63,9 @@ export function KPIDetailModal({ kpiType, isOpen, onClose }) {
             {config.searchable && <SearchField value={search} onChange={setSearch} />}
             <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
             {config.parMois && <SelectFilter label="Mois" value={mois} onChange={setMois} options={optionsMois()} minWidth={200} />}
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center" }}>
+              <BoutonPdf url={urlPdf} nomFichier={`rapport_${kpiType}.pdf`} titre="Exporter le rapport PDF (filtres appliqués)" />
+            </Box>
           </Box>
           {config.showTotal && totalQuantite > 0 && (
             <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

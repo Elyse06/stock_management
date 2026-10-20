@@ -24,14 +24,23 @@ ETATS_SANS_TRANSFERT = (UniteArticle.Etat.HORS_USAGE, UniteArticle.Etat.PERDU)
 def unites_visibles(employe, toute_la_direction=False):
     """Unités attribuées à l'employé ou à sa direction ; avec ``toute_la_direction`` (chef hiérarchique),
     aussi celles de chaque employé de sa direction."""
-    if employe is None:
+    condition = condition_beneficiaires(employe, toute_la_direction)
+    if condition is None:
         return UniteArticle.objects.none()
-    condition = Q(affectation__employe=employe)
-    if employe.emp_dir_id:
-        condition |= Q(affectation__direction_id=employe.emp_dir_id)
-        if toute_la_direction:
-            condition |= Q(affectation__employe__emp_dir_id=employe.emp_dir_id)
     return UniteArticle.objects.filter(condition, statut=UniteArticle.Statut.ATTRIBUE)
+
+
+def condition_beneficiaires(employe, toute_la_direction=False, prefix="affectation__"):
+    """Bénéficiaires visibles : l'employé, sa direction et, pour le chef hiérarchique, chaque employé
+    de sa direction (``None`` si l'utilisateur n'est rattaché à aucun employé)."""
+    if employe is None:
+        return None
+    condition = Q(**{f"{prefix}employe": employe})
+    if employe.emp_dir_id:
+        condition |= Q(**{f"{prefix}direction_id": employe.emp_dir_id})
+        if toute_la_direction:
+            condition |= Q(**{f"{prefix}employe__emp_dir_id": employe.emp_dir_id})
+    return condition
 
 
 def _notifier(demande, evenement):

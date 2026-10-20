@@ -27,6 +27,10 @@ class Mouvement(models.Model):
         Magasin, on_delete=models.PROTECT, null=True, blank=True,
         related_name="mouvements_entrants",
     )
+    realise_par = models.ForeignKey(
+        "employee.Employer", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    mouvement_lie = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = "t_mouvement"

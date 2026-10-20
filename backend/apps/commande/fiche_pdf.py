@@ -1,63 +1,63 @@
+"""Accusé de réception d'une commande validée : matériel remis, signé par le demandeur, le chef
+hiérarchique qui a pré-validé et le gestionnaire du stock qui a traité la commande."""
 from reportlab.lib.units import cm
 
+from apps.commande.models import AttributionDetailCommande
 from apps.common.pdf import PETIT, date_fr, fiche_pdf, informations, nombre, p, section, signatures, tableau
 from apps.stock.models import DetailMouvement, Mouvement, UniteArticle
 
 
 def _sortie(commande):
+    """Mouvement de sortie généré à la validation (son origine porte le numéro de la commande)."""
     return (Mouvement.objects.select_related("magasin_source")
             .filter(type_mouvement=Mouvement.Type.SORTIE, origine__startswith=f"Commande #{commande.pk} -").first())
 
 
-def generer_fiche_commande(commande):
+def generer_accuse_reception(commande):
     demandeur, sortie = commande.employe_demandeur, _sortie(commande)
-    remis, series = {}, {}
-    if sortie:
-        for detail in DetailMouvement.objects.filter(mouvement=sortie):
-            remis[detail.article_id] = remis.get(detail.article_id, 0) + detail.quantite
-        for unite in UniteArticle.objects.filter(mouvement_sortie__mouvement=sortie).order_by("numero_de_serie"):
-            series.setdefault(unite.article_id, []).append(unite.numero_de_serie or f"#{unite.unite_id}")
-
     lignes = []
-    for detail in commande.details.select_related("article").prefetch_related(
-        "attributions__affectation__employe", "attributions__affectation__direction",
-        "attributions__affectation__salle", "attributions__affectation__site",
-    ):
-        beneficiaires = "\n".join(
-            f"{a.affectation.nom} : {nombre(a.quantite_demandee or a.quantite)} demandée(s)"
-            + (f", {nombre(a.quantite_validee)} validée(s)" if a.quantite_validee else "")
-            + (f" — refusée ({a.motif_refus})" if a.statut == "REFUSEE" and a.motif_refus else " — refusée" if a.statut == "REFUSEE" else "")
-            for a in detail.attributions.all()
-        ) or "—"
-        lignes.append([
-            [p(detail.article.designation), p(detail.article.code_article, PETIT)],
-            nombre(detail.quantite), nombre(remis.get(detail.article_id, 0)) if sortie else "—",
-            beneficiaires, ", ".join(series.get(detail.article_id, [])) or "—",
-        ])
-
-    traite = commande.statut not in ("EN_ATTENTE",)
+    if sortie:
+        details = DetailMouvement.objects.filter(mouvement=sortie).select_related(
+            "article", "affectation__employe", "affectation__direction", "affectation__salle", "affectation__site",
+        ).order_by("pk")
+        for detail in details:
+            unites = UniteArticle.objects.filter(mouvement_sortie=detail).order_by("numero_de_serie")
+            series = ", ".join(u.numero_de_serie or f"#{u.unite_id}" for u in unites) or "—"
+            lignes.append([
+                [p(detail.article.designation), p(detail.article.code_article, PETIT)],
+                nombre(detail.quantite), detail.affectation.nom if detail.affectation_id else "—", series,
+            ])
+    refusees = [
+        f"{a.detail_commande.libelle} pour {a.affectation.nom}" + (f" ({a.motif_refus})" if a.motif_refus else "")
+        for a in AttributionDetailCommande.objects.filter(detail_commande__commande=commande, statut="REFUSEE")
+        .select_related("detail_commande__article", "affectation__employe", "affectation__direction",
+                        "affectation__salle", "affectation__site")
+    ]
+    chef, gestionnaire = commande.employe_prevalidateur, commande.employe_traitant
     blocs = [
-        section("Demande"),
-        informations([("Date de la demande", date_fr(commande.date_commande)), ("Statut", commande.get_statut_display()),
-                      ("Objet", commande.objet or "—")]),
+        section("Commande"),
+        informations([("Date de la demande", date_fr(commande.date_commande)), ("Validée le", date_fr(commande.date_traitement)),
+                      ("Objet", commande.objet or "—"),
+                      ("Magasin de sortie", sortie.magasin_source.magasin_nom if sortie and sortie.magasin_source else "—")]),
         section("Demandeur"),
         informations([
             ("Nom", getattr(demandeur, "emp_nom", None)), ("Matricule", getattr(demandeur, "emp_matricule", None)),
             ("Fonction", getattr(demandeur, "emp_fonction", None)),
             ("Direction", getattr(getattr(demandeur, "emp_dir_id", None), "dir_libelle", None)),
-            ("Site", getattr(getattr(demandeur, "emp_site_id", None), "site_nom", None)),
         ]),
-        section("Articles demandés"),
-        tableau(["Article", "Demandée", "Remise", "Bénéficiaires"], lignes,
-                [4 * cm, 2.5 * cm, 2 * cm, 5.1 * cm]),
-        section("Traitement"),
-        informations([
-            ("Traitée par", commande.employe_traitant.emp_nom if traite and commande.employe_traitant else "Non traitée"),
-            ("Le", date_fr(commande.date_traitement) if traite else "—"),
-            ("Magasin de sortie", sortie.magasin_source.magasin_nom if sortie and sortie.magasin_source else "—"),
-            ("Commentaire", commande.commentaire_agent or "—"),
-        ]),
-        signatures([("Le demandeur", getattr(demandeur, "emp_nom", "")),
-                    ("Le gestionnaire du stock", commande.employe_traitant.emp_nom if traite and commande.employe_traitant else "")]),
+        section("Matériel remis"),
+        tableau(["Article", "Quantité", "Bénéficiaire", "N° de série"], lignes or [["Aucun matériel remis", "", "", ""]],
+                [5.6 * cm, 2 * cm, 4.6 * cm, 5.2 * cm]),
     ]
-    return fiche_pdf("Fiche de demande de matériel", f"Commande n°{commande.pk}", commande.get_statut_display(), blocs)
+    if refusees:
+        blocs += [section("Non accordé"), p("\n".join(refusees))]
+    if commande.commentaire_agent:
+        blocs += [section("Commentaire du gestionnaire"), p(commande.commentaire_agent)]
+    blocs += [
+        section("Accusé de réception"),
+        p("Le demandeur reconnaît avoir reçu le matériel ci-dessus, en bon état, pour les bénéficiaires indiqués."),
+        signatures([("Le demandeur", getattr(demandeur, "emp_nom", "")),
+                    ("Le chef hiérarchique", getattr(chef, "emp_nom", "")),
+                    ("Le gestionnaire du stock", getattr(gestionnaire, "emp_nom", ""))]),
+    ]
+    return fiche_pdf("Accusé de réception de matériel", f"Commande n°{commande.pk}", "Validée", blocs)

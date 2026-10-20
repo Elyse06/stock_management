@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Checkbox, FormControlLabel, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { AutoFixHigh as AutoFixIcon } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
 
 import { FormDialog } from "@/components/forms/FormDialog";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { libelleCategorie } from "@/constants/articles";
 import { useCrudMutations } from "@/hooks/useCrudMutations";
 
 import { articlesApi } from "../api/catalogueApi";
@@ -27,12 +28,17 @@ const EMPTY_FORM = {
 const toForm = (article) =>
   Object.fromEntries(Object.entries(EMPTY_FORM).map(([k, defaut]) => [k, article[k] ?? defaut]));
 
-/** Création / modification d'un article. ``articleCode`` absent = création. */
-export function ArticleFormModal({ isOpen, onClose, articleCode = null }) {
+/**
+ * Création / modification d'un article. ``articleCode`` absent = création ; ``valeursInitiales``
+ * pré-remplit une création (ex. depuis une demande de nouvel article) et ``onCree`` reçoit l'article créé.
+ */
+export function ArticleFormModal({ isOpen, onClose, articleCode = null, valeursInitiales = null, onCree }) {
   const isEdit = Boolean(articleCode);
   const [form, setForm] = useState(EMPTY_FORM);
+  const initiales = useRef(valeursInitiales);
+  initiales.current = valeursInitiales;
   const { data: categories = [] } = useCategoryOptions();
-  const { save, saving } = useCrudMutations(articlesApi, [["articles"], ["article"]], {
+  const { save, saving } = useCrudMutations(articlesApi, [["articles"], ["article"], ["options", "articles"]], {
     created: "Article créé avec succès",
     updated: "Article modifié avec succès",
   });
@@ -46,7 +52,7 @@ export function ArticleFormModal({ isOpen, onClose, articleCode = null }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    setForm(isEdit ? (article ? toForm(article) : EMPTY_FORM) : EMPTY_FORM);
+    setForm(isEdit ? (article ? toForm(article) : EMPTY_FORM) : { ...EMPTY_FORM, ...initiales.current });
   }, [isOpen, isEdit, article]);
 
   const setField = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
@@ -63,7 +69,7 @@ export function ArticleFormModal({ isOpen, onClose, articleCode = null }) {
   const categorieOptions = useMemo(
     () => [
       { value: "", label: "Choisir une catégorie..." },
-      ...categories.map((c) => ({ value: c.categorie_id, label: `${c.cat_libelle} - ${c.cat_description}` })),
+      ...categories.map((c) => ({ value: c.categorie_id, label: libelleCategorie(c.cat_libelle, c.cat_description) })),
     ],
     [categories],
   );
@@ -77,7 +83,10 @@ export function ArticleFormModal({ isOpen, onClose, articleCode = null }) {
       categorie: Number(form.categorie),
       seuil: form.seuil === "" ? 0 : Number(form.seuil),
     };
-    if (await save(isEdit ? articleCode : null, payload)) onClose();
+    const resultat = await save(isEdit ? articleCode : null, payload);
+    if (!resultat) return;
+    if (!isEdit && typeof resultat === "object") onCree?.(resultat);
+    onClose();
   };
 
   const valide = form.categorie && form.code_article.trim() && form.designation.trim();

@@ -29,6 +29,10 @@ class Commande(models.Model):
         blank=True,
         related_name="commandes_traitees",
     )
+    employe_prevalidateur = models.ForeignKey(
+        Employer, on_delete=models.SET_NULL, null=True, blank=True, related_name="commandes_prevalidees",
+    )
+    date_prevalidation = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "t_commande"

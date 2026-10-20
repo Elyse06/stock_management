@@ -17,6 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 import { mouvementsApi } from "../api/mouvementsApi";
 import { StatusChip } from "@/components/data-display/StatusChip";
 import { CodeChip } from "@/components/data-display/CodeChip";
+import { BoutonPdf } from "@/components/table/BoutonPdf";
+import { API_ENDPOINTS } from "@/config/endpoints";
 import { MouvementInfoSection } from "./MouvementInfoSection";
 import { MouvementArticlesTable } from "./MouvementArticlesTable";
 
@@ -32,6 +34,11 @@ function ArticlesSkeleton({ count }) {
     </Box>
   );
 }
+
+const titrePdf = (m) =>
+  m.type_mouvement === "RETOUR" || (m.type_mouvement === "SORTIE" && m.origine?.startsWith("Transfert unité"))
+    ? "Télécharger l'accusé (PDF)"
+    : "Télécharger la fiche du mouvement (PDF)";
 
 export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
   const theme = useTheme();
@@ -82,9 +89,14 @@ export function MouvementDetailModal({ mouvement, isOpen, onClose }) {
             <StatusChip status={mouvement.type_mouvement} />
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+          {/* Retour : accusé de retour ; transfert d'une unité : accusé de retour et de réception ; sinon fiche. */}
+          <BoutonPdf url={`${API_ENDPOINTS.MOUVEMENTS}${mouvement.mouvement_id}/pdf/`} nomFichier={`mouvement_${mouvement.mouvement_id}.pdf`}
+            titre={titrePdf(mouvement)} />
+          <IconButton onClick={onClose} size="small" aria-label="Fermer">
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>

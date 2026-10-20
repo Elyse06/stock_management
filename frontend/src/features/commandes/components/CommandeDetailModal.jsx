@@ -10,7 +10,7 @@ import { usePermission } from "@/features/auth/hooks/usePermission";
 import { toOptions, useMagasins } from "@/hooks/useReferenceData";
 
 import { useTraitementCommande } from "../hooks/useTraitementCommande";
-import { peutTelechargerFiche } from "../utils/fiche";
+import { peutTelechargerFiche, TITRE_ACCUSE } from "../utils/fiche";
 
 import { CommandeActions } from "./CommandeActions";
 import { CommandeArticlesTable } from "./CommandeArticlesTable";
@@ -19,10 +19,10 @@ import { CommandeProgress } from "./CommandeProgress";
 import { CommandeTraitementSection } from "./CommandeTraitementSection";
 
 /** Détail d'une commande ; affiche le traitement si l'utilisateur peut statuer. */
-export function CommandeDetailModal({ commande, isOpen, onClose }) {
+export function CommandeDetailModal({ commande, isOpen, onClose, onCommandeModifiee }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const t = useTraitementCommande({ commande, isOpen, onDone: onClose });
+  const t = useTraitementCommande({ commande, isOpen, onDone: onClose, onCommandeModifiee });
   const droits = usePermission();
   const peutTraiter = t.peutTraiter(commande);
   const { data: magasins = [] } = useMagasins({ enabled: Boolean(isOpen && peutTraiter) });
@@ -42,7 +42,6 @@ export function CommandeDetailModal({ commande, isOpen, onClose }) {
             <Typography variant="h3" component="span">
               {peutTraiter ? "Traitement de la commande" : "Détail de la commande"}
             </Typography>
-            <CodeChip value={`#${commande.commande_id}`} />
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
             <StatusChip status={commande.statut} />
@@ -58,7 +57,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose }) {
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {peutTelechargerFiche(droits, commande) && (
-            <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${commande.commande_id}/pdf/`} nomFichier={`commande_${commande.commande_id}.pdf`} />
+            <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${commande.commande_id}/pdf/`} nomFichier={`accuse_reception_commande_${commande.commande_id}.pdf`} titre={TITRE_ACCUSE} />
           )}
           <IconButton onClick={onClose} size="small" aria-label="Fermer">
             <CloseIcon />
@@ -87,6 +86,10 @@ export function CommandeDetailModal({ commande, isOpen, onClose }) {
             isAgentSecondaire={t.isAgentSecondaire}
             validations={t.validations}
             setValidations={t.setValidations}
+            specifications={t.specifications}
+            onSpecification={t.modifierSpecification}
+            onAssocier={t.associer}
+            association={t.association}
           />
         )}
       </DialogContent>

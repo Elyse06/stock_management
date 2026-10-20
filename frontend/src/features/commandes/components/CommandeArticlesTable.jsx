@@ -74,7 +74,10 @@ export function CommandeArticlesTable({ commande, articles }) {
                     <Box
                       sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}
                     >
-                      <CodeChip value={detail.article} />
+                      {detail.article ? <CodeChip value={detail.article} /> : <Chip label="Nouvel article" size="small" color="warning" sx={{ height: 20, fontSize: 11, fontWeight: 600 }} />}
+                      {detail.article && detail.est_nouvel_article && (
+                        <Chip label="Nouvel article" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: 11 }} />
+                      )}
                       {isNS && (
                         <Chip
                           label="N° Série"
@@ -90,8 +93,13 @@ export function CommandeArticlesTable({ commande, articles }) {
                       fontWeight={600}
                       sx={{ mt: 0.5, wordBreak: "break-word" }}
                     >
-                      {detail.article_designation || article?.designation}
+                      {detail.article ? detail.article_designation || article?.designation : `« ${detail.specification} »`}
                     </Typography>
+                    {detail.article && detail.est_nouvel_article && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", wordBreak: "break-word" }}>
+                        Demande d'origine : « {detail.specification} »
+                      </Typography>
+                    )}
                   </Box>
 
                   <Box sx={{ textAlign: "center", flexShrink: 0 }}>

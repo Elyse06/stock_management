@@ -3,7 +3,11 @@ from django.db.models import Count, IntegerField, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
+from rest_framework.decorators import action
 
+from apps.common.employees import get_request_employee
+from apps.common.pdf import reponse_pdf
+from apps.stock.fiche_mouvement_pdf import generer_document_mouvement, nom_fichier_mouvement
 from apps.stock.models import DetailMouvement, Mouvement
 from apps.stock.serializers import MouvementListSerializer, MouvementSerializer
 
@@ -61,3 +65,13 @@ class MouvementViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return MouvementListSerializer if self.action == "list" else MouvementSerializer
+
+    def perform_create(self, serializer):
+        # Le gestionnaire qui saisit le mouvement en est le signataire dans la fiche PDF.
+        serializer.save(realise_par=get_request_employee(self.request))
+
+    @action(detail=True, methods=["get"])
+    def pdf(self, request, pk=None):
+        """Accusé de retour, accusé de transfert (retour + réception) ou fiche du mouvement."""
+        mouvement = self.get_object()
+        return reponse_pdf(generer_document_mouvement(mouvement), nom_fichier_mouvement(mouvement))

@@ -13,7 +13,7 @@ export const PERIODES = [
   { value: "annee", label: "Cette année" },
 ];
 
-export const OBJETS_DEMANDE = ["Utilisation simple", "Nouveau membre", "Remplacement de matériel", "Autre"];
-export const OBJET_PAR_DEFAUT = OBJETS_DEMANDE[0];
+/** Longueur maximale de l'objet d'une demande (saisi librement). */
+export const OBJET_MAX = 100;
 
 export { bornesPeriode } from "@/utils/periodes";

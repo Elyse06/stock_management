@@ -88,7 +88,9 @@ export function DemandesATraiter() {
           ) : (
             <Typography variant="caption" color="text.secondary">{row.traitant_nom || ""}</Typography>
           )}
-          <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`} />
+          {/* Demande traitée : accusé de retour ou de transfert ; sinon, fiche de la demande. */}
+          <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`}
+            titre={row.statut === "TRAITEE" ? "Télécharger l'accusé (PDF)" : "Télécharger la fiche de la demande (PDF)"} />
         </Box>
       ),
     },

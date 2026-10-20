@@ -42,12 +42,12 @@ def valider_session_inventaire(session: InventaireSession, valideur=None):
     if any(ligne.ecart > 0 for ligne in lignes):
         mouvement_gain = Mouvement.objects.create(
             type_mouvement=Mouvement.Type.AJUSTEMENT, origine=origine,
-            motif=MOTIF_ECART_POSITIF, magasin_destination=session.magasin,
+            motif=MOTIF_ECART_POSITIF, magasin_destination=session.magasin, realise_par=valideur,
         )
     if any(ligne.ecart < 0 for ligne in lignes):
         mouvement_perte = Mouvement.objects.create(
             type_mouvement=Mouvement.Type.AJUSTEMENT, origine=origine,
-            motif=MOTIF_ECART_NEGATIF, magasin_source=session.magasin,
+            motif=MOTIF_ECART_NEGATIF, magasin_source=session.magasin, realise_par=valideur,
         )
 
     for ligne in lignes:

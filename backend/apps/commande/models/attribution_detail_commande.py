@@ -62,7 +62,8 @@ class AttributionDetailCommande(models.Model):
         return self.affectation.beneficiaire_type
 
     def get_qr_payload(self):
-        article = self.detail_commande.article
+        detail = self.detail_commande
+        article = detail.article
         type_beneficiaire = self.affectation.beneficiaire_type
 
         if type_beneficiaire == Affectation.BeneficiaireType.EMPLOYE:
@@ -85,8 +86,8 @@ class AttributionDetailCommande(models.Model):
                 "annee": self.date_acquisition.year,
             },
             "article": {
-                "code_article": article.code_article,
-                "designation": article.designation,
+                "code_article": article.code_article if article else None,
+                "designation": article.designation if article else detail.libelle,
             },
         }
 

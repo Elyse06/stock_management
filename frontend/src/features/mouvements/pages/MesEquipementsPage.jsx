@@ -3,6 +3,7 @@ import { Alert, Box, Button, Checkbox, Chip, Paper, Stack, Typography } from "@m
 import { AssignmentReturn as RetourIcon, SwapHoriz as TransfertIcon } from "@mui/icons-material";
 
 import { EtatBadge } from "@/components/data-display/EtatBadge";
+import { TypeArticleChip } from "@/components/data-display/TypeArticleChip";
 import { SearchField } from "@/components/forms/SearchField";
 import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
@@ -40,7 +41,8 @@ export function MesEquipementsPage() {
   const lignes = liste.rows;
   // Seul le chef hiérarchique fait les demandes (le serveur le vérifie aussi).
   const peutDemander = Boolean(liste.data?.peut_demander);
-  const choisies = lignes.filter((u) => selection.has(u.unite_id));
+  // Seules les unités d'immobilisation font l'objet d'une demande (pas les fournitures).
+  const choisies = lignes.filter((u) => !u.fourniture && selection.has(u.unite_id));
 
   const basculer = (id) =>
     setSelection((s) => {
@@ -57,13 +59,13 @@ export function MesEquipementsPage() {
   const columns = [
     peutDemander && {
       field: "selection", headerName: "", sortable: false, autoGrow: false, autoExtraWidth: 8, getText: () => "",
-      renderCell: ({ row }) => (
+      renderCell: ({ row }) => !row.fourniture && (
         <Checkbox size="small" checked={selection.has(row.unite_id)} disabled={Boolean(row.demande_en_attente)}
           onChange={() => basculer(row.unite_id)} slotProps={{ input: { "aria-label": `Sélectionner ${row.article_designation} ${row.numero_de_serie || ""}` } }} />
       ),
     },
     {
-      field: "article_designation", headerName: "Équipement", getText: (r) => `${r.article_designation} ${r.numero_de_serie || ""}`,
+      field: "article_designation", headerName: "Article", getText: (r) => `${r.article_designation} ${r.numero_de_serie || ""}`,
       renderCell: ({ row }) => (
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="body2" noWrap>{row.article_designation}</Typography>
@@ -73,7 +75,19 @@ export function MesEquipementsPage() {
         </Box>
       ),
     },
-    { field: "etat", headerName: "État", autoGrow: false, autoExtraWidth: 56, renderCell: ({ value }) => <EtatBadge etat={value} /> },
+    {
+      field: "is_immobilisation", headerName: "Type", autoGrow: false, autoExtraWidth: 36,
+      getText: (r) => (r.fourniture ? "Fourniture" : "Immobilisation"),
+      renderCell: ({ row }) => <TypeArticleChip immobilisation={!row.fourniture} />,
+    },
+    {
+      field: "quantite", headerName: "Quantité", autoGrow: false, align: "center", headerAlign: "center",
+      renderCell: ({ value }) => <Typography variant="body2" fontWeight={600}>{value}</Typography>,
+    },
+    {
+      field: "etat", headerName: "État", autoGrow: false, autoExtraWidth: 56, getText: (r) => (r.fourniture ? "—" : r.etat),
+      renderCell: ({ row }) => (row.fourniture ? "—" : <EtatBadge etat={row.etat} />),
+    },
     {
       field: "a_moi", headerName: "Attribué à", autoExtraWidth: 40,
       getText: (r) => attribueA(r),
@@ -87,6 +101,7 @@ export function MesEquipementsPage() {
         return d ? `${d.type_label} demandé${d.de_moi ? "" : ` par ${d.demandeur_nom}`}` : "Retour Transfert";
       },
       renderCell: ({ row }) => {
+        if (row.fourniture) return <Typography variant="caption" color="text.secondary">—</Typography>;
         const d = row.demande_en_attente;
         if (d) return <Chip size="small" color="warning" variant="outlined"
           label={`${d.type_label} demandé${d.de_moi ? "" : ` par ${d.demandeur_nom}`}`} />;
@@ -108,14 +123,6 @@ export function MesEquipementsPage() {
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h2" component="h1">Mes équipements</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {peutDemander
-            ? "Le matériel de votre direction : le vôtre, celui de la direction et celui de chaque employé. Pour rendre un équipement ou le faire passer à quelqu'un d'autre, faites une demande : le gestionnaire du stock la traitera."
-            : "Le matériel qui vous est attribué et celui de votre direction. Pour le rendre ou le faire passer à quelqu'un d'autre, adressez-vous à votre chef hiérarchique."}
-        </Typography>
-      </Box>
       {!user?.employe && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Votre compte n'est rattaché à aucun employé : demandez à l'administrateur de le rattacher à votre fiche.
@@ -123,7 +130,7 @@ export function MesEquipementsPage() {
       )}
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center", mb: 1.5 }}>
-          <SearchField value={searchInput} onChange={setSearchInput} placeholder="Équipement, n° de série..." minWidth={240} />
+          <SearchField value={searchInput} onChange={setSearchInput} placeholder="Équipement" minWidth={240} />
           <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
           {peutDemander && choisies.length > 0 && (
             <Stack direction="row" spacing={1} sx={{ ml: { sm: "auto" } }}>
@@ -136,8 +143,8 @@ export function MesEquipementsPage() {
             </Stack>
           )}
         </Box>
-        <PaginatedDataGrid {...liste.gridProps} columns={columns} getRowId={(r) => r.unite_id}
-          noRowsLabel="Aucun équipement ne vous est attribué" aria-label="Mes équipements" />
+        <PaginatedDataGrid {...liste.gridProps} columns={columns} getRowId={(r) => r.ligne_id}
+          noRowsLabel="Aucun matériel ne vous est attribué" aria-label="Mes équipements" />
       </Paper>
       {peutDemander && <MesDemandesTable />}
       {modal && (

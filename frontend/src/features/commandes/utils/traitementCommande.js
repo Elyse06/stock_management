@@ -27,15 +27,24 @@ export function quantiteValidee(detail, validations) {
 }
 
 /** Message d'erreur bloquant, ou ``null``. */
-export function verifierTraitement({ statut, commande, validations, magasinSource, unitesSelectionnees, getArticle, isAgentPrincipal }) {
+export function verifierTraitement({ statut, commande, validations, magasinSource, unitesSelectionnees, getArticle, isAgentPrincipal, specifications = {} }) {
   if (statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
     return "Veuillez sélectionner un magasin source pour la sortie de stock.";
   }
   if (statut === "REJETEE") return null;
 
   for (const detail of commande.details || []) {
+    if (detail.est_nouvel_article && !detail.article) {
+      if (detail.id in specifications && !specifications[detail.id].trim()) {
+        return "La spécification d'un nouvel article ne peut pas être vide.";
+      }
+      const accordee = (detail.attributions || []).some((attr) => validations[attr.id]?.statut === "VALIDEE");
+      if (statut === "VALIDEE" && accordee) {
+        return `« ${detail.specification} » : créez l'article ou associez un article existant avant de valider (ou refusez la demande).`;
+      }
+    }
     const article = getArticle(detail.article);
-    const nom = article?.designation ?? detail.article_designation;
+    const nom = article?.designation ?? detail.libelle ?? detail.article_designation;
     const toutesDecidees = (detail.attributions || []).every((attr) =>
       ["VALIDEE", "REFUSEE"].includes(validations[attr.id]?.statut),
     );
@@ -53,8 +62,13 @@ export function verifierTraitement({ statut, commande, validations, magasinSourc
   return null;
 }
 
-export function construirePayloadTraitement({ statut, commande, commentaire, validations, magasinSource, unitesSelectionnees, getArticle }) {
+export function construirePayloadTraitement({ statut, commande, commentaire, validations, magasinSource, unitesSelectionnees, getArticle, specifications = {} }) {
   const payload = { statut, commentaire_agent: commentaire.trim() };
+  // Spécifications corrigées par le chef hiérarchique (pré-validation uniquement).
+  const corrigees = (commande.details || [])
+    .filter((d) => statut === "EN_COURS" && d.id in specifications && specifications[d.id].trim() !== d.specification)
+    .map((d) => ({ detail_id: d.id, specification: specifications[d.id].trim() }));
+  if (corrigees.length) payload.specifications = corrigees;
   if (statut !== "REJETEE" && Object.keys(validations).length > 0) {
     payload.validations = Object.entries(validations).map(([id, d]) => ({
       attribution_id: Number(id),
@@ -65,7 +79,7 @@ export function construirePayloadTraitement({ statut, commande, commentaire, val
   }
   if (statut === "VALIDEE" && magasinSource) {
     payload.magasin_source = Number(magasinSource);
-    payload.details = (commande.details || []).map((detail) => ({
+    payload.details = (commande.details || []).filter((detail) => detail.article).map((detail) => ({
       detail_id: detail.id,
       unites_a_attribuer: estSuiviParSerie(getArticle(detail.article)) ? unitesSelectionnees[detail.id] || [] : [],
     }));

@@ -11,7 +11,7 @@ from apps.common.employees import get_request_employee
 from apps.common.localisation import filtre_direction, filtre_salle, filtre_site
 from apps.common.pagination import paginer
 from apps.common.params import filtre_type_article
-from apps.stock.models import DemandeUnite, UniteArticle
+from apps.stock.models import DemandeUnite, Mouvement, UniteArticle
 from apps.stock.serializers import (
     RetourUniteSerializer,
     TransfertUniteSerializer,
@@ -158,6 +158,8 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
             demande = verrouiller_demande_a_traiter(demande_id, pk, type_demande) if demande_id else None
             resultat = serializer.save()
             mouvement = resultat if type_demande == DemandeUnite.Type.RETOUR else resultat["sortie"]
+            mouvements = [resultat] if type_demande == DemandeUnite.Type.RETOUR else [resultat["retour"], resultat["sortie"]]
+            Mouvement.objects.filter(pk__in=[m.pk for m in mouvements]).update(realise_par=get_request_employee(request))
             cloturer_apres_mouvement(pk, type_demande, get_request_employee(request), mouvement, demande,
                                      serializer.validated_data.get("motif", ""))
         return resultat

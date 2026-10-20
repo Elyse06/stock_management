@@ -5,6 +5,7 @@ from apps.commande.access import est_validateur
 from apps.commande.models import AttributionDetailCommande, Commande, DetailCommande
 from apps.common.employees import format_employee_data, get_request_employee
 from apps.common.serializers import BeneficiaireWriteMixin
+from apps.stock.models import Affectation
 
 from .detail_commande import DetailCommandeSerializer
 
@@ -13,23 +14,41 @@ class CommandeSerializer(serializers.ModelSerializer):
     details = DetailCommandeSerializer(many=True, required=False)
     demandeur = serializers.SerializerMethodField()
     traitant = serializers.SerializerMethodField()
+    prevalidateur_nom = serializers.CharField(source="employe_prevalidateur.emp_nom", read_only=True, default=None)
 
     class Meta:
         model = Commande
         fields = [  # noqa: RUF012
             "commande_id", "objet", "statut", "date_commande", "date_traitement", "commentaire_agent",
-            "employe_demandeur", "demandeur", "employe_traitant", "traitant", "details",
+            "employe_demandeur", "demandeur", "employe_traitant", "traitant", "prevalidateur_nom",
+            "date_prevalidation", "details",
         ]
+        # Le statut et le commentaire ne changent que via l'action « traiter ».
         read_only_fields = [  # noqa: RUF012
             "statut", "date_commande", "date_traitement", "employe_traitant", "commentaire_agent",
+            "date_prevalidation",
         ]
-        extra_kwargs = {"employe_demandeur": {"required": False}}  # noqa: RUF012
+        extra_kwargs = {  # noqa: RUF012
+            "employe_demandeur": {"required": False},
+            "objet": {"required": True, "allow_blank": False, "max_length": 100},
+        }
 
     def get_demandeur(self, obj):
         return format_employee_data(obj.employe_demandeur)
 
     def get_traitant(self, obj):
         return format_employee_data(obj.employe_traitant)
+
+    def validate_objet(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Indiquez l'objet de la demande.")
+        return value
+
+    def validate_details(self, value):
+        if self.instance is None and not value:
+            raise serializers.ValidationError("Ajoutez au moins un article à la commande.")
+        return value
 
     def validate_employe_demandeur(self, value):
         request = self.context.get("request")
@@ -62,5 +81,12 @@ class CommandeSerializer(serializers.ModelSerializer):
                 affectation = BeneficiaireWriteMixin.extraire_affectation(attribution_data, requis=True)
                 AttributionDetailCommande.objects.create(
                     detail_commande=detail, affectation=affectation, **attribution_data
+                )
+            if not attributions_data:
+                # Sans répartition, toute la quantité revient au demandeur : la ligne a ainsi une
+                # attribution à valider (sinon elle était ignorée à la sortie de stock).
+                AttributionDetailCommande.objects.create(
+                    detail_commande=detail, affectation=Affectation.resoudre(demandeur),
+                    quantite=detail.quantite, quantite_demandee=detail.quantite,
                 )
         return commande

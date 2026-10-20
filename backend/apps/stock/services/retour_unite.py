@@ -31,8 +31,9 @@ def retourner_unite_au_stock(unite_id, magasin_destination, motif=""):
         motif=motif or "Retour au stock",
         magasin_destination=magasin_destination,
     )
+    # Le détail garde la trace de qui détenait l'unité (historique).
     DetailMouvement.objects.create(
-        mouvement=mouvement, article=unite.article, quantite=1, affectation=unite.affectation,
+        mouvement=mouvement, article=unite.article, quantite=1, affectation=unite.affectation, unite=unite,
     )
     unite.retourner_stock()
     return mouvement

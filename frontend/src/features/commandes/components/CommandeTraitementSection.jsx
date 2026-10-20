@@ -17,6 +17,7 @@ import {
 } from "@mui/icons-material";
 import { SelectFilter } from "@/components/forms/SelectFilter";
 import { ArticleUniteSelector } from "./ArticleUniteSelector";
+import { NouveauxArticlesTraitement } from "./NouveauxArticlesTraitement";
 import { getBeneficiaireMeta } from "@/utils/beneficiaireMeta";
 
 const DECIDED = ["VALIDEE", "REFUSEE"];
@@ -46,6 +47,10 @@ export function CommandeTraitementSection({
   isAgentSecondaire,
   validations,
   setValidations,
+  specifications,
+  onSpecification,
+  onAssocier,
+  association,
 }) {
   const getArticle = (codeArticle) => articles.find((a) => a.code_article === codeArticle);
 
@@ -86,6 +91,18 @@ export function CommandeTraitementSection({
         </Box>
       </Divider>
 
+      <NouveauxArticlesTraitement
+        commande={commande}
+        articles={articles}
+        preValidation={isPreValidation}
+        validationFinale={isFinalValidation}
+        specifications={specifications}
+        onSpecification={onSpecification}
+        onAssocier={onAssocier}
+        association={association}
+      />
+
+      {/* SECTION 1 : décision sur chaque attribution (les deux agents) */}
       {toutesAttributions.length > 0 && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
           <Chip
@@ -105,7 +122,8 @@ export function CommandeTraitementSection({
           return (
             <Box key={detail.id} sx={{ mb: 3 }}>
               <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                {article?.designation || detail.article_designation} ({detail.article})
+                {article?.designation || detail.libelle || detail.article_designation}
+                {detail.article ? ` (${detail.article})` : ""}
               </Typography>
 
               {detail.attributions.map((attr) => {
@@ -186,9 +204,6 @@ export function CommandeTraitementSection({
                           }
                           inputProps={{ min: 1, max: qteDemandee }}
                           sx={{ width: 150 }}
-                          helperText={
-                            isPreValidation ? "Modifiable pour la pré-validation" : undefined
-                          }
                         />
                       </Box>
                     )}
@@ -213,6 +228,7 @@ export function CommandeTraitementSection({
           );
         })}
 
+      {/* SECTION 2 : magasin et unités (validation finale uniquement) */}
       {isFinalValidation && (
         <>
           <Box sx={{ "& .MuiFormControl-root": { width: "100%" } }}>

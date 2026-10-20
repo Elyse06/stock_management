@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, Box, Tooltip, Typography } from "@mui/material";
 
 import { EmptyValue } from "@/components/data-display/EmptyValue";
@@ -21,14 +22,13 @@ import { formatDateTime } from "@/utils/formatters";
 
 import { commandesApi } from "../api/commandesApi";
 import { CommandeDetailModal } from "../components/CommandeDetailModal";
-import { CommandeFormModal } from "../components/CommandeFormModal";
 import { bornesPeriode, PERIODES, STATUTS_COMMANDE } from "../constants/commande";
 import { useCommandeRoles } from "../hooks/useCommandeRoles";
-import { peutTelechargerFiche } from "../utils/fiche";
+import { peutTelechargerFiche, TITRE_ACCUSE } from "../utils/fiche";
 
 const getDemandeurNom = (row) => row?.demandeur?.nom || row?.employe_demandeur || "—";
 const getArticlesLabel = (row) =>
-  (row?.details ?? []).map((d) => d.article_designation).filter(Boolean).join(", ");
+  (row?.details ?? []).map((d) => d.libelle || d.article_designation).filter(Boolean).join(", ");
 
 export function CommandesPage() {
   const { canCreateCommande, isDemandeur, isAgentPrincipal, peutTraiter } = useCommandeRoles();
@@ -40,7 +40,7 @@ export function CommandesPage() {
   const { remove } = useCrudMutations(commandesApi, [["commandes"]], { deleted: "Commande supprimée avec succès" });
   const [statut, setStatut] = useState("");
   const [periode, setPeriode] = useState("tous");
-  const [formOpen, setFormOpen] = useState(false);
+  const navigate = useNavigate();
   const [selected, setSelected] = useState(null);
 
   const list = usePaginatedList(["commandes"], API_ENDPOINTS.COMMANDES, { statut });
@@ -101,7 +101,7 @@ export function CommandesPage() {
             />
             {/* Fiche PDF : réservée au gestionnaire (vérifié aussi par l'API). */}
             {peutTelechargerFiche(droits, row) && (
-              <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${row.commande_id}/pdf/`} nomFichier={`commande_${row.commande_id}.pdf`} />
+              <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${row.commande_id}/pdf/`} nomFichier={`accuse_reception_commande_${row.commande_id}.pdf`} titre={TITRE_ACCUSE} />
             )}
           </Box>
         );
@@ -114,7 +114,7 @@ export function CommandesPage() {
     <Box>
       <PageHeader
         actionLabel="Nouvelle demande"
-        onAction={() => setFormOpen(true)}
+        onAction={() => navigate("/commandes/nouvelle")}
         canAction={canCreateCommande}
         onReset={() => {
           setStatut("");
@@ -135,8 +135,7 @@ export function CommandesPage() {
 
       <PaginatedDataGrid {...list.gridProps} rows={rows} columns={columns} getRowId={(row) => row.commande_id} noRowsLabel="Aucune commande trouvée" />
 
-      <CommandeFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} />
-      <CommandeDetailModal commande={selected} isOpen={Boolean(selected)} onClose={() => setSelected(null)} />
+      <CommandeDetailModal commande={selected} isOpen={Boolean(selected)} onClose={() => setSelected(null)} onCommandeModifiee={setSelected} />
       <ConfirmDialog {...dialogProps} />
     </Box>
   );

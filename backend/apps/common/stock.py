@@ -1,6 +1,25 @@
+"""Calcul du stock : source de vérité unique pour tout le backend.
+
+Règles (inchangées par rapport à l'existant) pour un magasin M :
+
+    + ENTREE / TRANSFERT / RETOUR dont la destination est M
+    - SORTIE / TRANSFERT          dont la source est M
+    + AJUSTEMENT sans source       dont la destination est M (écart positif)
+    - AJUSTEMENT sans destination  dont la source est M      (écart négatif)
+
+Sans magasin précis (stock global), un TRANSFERT s'annule (+/-) et seuls les
+ajustements rattachés à un magasin sont comptés.
+
+Pour un bénéficiaire (direction, site, salle), le stock détenu vaut :
+    sorties - retours + ajustements positifs - ajustements négatifs.
+
+Toutes les fonctions calculent les quatre composantes dans une SEULE requête
+SQL (sommes conditionnelles), là où l'ancien code en faisait quatre, souvent
+dans une boucle par article ou par magasin.
+"""
 from collections import defaultdict
 
-from django.db.models import IntegerField, Q, Sum, Value
+from django.db.models import IntegerField, Max, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
 from apps.stock.models import DetailMouvement, Mouvement
@@ -11,7 +30,16 @@ MOTIF_ECART_NEGATIF = "Régularisation d'écart négatif"
 TYPES_ENTREE = (Mouvement.Type.ENTREE, Mouvement.Type.TRANSFERT, Mouvement.Type.RETOUR)
 TYPES_SORTIE = (Mouvement.Type.SORTIE, Mouvement.Type.TRANSFERT)
 
+
+# --------------------------------------------------------------------------
+# Filtres élémentaires
+# --------------------------------------------------------------------------
 def filtres_stock(prefix="", magasin_id=None):
+    """Les quatre filtres ``Q`` (entree, sortie, ajustement_plus, ajustement_moins).
+
+    ``prefix`` désigne le chemin vers ``DetailMouvement`` depuis le modèle
+    interrogé (ex. ``"details_mouvement__"`` depuis ``Article``).
+    """
     m = f"{prefix}mouvement__"
     filtres = {
         "entree": Q(**{f"{m}type_mouvement__in": TYPES_ENTREE}),
@@ -41,6 +69,10 @@ def _somme(champ, condition):
 
 
 def expression_stock(prefix="details_mouvement__", magasin_id=None, date_max=None):
+    """Expression d'agrégat du stock, utilisable dans ``annotate()`` ou ``aggregate()``.
+
+    ``date_max`` (datetime aware, exclusive) limite aux mouvements antérieurs.
+    """
     filtres = filtres_stock(prefix, magasin_id)
     if date_max is not None:
         borne = Q(**{f"{prefix}mouvement__date__lt": date_max})
@@ -55,16 +87,22 @@ def expression_stock(prefix="details_mouvement__", magasin_id=None, date_max=Non
 
 
 def annoter_stock(queryset, magasin_id=None, nom="stock_calcule", prefix="details_mouvement__"):
+    """Annote un queryset (d'``Article`` par défaut) avec son stock calculé."""
     return queryset.annotate(**{nom: expression_stock(prefix, magasin_id)})
 
 
+# --------------------------------------------------------------------------
+# Stock en magasin
+# --------------------------------------------------------------------------
 def stock_article_magasin(article, magasin_id, date_max=None) -> int:
+    """Stock d'un article dans un magasin (une requête)."""
     return DetailMouvement.objects.filter(article=article).aggregate(
         total=expression_stock(prefix="", magasin_id=magasin_id, date_max=date_max)
     )["total"] or 0
 
 
 def stocks_articles_magasin(magasin_id, date_max=None) -> dict:
+    """``{code_article: stock}`` pour tous les articles mouvementés dans un magasin."""
     lignes = (
         DetailMouvement.objects.values("article")
         .annotate(stock=expression_stock(prefix="", magasin_id=magasin_id, date_max=date_max))
@@ -74,6 +112,12 @@ def stocks_articles_magasin(magasin_id, date_max=None) -> dict:
 
 
 def stocks_par_magasin(article=None) -> dict:
+    """``{magasin_id: stock}`` (tous articles ou un seul) en deux requêtes groupées.
+
+    Côté destination : entrées et ajustements positifs ; côté source :
+    sorties et ajustements négatifs. Remplace la boucle « 4 requêtes par
+    magasin » de l'ancien code.
+    """
     base = DetailMouvement.objects.all()
     if article is not None:
         base = base.filter(article=article)
@@ -105,6 +149,9 @@ def stocks_par_magasin(article=None) -> dict:
     return dict(stocks)
 
 
+# --------------------------------------------------------------------------
+# Stock détenu par un bénéficiaire (direction, site, salle)
+# --------------------------------------------------------------------------
 def _expression_beneficiaire():
     type_ = "mouvement__type_mouvement"
     return (
@@ -125,12 +172,14 @@ def _details_beneficiaire(filtre_beneficiaire, date_max=None):
 
 
 def stock_article_beneficiaire(article, filtre_beneficiaire, date_max=None) -> int:
+    """Stock d'un article détenu par un bénéficiaire (une requête)."""
     return _details_beneficiaire(filtre_beneficiaire, date_max).filter(article=article).aggregate(
         total=_expression_beneficiaire()
     )["total"] or 0
 
 
 def stocks_articles_beneficiaire(filtre_beneficiaire, date_max=None) -> dict:
+    """``{code_article: stock}`` détenu par un bénéficiaire (une requête groupée)."""
     lignes = (
         _details_beneficiaire(filtre_beneficiaire, date_max)
         .values("article")
@@ -138,3 +187,16 @@ def stocks_articles_beneficiaire(filtre_beneficiaire, date_max=None) -> dict:
         .order_by()
     )
     return {ligne["article"]: ligne["stock"] for ligne in lignes}
+
+
+def fournitures_detenues(filtre_beneficiaire):
+    """Fournitures (articles non immobilisés, sans unité) détenues par bénéficiaire :
+    ``[{"affectation", "article", "quantite", "derniere_reception"}]`` (quantité positive seulement)."""
+    return list(
+        DetailMouvement.objects.filter(filtre_beneficiaire, article__is_immobilisation=False, affectation__isnull=False)
+        .values("affectation", "article")
+        .annotate(quantite=_expression_beneficiaire(),
+                  derniere_reception=Max("mouvement__date", filter=Q(mouvement__type_mouvement=Mouvement.Type.SORTIE)))
+        .filter(quantite__gt=0)
+        .order_by()
+    )
