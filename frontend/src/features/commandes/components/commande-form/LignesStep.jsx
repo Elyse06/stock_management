@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { Autocomplete, Box, Button, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
 
 import { StyledTable } from "@/components/table/StyledTable";
+import { groupeTypeArticle, trierParType } from "@/constants/articles";
 
 import { AttributionEditor } from "../AttributionEditor";
 
@@ -11,6 +13,8 @@ const libelleArticle = (a) => (a ? `${a.designation} - ${a.categorie_nom || "San
 /** Étape 1 : articles, quantités et attributions. */
 export function LignesStep({ form }) {
   const { articles, employees, directions, sites, salles } = form.references;
+  // Choix groupés par type d'article : immobilisations, puis fournitures.
+  const options = useMemo(() => trierParType(articles), [articles]);
 
   return (
     <Box>
@@ -24,7 +28,8 @@ export function LignesStep({ form }) {
               <td>
                 <Autocomplete
                   size="small"
-                  options={articles}
+                  options={options}
+                  groupBy={groupeTypeArticle}
                   value={article || null}
                   getOptionLabel={libelleArticle}
                   isOptionEqualToValue={(o, v) => o?.code_article === v?.code_article}

@@ -7,6 +7,8 @@ import { StatusChip } from "@/components/data-display/StatusChip";
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { DateRangeFilter } from "@/components/forms/DateRangeFilter";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
+import { filtrerParType } from "@/constants/articles";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ActionButtons } from "@/components/table/ActionButtons";
 import { actionsColumn } from "@/components/table/columns";
@@ -31,12 +33,14 @@ export function HistoriqueGlobalePage() {
   const [magasinId, setMagasinId] = useState("");
   const [type, setType] = useState("");
   const [article, setArticle] = useState(null);
+  const [typeArticle, setTypeArticle] = useState("");
   const [selected, setSelected] = useState(null);
 
   const list = usePaginatedList(
     ["historique", "globale"],
     API_ENDPOINTS.HISTORIQUE_GLOBALE,
-    { ...datesPeriode(periode, dateDebut, dateFin), magasin_id: magasinId, type_mouvement: type, article_designation: article?.designation },
+    { ...datesPeriode(periode, dateDebut, dateFin), magasin_id: magasinId, type_mouvement: type, article_designation: article?.designation,
+      is_immobilisation: typeArticle },
   );
 
   const reset = () => {
@@ -46,6 +50,7 @@ export function HistoriqueGlobalePage() {
     setMagasinId("");
     setType("");
     setArticle(null);
+    setTypeArticle("");
   };
 
   const columns = [
@@ -65,8 +70,9 @@ export function HistoriqueGlobalePage() {
 
   return (
     <Box>
-      <PageHeader onReset={reset} hasFilters={Boolean(periode !== "mois" || magasinId || type || article)}>
-        <ArticleAutocomplete articles={articles} value={article} onChange={setArticle} sx={{ minWidth: 280 }} />
+      <PageHeader onReset={reset} hasFilters={Boolean(periode !== "mois" || magasinId || type || article || typeArticle)}>
+        <TypeArticleFilter value={typeArticle} onChange={(v) => { setTypeArticle(v); setArticle(null); }} />
+        <ArticleAutocomplete articles={filtrerParType(articles, typeArticle)} value={article} onChange={setArticle} sx={{ minWidth: 280 }} />
         <SelectFilter
           label="Magasin"
           value={magasinId}
@@ -74,7 +80,7 @@ export function HistoriqueGlobalePage() {
           minWidth={180}
           options={toOptions(magasins, (m) => m.magasin_id, (m) => `${m.magasin_nom}${m.localite_nom ? ` (${m.localite_nom})` : ""}`, "Tous les magasins")}
         />
-        <SelectFilter label="Type" value={type} onChange={setType} options={TYPES_MOUVEMENT} />
+        <SelectFilter label="Type de mouvement" value={type} onChange={setType} options={TYPES_MOUVEMENT} minWidth={180} />
         <SelectFilter label="Période" value={periode} onChange={setPeriode} minWidth={180} options={PERIODES} />
         {periode === "personnalisee" && <DateRangeFilter start={dateDebut} end={dateFin} onStartChange={setDateDebut} onEndChange={setDateFin} />}
       </PageHeader>

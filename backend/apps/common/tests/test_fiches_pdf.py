@@ -68,9 +68,17 @@ class FicheCommandeTests(TestCase):
                         "Le demandeur", "Le gestionnaire du stock", "Édité le", "Page 1 / 1"):
             self.assertIn(attendu, texte, attendu)
 
-    def test_reservee_au_gestionnaire(self):
+    def test_gestionnaire_et_chef_hierarchique_seulement(self):
         self.assertEqual(self.c_dem.get(self.url).status_code, 403)
-        self.assertEqual(self.c_chef.get(self.url).status_code, 403)  # validateur sans « Gérer catalogue »
+        self.assertEqual(self.c_chef.get(self.url).status_code, 200)  # commande traitée de sa direction
+
+    def test_chef_hierarchique_seulement_pour_les_commandes_traitees(self):
+        Commande.objects.filter(pk=self.commande_id).update(statut=Commande.Statut.EN_COURS)
+        self.assertEqual(self.c_chef.get(self.url).status_code, 403)
+        self.assertEqual(self.c_gest.get(self.url).status_code, 200)
+        autre = client_pour(f.utilisateur("chef-dex@test.mg", [a.COM_DEM, a.COM_VAL], employe=f.employe("C-2", f.direction("DEX"))))
+        Commande.objects.filter(pk=self.commande_id).update(statut=Commande.Statut.VALIDEE)
+        self.assertEqual(autre.get(self.url).status_code, 404)  # commande d'une autre direction : invisible
 
 
 class FicheDemandeUniteTests(_UnitesBase):
@@ -78,7 +86,7 @@ class FicheDemandeUniteTests(_UnitesBase):
         super().setUp()
         dsi = f.direction("DSI")
         self.marie = f.employe("M-1", dsi)
-        self.c_marie = client_pour(f.utilisateur("marie@test.mg", [a.COM_DEM], employe=self.marie))
+        self.c_marie = client_pour(f.utilisateur("marie@test.mg", [a.COM_DEM, a.COM_VAL], employe=self.marie))
         self.c_gest = client_pour(f.utilisateur("gest@test.mg", [a.INV_GERE], employe=f.employe("G-1")))
         unite = self._unite("SN-DELL-007", self.marie)
         reponse = self.c_marie.post("/api/stock/demandes-unites/", {

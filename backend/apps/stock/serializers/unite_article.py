@@ -11,7 +11,9 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
     employe_attribue_nom = serializers.CharField(read_only=True)
     employe_attribue_matricule = serializers.CharField(read_only=True)
     beneficiaire_type = serializers.CharField(read_only=True)
+    # Pour l'étiquette QR : catégorie de l'article et site du bénéficiaire.
     article_categorie = serializers.CharField(source="article.categorie.cat_libelle", read_only=True, default=None)
+    article_categorie_description = serializers.CharField(source="article.categorie.cat_description", read_only=True, default=None)
     site_beneficiaire_nom = serializers.CharField(read_only=True, allow_null=True)
 
     message_plusieurs_beneficiaires = "Un seul bénéficiaire autorisé."
@@ -25,10 +27,12 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
             "employe_beneficiaire", "direction_beneficiaire",
             "salle_beneficiaire", "site_beneficiaire",
             "employe_attribue_nom", "employe_attribue_matricule", "beneficiaire_type",
-            "article_categorie", "site_beneficiaire_nom",
+            "article_categorie", "article_categorie_description", "site_beneficiaire_nom",
+            "numero_immobilisation", "date_etiquette",
         ]
         read_only_fields = [  # noqa: RUF012
             "unite_id", "date_creation", "mouvement_entree", "mouvement_sortie",
+            "numero_immobilisation", "date_etiquette",
             "article_code", "article_designation", "affectation",
             "employe_attribue_nom", "employe_attribue_matricule", "beneficiaire_type",
         ]
@@ -77,3 +81,10 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
 
     def update(self, instance, validated_data):
         return super().update(instance, self._appliquer_affectation(validated_data))
+
+
+class EtiquetteSerializer(serializers.Serializer):
+    """Informations saisies pour imprimer l'étiquette d'une unité."""
+
+    numero_immobilisation = serializers.CharField(max_length=50, trim_whitespace=True)
+    date_etiquette = serializers.DateField()

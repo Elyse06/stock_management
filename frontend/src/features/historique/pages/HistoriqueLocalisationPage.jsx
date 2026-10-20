@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Box, Chip, TextField, Typography } from "@mui/material";
+import { Alert, Box, Chip, TextField, Typography } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
 
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
 import { DEFAULT_PAGE_SIZE } from "@/constants/pagination";
+import { usePermission } from "@/features/auth/hooks/usePermission";
 import { usePagination } from "@/hooks/usePagination";
 import { toOptions } from "@/hooks/useReferenceData";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -29,31 +31,44 @@ const COLUMNS = [
   },
 ];
 
+/**
+ * Stock d'un lieu à une date. Sans le droit de lire les mouvements (profils Standard et Chef
+ * hiérarchique), seule la direction de l'utilisateur est consultable : choix pré-remplis et verrouillés
+ * (le serveur refuse aussi les autres lieux).
+ */
 export function HistoriqueLocalisationPage() {
-  const [type, setType] = useState("magasin");
-  const [lieuId, setLieuId] = useState("");
+  const { canReadMouvements, user } = usePermission();
+  const restreint = !canReadMouvements;
+  const maDirection = user?.employe?.emp_dir_id ?? "";
+  const [type, setType] = useState(restreint ? "direction" : "magasin");
+  const [lieuId, setLieuId] = useState(restreint ? String(maDirection) : "");
   const [date, setDate] = useState(aujourdhuiISO);
+  const [typeArticle, setTypeArticle] = useState("");
   const lieux = useLocalisations(type);
-  const { paginationModel, setPaginationModel } = usePagination(DEFAULT_PAGE_SIZE, [type, lieuId, date]);
+  const { paginationModel, setPaginationModel } = usePagination(DEFAULT_PAGE_SIZE, [type, lieuId, date, typeArticle]);
 
   const { data: stocks = [], isFetching, error, isSuccess } = useQuery({
-    queryKey: ["historique", "localisation", type, lieuId, date],
-    queryFn: ({ signal }) => getStocksLocalisation({ date, [lieux.param]: lieuId }, { signal }),
+    queryKey: ["historique", "localisation", type, lieuId, date, typeArticle],
+    queryFn: ({ signal }) => getStocksLocalisation({ date, [lieux.param]: lieuId, is_immobilisation: typeArticle }, { signal }),
     enabled: Boolean(lieuId && date),
   });
 
   const lieu = lieux.items.find((item) => String(lieux.id(item)) === String(lieuId));
   const reset = () => {
-    setType("magasin");
-    setLieuId("");
+    if (!restreint) {
+      setType("magasin");
+      setLieuId("");
+    }
     setDate(aujourdhuiISO());
+    setTypeArticle("");
   };
 
   return (
     <Box>
-      <PageHeader onReset={reset} hasFilters={Boolean(lieuId || date !== aujourdhuiISO())}>
+      <PageHeader onReset={reset} hasFilters={Boolean(typeArticle) || (restreint ? date !== aujourdhuiISO() : Boolean(lieuId || date !== aujourdhuiISO()))}>
         <SelectFilter
           label="Type de localisation"
+          disabled={restreint}
           value={type}
           onChange={(value) => {
             setType(value);
@@ -62,7 +77,7 @@ export function HistoriqueLocalisationPage() {
           minWidth={190}
           options={TYPES_LOCALISATION}
         />
-        <SelectFilter label={lieux.label} value={lieuId} onChange={setLieuId} minWidth={250} options={toOptions(lieux.items, lieux.id, lieux.libelle, lieux.placeholder)} />
+        <SelectFilter label={lieux.label} value={lieuId} onChange={setLieuId} minWidth={250} disabled={restreint} options={toOptions(lieux.items, lieux.id, lieux.libelle, lieux.placeholder)} />
         <TextField
           label="Date de référence"
           type="date"
@@ -72,7 +87,13 @@ export function HistoriqueLocalisationPage() {
           slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: aujourdhuiISO() } }}
           sx={{ minWidth: 180 }}
         />
+        <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
       </PageHeader>
+      {restreint && !maDirection && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Votre compte n'est rattaché à aucune direction : l'historique de localisation n'est pas disponible.
+        </Alert>
+      )}
       <ErrorAlert error={error && getErrorMessage(error, "Impossible de charger l'historique de localisation.")} />
       {isSuccess && lieu && (
         <Box sx={{ mb: 2, p: 1.5, bgcolor: "#FFF8E1", borderRadius: 1, border: "1px solid #F9A825", display: "flex", alignItems: "center", gap: 1 }}>
@@ -96,10 +117,12 @@ export function HistoriqueLocalisationPage() {
         noRowsLabel={lieuId ? "Aucun article trouvé pour cette date" : "Sélectionnez une localisation"}
       />
 
-      {/* Situation actuelle des unités en stock (déplacée depuis la page Unités attribuées). */}
-      <Box sx={{ mt: 4 }}>
-        <ResumeStockUnites />
-      </Box>
+      {/* Situation actuelle des unités en stock (gestion du stock seulement). */}
+      {!restreint && (
+        <Box sx={{ mt: 4 }}>
+          <ResumeStockUnites />
+        </Box>
+      )}
     </Box>
   );
 }

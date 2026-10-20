@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from apps.common.dates import parse_date_param
 from apps.common.pagination import paginer
-from apps.common.params import parse_int
+from apps.common.params import filtre_type_article, parse_int
 from apps.stock.models import Mouvement
 
 from .permissions import HistoriquePermission
@@ -60,8 +60,12 @@ class HistoriqueGlobaleView(APIView):
             mouvements = mouvements.filter(
                 details__article__designation__icontains=params["article_designation"]
             ).distinct()
+        type_article = filtre_type_article(params, "article__is_immobilisation")
+        if type_article:
+            mouvements = mouvements.filter(**{f"details__{k}": v for k, v in type_article.items()}).distinct()
 
         page = paginer(mouvements, request, page_size=25)
+        # Préchargement limité à la page affichée.
         prefetch_related_objects(
             page["results"],
             "details__article", "details__affectation__employe", "details__affectation__direction",
@@ -78,7 +82,9 @@ class HistoriqueGlobaleView(APIView):
                 "magasin_source_nom": m.magasin_source.magasin_nom if m.magasin_source else None,
                 "magasin_destination": _magasin(m.magasin_destination),
                 "magasin_destination_nom": m.magasin_destination.magasin_nom if m.magasin_destination else None,
-                "details": [_detail(d) for d in m.details.all()],
+                # Avec le filtre de type, seules les lignes de ce type sont montrées.
+                "details": [_detail(d) for d in m.details.all()
+                            if not type_article or d.article.is_immobilisation == type_article["article__is_immobilisation"]],
             }
             for m in page["results"]
         ]

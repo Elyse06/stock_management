@@ -1,8 +1,10 @@
-"""Demandes de retour ou de transfert d'une unité, faites par son bénéficiaire.
+"""Demandes de retour ou de transfert d'une unité, faites par le chef hiérarchique.
 
 Règles :
-- un employé peut demander pour les unités attribuées à lui-même ou à sa direction
-  (les unités des salles et des agences sont gérées directement par le gestionnaire) ;
+- chaque employé voit les unités attribuées à lui-même ou à sa direction (« Mes équipements ») ;
+- seul le chef hiérarchique (droit COM_VAL) fait les demandes, pour toute sa direction : ses unités,
+  celles de la direction et celles de chaque employé de la direction (les unités des salles et des
+  agences sont gérées directement par le gestionnaire) ;
 - une seule demande en attente par unité ;
 - les règles des mouvements s'appliquent dès la demande (pas de retour d'une unité perdue,
   pas de transfert d'une unité perdue ou hors d'usage) ;
@@ -19,13 +21,16 @@ ETATS_SANS_RETOUR = (UniteArticle.Etat.PERDU,)
 ETATS_SANS_TRANSFERT = (UniteArticle.Etat.HORS_USAGE, UniteArticle.Etat.PERDU)
 
 
-def unites_visibles(employe):
-    """Unités attribuées à l'employé ou à sa direction."""
+def unites_visibles(employe, toute_la_direction=False):
+    """Unités attribuées à l'employé ou à sa direction ; avec ``toute_la_direction`` (chef hiérarchique),
+    aussi celles de chaque employé de sa direction."""
     if employe is None:
         return UniteArticle.objects.none()
     condition = Q(affectation__employe=employe)
     if employe.emp_dir_id:
         condition |= Q(affectation__direction_id=employe.emp_dir_id)
+        if toute_la_direction:
+            condition |= Q(affectation__employe__emp_dir_id=employe.emp_dir_id)
     return UniteArticle.objects.filter(condition, statut=UniteArticle.Statut.ATTRIBUE)
 
 
@@ -38,9 +43,11 @@ def _notifier(demande, evenement):
 
 @transaction.atomic
 def creer_demande(employe, unite_id, type_demande, motif="", nouveau_beneficiaire=None):
-    unite = unites_visibles(employe).select_for_update().select_related("affectation").filter(unite_id=unite_id).first()
+    unite = (unites_visibles(employe, toute_la_direction=True).select_for_update().select_related("affectation")
+             .filter(unite_id=unite_id).first())
     if unite is None:
-        raise serializers.ValidationError({"unite_id": "Cette unité ne vous est pas attribuée, ni à votre direction."})
+        raise serializers.ValidationError(
+            {"unite_id": "Cette unité n'est attribuée ni à vous, ni à votre direction, ni à un employé de votre direction."})
     if DemandeUnite.objects.filter(unite=unite, statut=DemandeUnite.Statut.EN_ATTENTE).exists():
         raise serializers.ValidationError({"unite_id": "Une demande est déjà en attente pour cette unité."})
     nouvelle_affectation = None

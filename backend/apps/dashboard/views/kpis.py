@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from apps.catalogue.models import Article
 from apps.common.dates import ajouter_mois, plage_mois
 from apps.common.pagination import paginer
+from apps.common.params import filtre_type_article
 from apps.common.stock import annoter_stock
 from apps.stock.models import DetailMouvement, Mouvement
 
@@ -76,7 +77,7 @@ class DashboardArticlesView(APIView):
 
     def get(self, request):
         params = request.query_params
-        queryset = annoter_stock(Article.objects.select_related("categorie"))
+        queryset = annoter_stock(Article.objects.select_related("categorie").filter(**filtre_type_article(params)))
         if params.get("search"):
             queryset = queryset.filter(
                 Q(code_article__icontains=params["search"]) | Q(designation__icontains=params["search"])
@@ -92,6 +93,7 @@ class DashboardArticlesView(APIView):
                 "code_article": a.code_article,
                 "designation": a.designation,
                 "categorie_nom": a.categorie.cat_libelle if a.categorie else None,
+                "is_immobilisation": a.is_immobilisation,
                 "stock_calcule": a.stock_calcule,
                 "seuil": a.seuil,
                 "mode_suivi": a.mode_suivi,
@@ -105,7 +107,7 @@ class DashboardRupturesView(APIView):
 
     def get(self, request):
         queryset = (
-            annoter_stock(Article.objects.select_related("categorie"))
+            annoter_stock(Article.objects.select_related("categorie").filter(**filtre_type_article(request.query_params)))
             .annotate(dernier_mouvement=Max("details_mouvement__mouvement__date"))
             .filter(stock_calcule=0)
             .order_by("code_article")
@@ -117,6 +119,7 @@ class DashboardRupturesView(APIView):
                 "code_article": a.code_article,
                 "designation": a.designation,
                 "categorie_nom": a.categorie.cat_libelle if a.categorie else None,
+                "is_immobilisation": a.is_immobilisation,
                 "seuil": a.seuil,
                 "dernier_mouvement": a.dernier_mouvement,
                 "est_dormant": a.dernier_mouvement is None or a.dernier_mouvement < limite_dormant,
@@ -136,7 +139,7 @@ class DashboardSousSeuilView(APIView):
 
     def get(self, request):
         queryset = (
-            annoter_stock(Article.objects.select_related("categorie"))
+            annoter_stock(Article.objects.select_related("categorie").filter(**filtre_type_article(request.query_params)))
             .filter(stock_calcule__lt=F("seuil"), seuil__gt=0)
             .order_by("stock_calcule", "code_article")
         )
@@ -146,6 +149,7 @@ class DashboardSousSeuilView(APIView):
                 "code_article": a.code_article,
                 "designation": a.designation,
                 "categorie_nom": a.categorie.cat_libelle if a.categorie else None,
+                "is_immobilisation": a.is_immobilisation,
                 "stock_calcule": a.stock_calcule,
                 "seuil": a.seuil,
                 "quantite_suggeree": max(0, a.seuil * 2 - a.stock_calcule),
@@ -167,7 +171,8 @@ class _MouvementsDuMoisView(APIView):
     def get(self, request):
         debut, fin, libelle = plage_mois(request.query_params.get("mois"))
         queryset = DetailMouvement.objects.filter(
-            self.filtre(), mouvement__date__gte=debut, mouvement__date__lt=fin
+            self.filtre(), mouvement__date__gte=debut, mouvement__date__lt=fin,
+            **filtre_type_article(request.query_params, "article__is_immobilisation"),
         ).select_related(
             "article", "mouvement__magasin_source", "mouvement__magasin_destination",
             "affectation__employe", "affectation__direction", "affectation__salle", "affectation__site",
@@ -186,6 +191,7 @@ class _MouvementsDuMoisView(APIView):
             "date": mouvement.date,
             "article_code": detail.article.code_article,
             "article_designation": detail.article.designation,
+            "is_immobilisation": detail.article.is_immobilisation,
             "quantite": detail.quantite,
         }
 

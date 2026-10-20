@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SearchField } from "@/components/forms/SearchField";
 import { BoutonPdf } from "@/components/table/BoutonPdf";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -20,17 +21,19 @@ import { TransfertUniteModal } from "../TransfertUniteModal";
 const OPTIONS_STATUT = [{ value: "", label: "Tous les statuts" }, ...Object.entries(STATUTS_DEMANDE).map(([value, s]) => ({ value, label: s.label }))];
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
 
+/** Demandes des bénéficiaires : « Traiter » ouvre le retour ou le transfert pré-rempli ; « Refuser » demande un motif. */
 export function DemandesATraiter() {
   const queryClient = useQueryClient();
   const notify = useNotification();
   // Toutes les demandes par défaut (en attente en tête) : une demande traitée reste visible, avec sa fiche PDF.
   const [statut, setStatut] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [typeArticle, setTypeArticle] = useState("");
   const [traitement, setTraitement] = useState(null); // { demande, unite }
   const [refus, setRefus] = useState(null);
   const [commentaire, setCommentaire] = useState("");
   const search = useDebouncedValue(searchInput.trim());
-  const liste = usePaginatedList([...DEMANDES_KEY, "gestion"], API_ENDPOINTS.DEMANDES_UNITES, { statut, search });
+  const liste = usePaginatedList([...DEMANDES_KEY, "gestion"], API_ENDPOINTS.DEMANDES_UNITES, { statut, search, is_immobilisation: typeArticle });
 
   const traiter = async (demande) => {
     try {
@@ -51,6 +54,7 @@ export function DemandesATraiter() {
   const fermer = () => setTraitement(null);
 
   const columns = [
+    { field: "demande_id", headerName: "N°", autoGrow: false, autoExtraWidth: 8, valueFormatter: (v) => `n°${v}` },
     { field: "date_demande", headerName: "Date", autoGrow: false, valueFormatter: date },
     { field: "demandeur_nom", headerName: "Demandeur" },
     { field: "type_demande", headerName: "Demande", getText: libelleDemande, renderCell: ({ row }) => libelleDemande(row) },
@@ -63,6 +67,7 @@ export function DemandesATraiter() {
         </Box>
       ),
     },
+    { field: "motif", headerName: "Motif", getText: (r) => r.motif || "—" },
     {
       field: "statut", headerName: "Statut", autoGrow: false, autoExtraWidth: 24,
       renderCell: ({ value }) => <Chip size="small" label={STATUTS_DEMANDE[value]?.label} color={STATUTS_DEMANDE[value]?.color} variant="outlined" />,
@@ -81,8 +86,9 @@ export function DemandesATraiter() {
               </Tooltip>
             </>
           ) : (
-            <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`} />
+            <Typography variant="caption" color="text.secondary">{row.traitant_nom || ""}</Typography>
           )}
+          <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`} />
         </Box>
       ),
     },
@@ -91,8 +97,9 @@ export function DemandesATraiter() {
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 1.5 }}>
-        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Demandeur, équipement..." minWidth={260} />
+        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Demandeur, équipement, n° de série..." minWidth={260} />
         <SelectFilter label="Statut" value={statut} onChange={setStatut} options={OPTIONS_STATUT} minWidth={180} />
+        <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
       </Box>
       <PaginatedDataGrid {...liste.gridProps} columns={columns} getRowId={(r) => r.demande_id}
         noRowsLabel="Aucune demande" aria-label="Demandes de retour et de transfert" />

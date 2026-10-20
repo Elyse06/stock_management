@@ -7,6 +7,8 @@ import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { SearchField } from "@/components/forms/SearchField";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
+import { TypeArticleChip } from "@/components/data-display/TypeArticleChip";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ActionButtons } from "@/components/table/ActionButtons";
 import { actionsColumn } from "@/components/table/columns";
@@ -21,14 +23,14 @@ import { getErrorMessage } from "@/lib/api/errors";
 
 import { articlesApi } from "../api/catalogueApi";
 import { ArticleFormModal } from "../components/ArticleFormModal";
-import { TYPE_ARTICLE_OPTIONS } from "../constants/article";
+import { libelleCategorie } from "@/constants/articles";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 
 const optional = ({ value }) => <EmptyValue value={value} />;
 
 export function ArticleListPage() {
   const navigate = useNavigate();
-  const { canManageCatalogue } = usePermission();
+  const { canManageCatalogue, canViewArticleDetail } = usePermission();
   const { confirm, dialogProps } = useConfirmDialog();
   const { remove } = useCrudMutations(articlesApi, [["articles"]], { deleted: "Article supprimé avec succès" });
   const { data: categories = [] } = useCategoryOptions();
@@ -48,7 +50,10 @@ export function ArticleListPage() {
   });
 
   const categoryOptions = useMemo(
-    () => [{ value: "", label: "Toutes catégories" }, ...categories.map((c) => ({ value: c.categorie_id, label: c.cat_libelle }))],
+    () => [
+      { value: "", label: "Toutes catégories" },
+      ...categories.map((c) => ({ value: c.categorie_id, label: libelleCategorie(c.cat_libelle, c.cat_description) })),
+    ],
     [categories],
   );
 
@@ -65,9 +70,19 @@ export function ArticleListPage() {
 
   const columns = [
     { field: "designation", headerName: "Désignation" },
-    { field: "categorie_nom", headerName: "Catégorie", renderCell: optional },
+    {
+      field: "is_immobilisation", headerName: "Type", autoGrow: false, autoExtraWidth: 36,
+      getText: (r) => (r.is_immobilisation ? "Immobilisation" : "Fourniture"),
+      renderCell: ({ value }) => <TypeArticleChip immobilisation={value} />,
+    },
+    {
+      field: "categorie_nom", headerName: "Catégorie", autoMaxWidth: 320,
+      getText: (r) => libelleCategorie(r.categorie_nom, r.categorie_description),
+      renderCell: ({ row }) => <EmptyValue value={libelleCategorie(row.categorie_nom, row.categorie_description)} />,
+    },
     { field: "description", headerName: "Description", renderCell: optional },
-    actionsColumn(
+    // Profils Standard et Chef hiérarchique : la liste seulement, sans fiche ni action.
+    canViewArticleDetail && actionsColumn(
       ({ row }) => (
         <ActionButtons
           onView={() => navigate(`/catalogue/articles/${encodeURIComponent(row.code_article)}`)}
@@ -77,7 +92,7 @@ export function ArticleListPage() {
       ),
       160,
     ),
-  ];
+  ].filter(Boolean);
 
   return (
     <Box>
@@ -89,8 +104,8 @@ export function ArticleListPage() {
         hasFilters={Boolean(search || categorie || type)}
       >
         <SearchField value={search} onChange={setSearch} />
-        <SelectFilter label="Catégorie" value={categorie} onChange={setCategorie} options={categoryOptions} minWidth={200} />
-        <SelectFilter label="Type" value={type} onChange={setType} options={TYPE_ARTICLE_OPTIONS} />
+        <TypeArticleFilter value={type} onChange={setType} />
+        <SelectFilter label="Catégorie" value={categorie} onChange={setCategorie} options={categoryOptions} minWidth={240} />
       </PageHeader>
       <ErrorAlert error={list.error && getErrorMessage(list.error)} />
 

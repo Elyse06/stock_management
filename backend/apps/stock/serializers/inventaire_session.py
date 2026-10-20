@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.common.employees import get_request_employee
 from apps.employee.models import Direction
 from apps.stock.models import InventaireSession, LigneInventaire
 from apps.stock.utils import calculer_stock_theorique, generer_code_reference
@@ -20,13 +21,15 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
     )
     site_nom = serializers.CharField(source="site.site_nom", read_only=True, default=None)
     salle_nom = serializers.CharField(source="salle.nom", read_only=True, default=None)
+    realise_par_nom = serializers.CharField(source="realise_par.emp_nom", read_only=True, default=None)
+    valide_par_nom = serializers.CharField(source="valide_par.emp_nom", read_only=True, default=None)
 
     class Meta:
         model = InventaireSession
         fields = [  # noqa: RUF012
             "inventaire_id", "code_reference", "date_creation", "date_validation", "statut",
             "magasin", "service", "service_libelle", "site", "site_nom",
-            "salle", "salle_nom", "lieu_nom", "lignes",
+            "salle", "salle_nom", "lieu_nom", "type_articles", "realise_par_nom", "valide_par_nom", "lignes",
         ]
         read_only_fields = ["code_reference", "statut", "date_creation", "date_validation"]  # noqa: RUF012
 
@@ -57,6 +60,17 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
                 "Un inventaire direct par site est réservé aux agences; "
                 "pour un siège, choisissez une direction ou une salle."
             )
+        # Session « immobilisations » ou « fournitures » : seulement des articles de ce type.
+        type_articles = attrs.get("type_articles", getattr(self.instance, "type_articles", ""))
+        if type_articles:
+            immobilisation = type_articles == InventaireSession.TypeArticles.IMMOBILISATION
+            intrus = [ligne["article"].code_article for ligne in attrs.get("lignes", [])
+                      if ligne["article"].is_immobilisation != immobilisation]
+            if intrus:
+                raise serializers.ValidationError(
+                    f"Inventaire des {InventaireSession.TypeArticles(type_articles).label.lower()} : "
+                    f"article(s) d'un autre type ({', '.join(intrus[:5])})."
+                )
         return attrs
 
     @transaction.atomic
@@ -68,6 +82,8 @@ class InventaireSessionSerializer(serializers.ModelSerializer):
         salle = validated_data.get("salle")
 
         validated_data["code_reference"] = generer_code_reference()
+        request = self.context.get("request")
+        validated_data["realise_par"] = get_request_employee(request) if request else None
         session = InventaireSession.objects.create(**validated_data)
 
         for ligne_data in lignes_data:

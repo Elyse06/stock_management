@@ -25,9 +25,11 @@ class DemandesUnitesTests(_UnitesBase):
         self.marie, self.paul, self.jean = f.employe("M-1", self.dsi), f.employe("M-2", self.dsi), f.employe("M-3", self.dex)
         Employer.objects.filter(pk=self.marie.pk).update(emp_nom="RABE Marie")
         self.marie.refresh_from_db()
-        self.c_marie = client(f.utilisateur("marie@test.mg", [a.COM_DEM], employe=self.marie))
+        # Marie et Jean : chefs hiérarchiques (font les demandes) ; Paul : profil standard (consulte seulement).
+        chef = [a.COM_DEM, a.COM_VAL]
+        self.c_marie = client(f.utilisateur("marie@test.mg", chef, employe=self.marie))
         self.c_paul = client(f.utilisateur("paul@test.mg", [a.COM_DEM], employe=self.paul))
-        self.c_jean = client(f.utilisateur("jean@test.mg", [a.COM_DEM], employe=self.jean))
+        self.c_jean = client(f.utilisateur("jean@test.mg", chef, employe=self.jean))
         self.gest = f.employe("G-1")
         self.c_gest = client(f.utilisateur("gest@test.mg", [a.INV_GERE, a.CAT_LIRE, a.INV_LIRE], employe=self.gest))
         self.u_marie = self._unite("SN-MARIE", self.marie)
@@ -60,9 +62,24 @@ class DemandesUnitesTests(_UnitesBase):
         demande = self.mes_unites(self.c_marie)["SN-MARIE"]["demande_en_attente"]
         self.assertEqual((demande["type_demande"], demande["de_moi"]), ("RETOUR", True))
 
+    def _autre_chef_dsi(self):
+        return client(f.utilisateur("chef2@test.mg", [a.COM_DEM, a.COM_VAL], employe=f.employe("M-4", self.dsi)))
+
+    def test_seul_le_chef_fait_les_demandes(self):
+        self.assertEqual(self.demander(self.c_paul, self.u_dsi).status_code, 403)
+        self.assertFalse(self.c_paul.get(f"{DEMANDES}mes-unites/").data["peut_demander"])
+        self.assertTrue(self.c_marie.get(f"{DEMANDES}mes-unites/").data["peut_demander"])
+
+    def test_le_chef_couvre_les_employes_de_sa_direction(self):
+        u_paul = self._unite("SN-PAUL", self.paul)
+        self.assertEqual(sorted(self.mes_unites(self.c_marie)), ["SN-DSI", "SN-MARIE", "SN-PAUL"])
+        self.assertEqual(sorted(self.mes_unites(self.c_paul)), ["SN-DSI", "SN-PAUL"])  # Paul : pas les unités de Marie
+        self.assertEqual(self.demander(self.c_marie, u_paul).status_code, 201)
+        self.assertEqual(self.demander(self.c_jean, self.u_marie).status_code, 400)  # autre direction
+
     def test_une_seule_demande_en_attente_par_unite(self):
         self.assertEqual(self.demander(self.c_marie, self.u_dsi).status_code, 201)
-        reponse = self.demander(self.c_paul, self.u_dsi)  # collègue de la même direction
+        reponse = self.demander(self._autre_chef_dsi(), self.u_dsi)  # autre chef de la même direction
         self.assertEqual(reponse.status_code, 400)
         self.assertIn("déjà en attente", str(reponse.data))
 
@@ -94,7 +111,7 @@ class DemandesUnitesTests(_UnitesBase):
         self.assertIn("a été traitée", message.body)
 
     def test_traitement_d_un_transfert(self):
-        demande_id = self.demander(self.c_paul, self.u_dsi, "TRANSFERT", nouvel_employe_beneficiaire=self.jean.pk).data["demande_id"]
+        demande_id = self.demander(self.c_marie, self.u_dsi, "TRANSFERT", nouvel_employe_beneficiaire=self.jean.pk).data["demande_id"]
         reponse = self.c_gest.post(f"/api/stock/unites-article/{self.u_dsi.pk}/transferer/",
                                    {"nouvel_employe_beneficiaire": self.jean.pk, "magasin_source": self.magasin.pk, "demande_id": demande_id}, format="json")
         self.assertEqual(reponse.status_code, 200, reponse.data)
@@ -131,9 +148,10 @@ class DemandesUnitesTests(_UnitesBase):
 
     def test_annulation_par_son_auteur_seulement(self):
         demande_id = self.demander(self.c_marie, self.u_dsi).data["demande_id"]
-        self.assertEqual(self.c_paul.post(f"{DEMANDES}{demande_id}/annuler/").status_code, 400)
+        autre_chef = self._autre_chef_dsi()
+        self.assertEqual(autre_chef.post(f"{DEMANDES}{demande_id}/annuler/").status_code, 400)
         self.assertEqual(self.c_marie.post(f"{DEMANDES}{demande_id}/annuler/").data["statut"], "ANNULEE")
-        self.assertEqual(self.demander(self.c_paul, self.u_dsi).status_code, 201)  # l'unité peut de nouveau être demandée
+        self.assertEqual(self.demander(autre_chef, self.u_dsi).status_code, 201)  # l'unité peut de nouveau être demandée
 
     def test_listes_compteur_et_droits(self):
         self.demander(self.c_marie, self.u_marie)
@@ -144,3 +162,12 @@ class DemandesUnitesTests(_UnitesBase):
         self.assertEqual(self.c_marie.get(f"{DEMANDES}compteur/").status_code, 403)
         sans_droit = client(f.utilisateur("lecteur@test.mg", [a.CAT_LIRE], employe=f.employe("M-9", self.dsi)))
         self.assertEqual(sans_droit.post(DEMANDES, {"unite_id": self.u_dsi.pk, "type_demande": "RETOUR"}, format="json").status_code, 403)
+
+
+    def test_liste_en_attente_d_abord_puis_les_traitees(self):
+        traitee = self.demander(self.c_marie, self.u_marie).data["demande_id"]
+        self.c_gest.post(f"/api/stock/unites-article/{self.u_marie.pk}/retourner-stock/",
+                         {"magasin_destination": self.magasin.pk, "demande_id": traitee}, format="json")
+        en_attente = self.demander(self.c_jean, self.u_jean).data["demande_id"]
+        resultats = self.c_gest.get(DEMANDES).data["results"]
+        self.assertEqual([(d["demande_id"], d["statut"]) for d in resultats], [(en_attente, "EN_ATTENTE"), (traitee, "TRAITEE")])

@@ -86,7 +86,6 @@ export function CommandeTraitementSection({
         </Box>
       </Divider>
 
-      {/* SECTION 1 : décision sur chaque attribution (les deux agents) */}
       {toutesAttributions.length > 0 && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
           <Chip
@@ -214,7 +213,6 @@ export function CommandeTraitementSection({
           );
         })}
 
-      {/* SECTION 2 : magasin et unités (validation finale uniquement) */}
       {isFinalValidation && (
         <>
           <Box sx={{ "& .MuiFormControl-root": { width: "100%" } }}>

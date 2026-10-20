@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Box, Button, Grid, IconButton, Paper, Tooltip, Typography } from "@mui/material";
 import {
   AccountBalance as AccountBalanceIcon,
@@ -27,7 +28,7 @@ import { BLEU, BLEU_CLAIR, ORANGE } from "../constants/couleurs";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { dateDuJour, formatNombre, pointsCles, prenom, salutation, variation } from "../utils/dashboard";
 
-/** Accueil pour un utilisateur sans accès aux statistiques (le backend exige CAT_LIRE ou MOV_LIRE). */
+/** Accueil d'un profil sans tableau de bord ni demande de matériel (le backend exige MOV_LIRE ou CAT_GERE). */
 function Bienvenue({ nom }) {
   const { ouvrir, disponible } = useAssistant();
   return (
@@ -48,7 +49,7 @@ function Bienvenue({ nom }) {
 }
 
 export function DashboardPage() {
-  const { canSeeDashboard, user } = usePermission();
+  const { canSeeDashboard, canCreateCommande, user } = usePermission();
   const queryClient = useQueryClient();
   const { ouvrir, disponible: assistantDisponible } = useAssistant();
   const d = useDashboardData(canSeeDashboard);
@@ -56,7 +57,8 @@ export function DashboardPage() {
   const nom = prenom(user?.employe?.emp_nom);
   const points = useMemo(() => pointsCles(d), [d]);
 
-  if (!canSeeDashboard) return <Bienvenue nom={nom} />;
+  // Profils Standard et Chef hiérarchique : l'accueil est « Mes équipements ».
+  if (!canSeeDashboard) return canCreateCommande ? <Navigate to="/mes-equipements" replace /> : <Bienvenue nom={nom} />;
   if (d.loading && !d.kpis) return <PageLoader />;
 
   const k = d.kpis ?? {};

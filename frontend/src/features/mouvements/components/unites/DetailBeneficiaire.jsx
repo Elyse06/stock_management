@@ -39,10 +39,13 @@ export function DetailBeneficiaire({ beneficiaire, list, canManage, onAction }) 
               onAction2={canManage && peutTransferer(row) ? () => onAction("transfert", row) : null}
               action2Label="Transfert"
             />
-            <Button size="small" variant="outlined" startIcon={<PrintIcon fontSize="small" />} onClick={() => onAction("etiquette", row)}
-              sx={{ minWidth: 0, px: 1 }} title="Imprimer l'étiquette">
-              Étiquette
-            </Button>
+            {/* Étiquette : le n° d'immobilisation et la date saisis sont enregistrés (gestionnaire du stock). */}
+            {canManage && (
+              <Button size="small" variant="outlined" startIcon={<PrintIcon fontSize="small" />} onClick={() => onAction("etiquette", row)}
+                sx={{ minWidth: 0, px: 1 }} title="Imprimer l'étiquette">
+                Étiquette
+              </Button>
+            )}
           </Box>
         ),
         220,

@@ -1,11 +1,16 @@
+import { useMemo } from "react";
 import { Autocomplete, Box, TextField, Typography } from "@mui/material";
 
-/** Sélecteur d'article (recherche par code ou désignation). */
+import { groupeTypeArticle, trierParType } from "@/constants/articles";
+
+/** Sélecteur d'article (recherche par code ou désignation), groupé par type : immobilisations, fournitures. */
 export function ArticleAutocomplete({ articles, value, onChange, label = "Article", size = "small", ...props }) {
+  const options = useMemo(() => trierParType(articles), [articles]);
   return (
     <Autocomplete
       size={size}
-      options={articles}
+      options={options}
+      groupBy={groupeTypeArticle}
       value={value ?? null}
       onChange={(_, article) => onChange(article)}
       getOptionLabel={(a) => `${a.code_article} - ${a.designation}`}

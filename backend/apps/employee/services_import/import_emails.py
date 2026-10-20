@@ -24,7 +24,7 @@ from apps.utilisateur.acces import demander_envoi_acces, preparer_sans_mot_de_pa
 from apps.utilisateur.models import Action, Autoriser, Utilisateur
 
 # Droits des comptes créés : ceux du profil standard du formulaire de création de compte.
-ACTIONS_PAR_DEFAUT = (actions.CAT_LIRE, actions.MOV_LIRE, actions.COM_DEM)
+ACTIONS_PAR_DEFAUT = (actions.CAT_LIRE, actions.COM_DEM)
 
 # En-têtes acceptés (comparés sans accents, casse ni ponctuation).
 ENTETES = {

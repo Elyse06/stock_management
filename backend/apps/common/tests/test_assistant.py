@@ -145,5 +145,9 @@ class CarteTests(TestCase):
         self.assertFalse(chemin_accessible("/utilisateurs", demandeur))
         self.assertFalse(chemin_accessible("/inventaire/sessions/realisation", frozenset({a.INV_LIRE})))
         self.assertTrue(chemin_accessible("/inventaire/sessions/realisation", frozenset({a.INV_GERE})))
-        self.assertTrue(chemin_accessible("/catalogue/articles/PC?x=1", frozenset({a.CAT_LIRE})))
+        # Fiche d'article : suivi du stock seulement (pas les profils Standard ni Chef hiérarchique).
+        self.assertFalse(chemin_accessible("/catalogue/articles/PC?x=1", frozenset({a.CAT_LIRE})))
+        self.assertTrue(chemin_accessible("/catalogue/articles/PC?x=1", frozenset({a.CAT_LIRE, a.MOV_LIRE})))
+        self.assertTrue(chemin_accessible("/catalogue/articles", frozenset({a.CAT_LIRE})))
+        self.assertFalse(chemin_accessible("/employes", demandeur))
         self.assertFalse(chemin_accessible("/page-inconnue", frozenset({a.USR_GERE})))

@@ -7,7 +7,7 @@ import { verifierMotDePasse } from "../utils/password";
 
 import { useActions } from "./useActions";
 
-const STANDARD_ACTIONS = [ACTIONS.CAT_LIRE, ACTIONS.MOV_LIRE, ACTIONS.COM_DEM];
+const STANDARD_ACTIONS = [ACTIONS.CAT_LIRE, ACTIONS.COM_DEM];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** État et validation du formulaire utilisateur. */

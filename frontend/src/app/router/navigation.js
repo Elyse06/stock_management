@@ -1,3 +1,11 @@
+/**
+ * Déclaration unique des pages : menu, routes et droits requis.
+ *
+ * ``actions`` : l'utilisateur doit posséder AU MOINS UNE de ces actions
+ * (liste vide = tout utilisateur connecté). Ces règles reflètent les
+ * permissions du backend ; elles ne servent qu'à l'affichage, l'API
+ * revérifie chaque appel.
+ */
 import {
   AccountTree as AccountTreeIcon,
   AdminPanelSettings as AdminPanelSettingsIcon,
@@ -24,7 +32,7 @@ import {
 import { ACTIONS as A } from "@/constants/permissions";
 
 export const MENU = [
-  { path: "/", label: "Tableau de bord", Icon: DashboardIcon, actions: [] },
+  { path: "/", label: "Tableau de bord", Icon: DashboardIcon, actions: [A.MOV_LIRE, A.CAT_GERE] },
   { path: "/utilisateurs", label: "Utilisateurs & Rôles", Icon: AdminPanelSettingsIcon, actions: [A.USR_GERE] },
   {
     key: "employes",
@@ -69,19 +77,24 @@ export const MENU = [
     Icon: HistoryIcon,
     children: [
       { path: "/historique/globale", label: "Globale", Icon: PublicIcon, actions: [A.MOV_LIRE] },
-      { path: "/historique/localisation", label: "Localisation", Icon: LocationOnIcon, actions: [A.MOV_LIRE] },
+      { path: "/historique/localisation", label: "Localisation", Icon: LocationOnIcon, actions: [A.MOV_LIRE, A.COM_DEM] },
       { path: "/historique/article", label: "Article", Icon: ArticleIcon, actions: [A.MOV_LIRE] },
     ],
   },
 ];
 
+/** Droits des pages hors menu (détail, réalisation...). */
 export const EXTRA_ROUTE_ACTIONS = {
-  "/catalogue/articles/:code_article": [A.CAT_LIRE],
+  // Accueil ouvert à tous : il redirige vers « Mes équipements » qui n'a pas le tableau de bord.
+  "/": [],
+  // Fiche d'article : suivi du stock seulement (pas les profils Standard ni Chef hiérarchique).
+  "/catalogue/articles/:code_article": [A.MOV_LIRE, A.CAT_GERE],
   "/inventaire/sessions/realisation": [A.INV_GERE],
 };
 
 const flatten = (items) => items.flatMap((item) => (item.children ? flatten(item.children) : [item]));
 
+/** ``{chemin: actions}`` pour toutes les pages déclarées. */
 export const ROUTE_ACTIONS = {
   ...Object.fromEntries(flatten(MENU).map((item) => [item.path, item.actions])),
   ...EXTRA_ROUTE_ACTIONS,

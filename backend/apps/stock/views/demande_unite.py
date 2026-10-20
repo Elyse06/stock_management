@@ -1,3 +1,4 @@
+"""Demandes de retour ou de transfert d'unités, et liste « Mes équipements » du demandeur."""
 from django.db.models import Case, IntegerField, Q, When
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 from apps.common import actions
 from apps.common.employees import get_request_employee
 from apps.common.pagination import paginer
+from apps.common.params import filtre_type_article
 from apps.common.pdf import reponse_pdf
 from apps.common.permissions import HasAction, user_has_any_action
 from apps.stock.fiche_demande_pdf import generer_fiche_demande
@@ -16,16 +18,20 @@ from apps.stock.serializers.demande_unite import CreationDemandeUniteSerializer,
 from apps.stock.services.demandes_unites import annuler_demande, creer_demande, refuser_demande, unites_visibles
 
 DEMANDEUR = HasAction.for_actions(actions.COM_DEM)
+# Les demandes de retour ou de transfert sont faites par le chef hiérarchique, pour toute sa direction.
+CHEF = HasAction.for_actions(actions.COM_VAL)
 GESTIONNAIRE = HasAction.for_actions(actions.INV_GERE)
 
 
 class DemandeUniteViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """Le gestionnaire (INV_GERE) voit toutes les demandes ; un employé, les siennes (ou ?mes=1)."""
+
     serializer_class = DemandeUniteSerializer
     filter_backends = [filters.SearchFilter]  # noqa: RUF012
     search_fields = ["unite__article__designation", "unite__numero_de_serie", "demandeur__emp_nom"]  # noqa: RUF012
 
     def get_permissions(self):
-        regles = {"create": DEMANDEUR, "annuler": DEMANDEUR, "mes_unites": DEMANDEUR,
+        regles = {"create": CHEF, "annuler": CHEF, "mes_unites": DEMANDEUR,
                   "refuser": GESTIONNAIRE, "compteur": GESTIONNAIRE, "pdf": GESTIONNAIRE}
         return [regles.get(self.action, HasAction.for_actions(actions.COM_DEM, actions.INV_GERE))()]
 
@@ -40,6 +46,9 @@ class DemandeUniteViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
         for parametre, champ in (("statut", "statut"), ("type_demande", "type_demande")):
             if valeur := self.request.query_params.get(parametre):
                 demandes = demandes.filter(**{champ: valeur})
+        demandes = demandes.filter(**filtre_type_article(self.request.query_params, "unite__article__is_immobilisation"))
+        # Demandes en attente d'abord (à traiter), puis les autres, de la plus récente à la plus ancienne :
+        # une demande traitée reste dans la liste, avec sa fiche PDF.
         return demandes.annotate(
             priorite=Case(When(statut=DemandeUnite.Statut.EN_ATTENTE, then=0), default=1, output_field=IntegerField()),
         ).order_by("priorite", "-date_demande", "-demande_id")
@@ -79,11 +88,14 @@ class DemandeUniteViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
 
     @action(detail=False, methods=["get"], url_path="mes-unites")
     def mes_unites(self, request):
-        """Unités attribuées à l'employé connecté ou à sa direction, avec leur demande en attente."""
+        """Unités attribuées à l'employé connecté ou à sa direction (et, pour le chef hiérarchique, à chaque
+        employé de sa direction), avec leur demande en attente."""
         employe = get_request_employee(request)
-        unites = unites_visibles(employe).select_related(
+        chef = user_has_any_action(request.user, actions.COM_VAL)
+        unites = unites_visibles(employe, toute_la_direction=chef).select_related(
             "article__categorie", "affectation__employe", "affectation__direction",
         ).order_by("affectation__beneficiaire_type", "article__designation", "unite_id")
+        unites = unites.filter(**filtre_type_article(request.query_params, "article__is_immobilisation"))
         if recherche := request.query_params.get("search", "").strip():
             unites = unites.filter(Q(article__designation__icontains=recherche) | Q(numero_de_serie__icontains=recherche))
         page = paginer(unites, request)
@@ -103,4 +115,5 @@ class DemandeUniteViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
             resultats.append(donnees)
         page["results"] = resultats
         page["employe_rattache"] = employe is not None
+        page["peut_demander"] = chef  # seul le chef hiérarchique fait les demandes
         return Response(page)

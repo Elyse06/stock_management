@@ -10,12 +10,14 @@ from rest_framework.response import Response
 from apps.common.employees import get_request_employee
 from apps.common.localisation import filtre_direction, filtre_salle, filtre_site
 from apps.common.pagination import paginer
+from apps.common.params import filtre_type_article
 from apps.stock.models import DemandeUnite, UniteArticle
 from apps.stock.serializers import (
     RetourUniteSerializer,
     TransfertUniteSerializer,
     UniteArticleSerializer,
 )
+from apps.stock.serializers.unite_article import EtiquetteSerializer
 from apps.stock.services.demandes_unites import cloturer_apres_mouvement, verrouiller_demande_a_traiter
 
 from .permissions import UnitePermission
@@ -57,7 +59,7 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
         "numero_de_serie", "article__designation", "article__code_article",
         "affectation__employe__emp_nom", "affectation__employe__emp_matricule",
         "affectation__direction__dir_libelle", "affectation__salle__nom",
-        "affectation__site__site_nom",
+        "affectation__site__site_nom", "numero_immobilisation",
     ]
     ordering_fields = ["date_creation", "numero_de_serie", "etat", "article__designation"]  # noqa: RUF012
     # unite_id départage les unités créées dans la même transaction -> pagination stable
@@ -78,7 +80,8 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
             filtre = filtre_salle(params["localisation_salle_id"])
         if filtre is not None:
             queryset = queryset.filter(filtre, statut=UniteArticle.Statut.ATTRIBUE)
-        return queryset
+        # Type d'article (immobilisation / fourniture) : liste, regroupement par bénéficiaire et détail.
+        return queryset.filter(**filtre_type_article(params, "article__is_immobilisation"))
 
     @action(detail=False, methods=["get"], url_path="par-beneficiaire")
     def par_beneficiaire(self, request):
@@ -119,7 +122,8 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
     def resume_stock(self, request):
         etats = UniteArticle.Etat
         resume = (
-            UniteArticle.objects.filter(statut=UniteArticle.Statut.EN_STOCK)
+            UniteArticle.objects.filter(statut=UniteArticle.Statut.EN_STOCK,
+                                        **filtre_type_article(getattr(request, "query_params", {}), "article__is_immobilisation"))
             .values("article__code_article", "article__designation")
             .annotate(
                 total=Count("unite_id"),
@@ -157,6 +161,17 @@ class UniteArticleViewSet(viewsets.ModelViewSet):
             cloturer_apres_mouvement(pk, type_demande, get_request_employee(request), mouvement, demande,
                                      serializer.validated_data.get("motif", ""))
         return resultat
+
+    @action(detail=True, methods=["post"])
+    def etiquette(self, request, pk=None):
+        """Enregistre le n° d'immobilisation et la date saisis pour l'étiquette (gestionnaire du stock)."""
+        unite = self.get_object()
+        donnees = EtiquetteSerializer(data=request.data)
+        donnees.is_valid(raise_exception=True)
+        unite.numero_immobilisation = donnees.validated_data["numero_immobilisation"]
+        unite.date_etiquette = donnees.validated_data["date_etiquette"]
+        unite.save(update_fields=["numero_immobilisation", "date_etiquette"])
+        return Response(self.get_serializer(unite).data)
 
     @action(detail=True, methods=["post"], url_path="retourner-stock")
     def retourner_stock(self, request, pk=None):

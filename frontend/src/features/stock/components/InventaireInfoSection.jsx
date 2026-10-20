@@ -1,12 +1,16 @@
 import { Box, Typography } from "@mui/material";
 import {
   CalendarToday as CalendarIcon,
+  Category as TypeIcon,
   CheckCircle as CheckCircleIcon,
   Assignment as AssignmentIcon,
+  Person as PersonIcon,
+  VerifiedUser as ValideurIcon,
 } from "@mui/icons-material";
 import { StatusChip } from "@/components/data-display/StatusChip";
 import { InfoTile } from "@/components/data-display/InfoTile";
 import { formatDateTime } from "@/utils/formatters";
+import { libelleTypeSession } from "../constants/typeInventaire";
 import { getLieuMeta } from "../utils/lieuMeta";
 
 export function InventaireInfoSection({ session }) {
@@ -46,6 +50,18 @@ export function InventaireInfoSection({ session }) {
           <Typography variant="body1" fontWeight={500}>
             {session.date_validation ? formatDateTime(session.date_validation) : "—"}
           </Typography>
+        </InfoTile>
+
+        <InfoTile icon={<TypeIcon fontSize="small" />} label="Articles inventoriés">
+          <Typography variant="body1" fontWeight={500}>{libelleTypeSession(session.type_articles)}</Typography>
+        </InfoTile>
+
+        <InfoTile icon={<PersonIcon fontSize="small" />} label="Réalisé par">
+          <Typography variant="body1" fontWeight={500}>{session.realise_par_nom || "—"}</Typography>
+        </InfoTile>
+
+        <InfoTile icon={<ValideurIcon fontSize="small" />} label="Validé par">
+          <Typography variant="body1" fontWeight={500}>{session.valide_par_nom || "—"}</Typography>
         </InfoTile>
       </Box>
     </Box>

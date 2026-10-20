@@ -10,8 +10,12 @@ import { MESSAGES } from "@/constants/messages";
 import { inventairesApi } from "../api/stockApi";
 import { construireLignes, estSaisie, SAISIE_VIDE, verifierSaisies } from "../utils/saisieInventaire";
 
-/** Saisies, unités chargées à la demande et enregistrement d'une session d'inventaire. */
-export function useSaisiesInventaire({ lieu, articles }) {
+/**
+ * Saisies, unités chargées à la demande et enregistrement d'une session d'inventaire.
+ * ``typeArticles`` : "IMMOBILISATION" ou "FOURNITURE" (enregistré sur la session) ;
+ * ``onEnregistre`` : appelé une fois la session créée.
+ */
+export function useSaisiesInventaire({ lieu, articles, typeArticles, onEnregistre }) {
   const notify = useNotification();
   const queryClient = useQueryClient();
   const [saisies, setSaisies] = useState({});
@@ -72,6 +76,7 @@ export function useSaisiesInventaire({ lieu, articles }) {
       setSaisies({});
       setLigneOuverte(null);
       queryClient.invalidateQueries({ queryKey: ["inventaires"] });
+      onEnregistre?.();
     },
     onError: (error) => notify.error(getErrorMessage(error, MESSAGES.SAVE_FAILED)),
   });
@@ -85,7 +90,7 @@ export function useSaisiesInventaire({ lieu, articles }) {
     }
     const lignes = construireLignes(saisies, articlesParCode);
     if (lignes.length === 0) return notify.error("Renseignez au moins un article avant d'enregistrer.");
-    enregistrement.mutate({ lignes, ...lieu.payloadLieu() });
+    enregistrement.mutate({ lignes, type_articles: typeArticles ?? "", ...lieu.payloadLieu() });
   };
 
   return {

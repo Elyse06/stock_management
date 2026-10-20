@@ -7,15 +7,15 @@ libellés et droits) : toute modification du menu doit être reportée ici.
 from apps.common import actions as a
 
 PAGES = [
-    {"chemin": "/", "titre": "Tableau de bord", "actions": [],
+    {"chemin": "/", "titre": "Tableau de bord", "actions": [a.MOV_LIRE, a.CAT_GERE],
      "description": "Indicateurs clés, alertes de stock, flux mensuels, répartitions et articles dormants."},
     {"chemin": "/utilisateurs", "titre": "Utilisateurs & Rôles", "actions": [a.USR_GERE],
      "description": "Comptes, permissions, rattachement d'un compte à sa fiche employé."},
-    {"chemin": "/employes", "titre": "Employés", "actions": [],
+    {"chemin": "/employes", "titre": "Employés", "actions": [a.USR_GERE],
      "description": "Annuaire des employés, création, import Excel."},
-    {"chemin": "/employes/services", "titre": "Services", "actions": [], "description": "Services de chaque direction."},
-    {"chemin": "/employes/directions", "titre": "Directions", "actions": [], "description": "Directions de l'organisation."},
-    {"chemin": "/employes/sites", "titre": "Sites", "actions": [], "description": "Siège et agences."},
+    {"chemin": "/employes/services", "titre": "Services", "actions": [a.USR_GERE], "description": "Services de chaque direction."},
+    {"chemin": "/employes/directions", "titre": "Directions", "actions": [a.USR_GERE], "description": "Directions de l'organisation."},
+    {"chemin": "/employes/sites", "titre": "Sites", "actions": [a.USR_GERE], "description": "Siège et agences."},
     {"chemin": "/catalogue/articles", "titre": "Articles", "actions": [a.CAT_LIRE],
      "description": "Catalogue des articles avec leur stock ; fiche détaillée de chaque article."},
     {"chemin": "/catalogue/categories", "titre": "Catégories", "actions": [a.CAT_GERE],
@@ -26,11 +26,11 @@ PAGES = [
      "description": "Entrées, sorties, transferts, ajustements et retours de stock."},
     {"chemin": "/inventaire/sessions", "titre": "Inventaires", "actions": [a.INV_LIRE],
      "description": "Sessions d'inventaire, leur détail et leur validation."},
-    {"chemin": "/inventaire/unites", "titre": "Unités attribuées", "actions": [a.CAT_LIRE, a.INV_LIRE],
+    {"chemin": "/inventaire/unites", "titre": "Unités attribuées", "actions": [a.INV_LIRE],
      "description": "Bénéficiaires et leur nombre d'articles ; détail des unités du bénéficiaire choisi : "
                     "retour, transfert, étiquette QR."},
     {"chemin": "/magasins", "titre": "Magasins", "actions": [a.INV_GERE], "description": "Magasins de stockage."},
-    {"chemin": "/salles", "titre": "Salles", "actions": [a.CAT_LIRE, a.INV_GERE], "description": "Salles du siège."},
+    {"chemin": "/salles", "titre": "Salles", "actions": [a.INV_GERE], "description": "Salles du siège."},
     {"chemin": "/import/immobilisations", "titre": "Import immobilisations", "actions": [a.CAT_GERE],
      "description": "Import Excel des immobilisations avec aperçu avant confirmation."},
     {"chemin": "/import/fournitures", "titre": "Import fournitures", "actions": [a.CAT_GERE],
@@ -41,7 +41,7 @@ PAGES = [
      "description": "Demandes de matériel : création, pré-validation, validation finale."},
     {"chemin": "/historique/globale", "titre": "Historique global", "actions": [a.MOV_LIRE],
      "description": "Tous les mouvements filtrés par période, magasin, type ou article."},
-    {"chemin": "/historique/localisation", "titre": "Historique par localisation", "actions": [a.MOV_LIRE],
+    {"chemin": "/historique/localisation", "titre": "Historique par localisation", "actions": [a.MOV_LIRE, a.COM_DEM],
      "description": "Stock d'un magasin, d'une direction, d'un site ou d'une salle à une date donnée, "
                     "et résumé des unités en stock par état."},
     {"chemin": "/historique/article", "titre": "Historique d'un article", "actions": [a.MOV_LIRE],
@@ -77,8 +77,9 @@ GUIDES = [
         "Un utilisateur ayant le droit de validation valide ensuite la session depuis Inventaires.",
     ]},
     {"tache": "Demander le retour ou le transfert d'un équipement", "chemin": "/mes-equipements",
-     "actions": [a.COM_DEM], "etapes": [
-        "Ouvrir « Mes équipements » : le matériel qui vous est attribué et celui de votre direction s'affiche.",
+     "actions": [a.COM_VAL], "etapes": [
+        "Réservé au chef hiérarchique. Ouvrir « Mes équipements » : le matériel de toute sa direction s'affiche "
+        "(le sien, celui de la direction et celui de chaque employé de la direction).",
         "Cliquer sur « Retour » ou « Transfert » (ou cocher plusieurs équipements), indiquer le motif et, pour un "
         "transfert, le nouveau bénéficiaire, puis « Envoyer la demande ».",
         "Le gestionnaire du stock traite la demande ; vous êtes prévenu par e-mail et le statut s'affiche dans « Mes demandes ».",
@@ -126,14 +127,19 @@ def guides_accessibles(actions_utilisateur):
     return [g for g in GUIDES if _autorise(g, actions_utilisateur)]
 
 
-# Pages hors menu (comme EXTRA_ROUTE_ACTIONS du frontend) ; les fiches d'article
-# (/catalogue/articles/<code>) héritent des droits de la liste.
-PAGES_HORS_MENU = {"/inventaire/sessions/realisation": {"actions": [a.INV_GERE]}}
+# Pages hors menu (comme EXTRA_ROUTE_ACTIONS du frontend). Fiche d'article (/catalogue/articles/<code>) :
+# suivi du stock seulement (pas les profils Standard ni Chef hiérarchique).
+PAGES_HORS_MENU = {
+    "/inventaire/sessions/realisation": {"actions": [a.INV_GERE]},
+    "/catalogue/articles/<code>": {"actions": [a.MOV_LIRE, a.CAT_GERE]},
+}
 
 
 def chemin_accessible(chemin, actions_utilisateur):
     """Vrai si la page (sans paramètres) est accessible : un lien proposé doit toujours l'être."""
     base = chemin.split("?")[0]
     pages = {p["chemin"]: p for p in PAGES} | PAGES_HORS_MENU
+    if base.startswith("/catalogue/articles/") and base.rstrip("/") != "/catalogue/articles":
+        base = "/catalogue/articles/<code>"
     page = pages.get(base) or pages.get(base.rsplit("/", 1)[0])
     return page is not None and _autorise(page, actions_utilisateur)

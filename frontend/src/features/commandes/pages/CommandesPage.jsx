@@ -24,6 +24,7 @@ import { CommandeDetailModal } from "../components/CommandeDetailModal";
 import { CommandeFormModal } from "../components/CommandeFormModal";
 import { bornesPeriode, PERIODES, STATUTS_COMMANDE } from "../constants/commande";
 import { useCommandeRoles } from "../hooks/useCommandeRoles";
+import { peutTelechargerFiche } from "../utils/fiche";
 
 const getDemandeurNom = (row) => row?.demandeur?.nom || row?.employe_demandeur || "—";
 const getArticlesLabel = (row) =>
@@ -31,7 +32,9 @@ const getArticlesLabel = (row) =>
 
 export function CommandesPage() {
   const { canCreateCommande, isDemandeur, isAgentPrincipal, peutTraiter } = useCommandeRoles();
-  const { user, isGestionnaire } = usePermission();
+  const droits = usePermission();
+  const { user } = droits;
+  // Le backend ne montre les commandes qu'à partir de l'employé lié au compte (sauf au gestionnaire).
   const sansEmploye = Boolean(user) && !user.employe && !isAgentPrincipal;
   const { confirm, dialogProps } = useConfirmDialog();
   const { remove } = useCrudMutations(commandesApi, [["commandes"]], { deleted: "Commande supprimée avec succès" });
@@ -42,6 +45,7 @@ export function CommandesPage() {
 
   const list = usePaginatedList(["commandes"], API_ENDPOINTS.COMMANDES, { statut });
 
+  // Le backend ne filtre pas par date : la période s'applique à la page affichée.
   const rows = useMemo(() => {
     const bornes = bornesPeriode(periode);
     if (!bornes) return list.rows;
@@ -95,7 +99,8 @@ export function CommandesPage() {
               canValidate={traitable}
               canDelete={supprimable}
             />
-            {isGestionnaire && (
+            {/* Fiche PDF : réservée au gestionnaire (vérifié aussi par l'API). */}
+            {peutTelechargerFiche(droits, row) && (
               <BoutonPdf url={`${API_ENDPOINTS.COMMANDES}${row.commande_id}/pdf/`} nomFichier={`commande_${row.commande_id}.pdf`} />
             )}
           </Box>

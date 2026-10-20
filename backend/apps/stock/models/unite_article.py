@@ -24,6 +24,9 @@ class UniteArticle(models.Model):
     numero_de_serie = models.CharField(max_length=100, unique=True, null=True, blank=True)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_STOCK)
     etat = models.CharField(max_length=20, choices=Etat.choices, default=Etat.BON)
+    # Saisis à l'impression de l'étiquette (puis pré-remplis aux impressions suivantes).
+    numero_immobilisation = models.CharField(max_length=50, blank=True, default="")
+    date_etiquette = models.DateField(null=True, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)
     mouvement_entree = models.ForeignKey(
         DetailMouvement, on_delete=models.SET_NULL, null=True, blank=True,
@@ -91,10 +94,28 @@ class UniteArticle(models.Model):
         return ""
 
     @property
+    def site_beneficiaire_nom(self):
+        """Site où se trouve l'unité attribuée (direct, via la salle ou via l'employé)."""
+        if not self.affectation_id:
+            return None
+        affectation, types = self.affectation, Affectation.BeneficiaireType
+        if affectation.beneficiaire_type == types.SITE:
+            return affectation.site.site_nom
+        if affectation.beneficiaire_type == types.SALLE:
+            return affectation.salle.localite.site_nom
+        if affectation.beneficiaire_type == types.EMPLOYE and affectation.employe.emp_site_id_id:
+            return affectation.employe.emp_site_id.site_nom
+        return None
+
+    @property
     def beneficiaire_type(self):
         return self.affectation.beneficiaire_type if self.affectation_id else None
 
     def attribuer(self, beneficiaire, mouvement_sortie):
+        """Attribue l'unité à un Employer, une Direction, une Salle ou un Site.
+
+        Résout (ou crée) l'Affectation partagée correspondante.
+        """
         self.affectation = Affectation.resoudre(beneficiaire)
         self.statut = self.Statut.ATTRIBUE
         self.mouvement_sortie = mouvement_sortie

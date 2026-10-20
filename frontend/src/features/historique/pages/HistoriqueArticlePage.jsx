@@ -9,6 +9,8 @@ import { useNotification } from "@/hooks/useNotification";
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { DateRangeFilter } from "@/components/forms/DateRangeFilter";
 import { SelectFilter } from "@/components/forms/SelectFilter";
+import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
+import { filtrerParType } from "@/constants/articles";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
 import { ArticleAutocomplete } from "@/components/forms/ArticleAutocomplete";
@@ -51,6 +53,7 @@ export function HistoriqueArticlePage() {
   const { data: articles = [] } = useArticles();
   const { data: sites = [] } = useSites();
   const [article, setArticle] = useState(null);
+  const [typeArticle, setTypeArticle] = useState("");
   const [siteId, setSiteId] = useState("");
   const [periode, setPeriode] = useState("tous");
   const [dateDebut, setDateDebut] = useState("");
@@ -76,6 +79,7 @@ export function HistoriqueArticlePage() {
 
   const reset = () => {
     setArticle(null);
+    setTypeArticle("");
     setSiteId("");
     setPeriode("tous");
     setDateDebut("");
@@ -84,8 +88,9 @@ export function HistoriqueArticlePage() {
 
   return (
     <Box>
-      <PageHeader onReset={reset} hasFilters={Boolean(article || siteId || periode !== "tous")}>
-        <ArticleAutocomplete articles={articles} value={article} onChange={setArticle} sx={{ minWidth: 300 }} />
+      <PageHeader onReset={reset} hasFilters={Boolean(article || typeArticle || siteId || periode !== "tous")}>
+        <TypeArticleFilter value={typeArticle} onChange={(v) => { setTypeArticle(v); setArticle(null); }} />
+        <ArticleAutocomplete articles={filtrerParType(articles, typeArticle)} value={article} onChange={setArticle} sx={{ minWidth: 300 }} />
         <SelectFilter
           label="Site"
           value={siteId}

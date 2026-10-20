@@ -23,7 +23,7 @@ def lignes(*valeurs):
 
 class ImportEmailsTests(TestCase):
     def setUp(self):
-        f.utilisateur("init@test.mg", [a.CAT_LIRE, a.MOV_LIRE, a.COM_DEM])  # crée les actions du profil standard
+        f.utilisateur("init@test.mg", [a.CAT_LIRE, a.MOV_LIRE, a.COM_DEM])  # crée les actions
         self.admin = f.utilisateur("admin@test.mg", [a.USR_GERE])
         self.client = client_pour(self.admin)
         self.rakoto = f.employe("8101")
@@ -46,7 +46,7 @@ class ImportEmailsTests(TestCase):
         self.assertTrue(compte.mdp_a_changer)
         self.assertIsNotNone(compte.acces_envoye_le)
         self.assertEqual(sorted(Autoriser.objects.filter(autoriser_utilisateur_id=compte).values_list("autoriser_action_id_id", flat=True)),
-                         sorted([a.CAT_LIRE, a.COM_DEM, a.MOV_LIRE]))
+                         sorted([a.CAT_LIRE, a.COM_DEM]))  # profil standard : sans MOV_LIRE
         self.assertEqual([m.to for m in mail.outbox], [["jean.rakoto@paositra.mg"]])
         jeton = re.search(r"/activation#(\S+)", mail.outbox[0].body).group(1)
         activation = APIClient().post("/api/auth/activation/", {"jeton": jeton, "nouveau": "Rakoto-Paositra-26"}, format="json")

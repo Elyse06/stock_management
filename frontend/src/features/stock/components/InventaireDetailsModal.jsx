@@ -26,6 +26,8 @@ import { useValiderInventaire } from "../hooks/useValiderInventaire";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { StatusChip } from "@/components/data-display/StatusChip";
 import { CodeChip } from "@/components/data-display/CodeChip";
+import { BoutonPdf } from "@/components/table/BoutonPdf";
+import { API_ENDPOINTS } from "@/config/endpoints";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { InventaireInfoSection } from "./InventaireInfoSection";
 import { InventaireStatsCards } from "./InventaireStatsCards";
@@ -97,6 +99,10 @@ export function InventaireDetailsModal({ session, isOpen, onClose, onSuccess }) 
               Inventaire
             </Typography>
             {courant.code_reference && <CodeChip value={courant.code_reference} />}
+            {courant.statut === "VALIDE" && (
+              <BoutonPdf url={`${API_ENDPOINTS.INVENTAIRES}${courant.inventaire_id}/pdf/`}
+                nomFichier={`inventaire_${courant.code_reference}.pdf`} titre="Fiche PDF de l'inventaire" />
+            )}
           </Box>
           <Box sx={{ mt: 1 }}>
             <StatusChip status={courant.statut} />

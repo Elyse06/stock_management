@@ -6,11 +6,7 @@ export const UNITES = [
   { value: "Paquet", label: "Paquet" },
 ];
 
-export const TYPE_ARTICLE_OPTIONS = [
-  { value: "", label: "Tous les types" },
-  { value: "true", label: "Immobilisations" },
-  { value: "false", label: "Fournitures" },
-];
+export { TYPE_ARTICLE_OPTIONS } from "@/constants/articles";
 
 /** Code article proposé à partir de la catégorie (le backend vérifie l'unicité). */
 export function genererCodeArticle(categorie) {

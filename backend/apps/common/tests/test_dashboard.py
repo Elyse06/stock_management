@@ -19,7 +19,7 @@ class EntreesDuMoisTests(TestCase):
         f.mouvement(T.TRANSFERT, art, 4, source=m1, destination=m2)
         f.mouvement(T.SORTIE, art, 3, source=m1)
         self.client = APIClient()
-        self.client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("CAT_LIRE",)))
+        self.client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("MOV_LIRE",)))
 
     def test_kpi_exclut_les_transferts(self):
         data = self.client.get("/api/dashboard/kpis/").json()
@@ -57,7 +57,7 @@ class TendancesEtFluxTests(TestCase):
             mouvement = f.mouvement(type_, art, quantite, **kwargs)
             Mouvement.objects.filter(pk=mouvement.pk).update(date=date)
         self.client = APIClient()
-        self.client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("CAT_LIRE",)))
+        self.client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("MOV_LIRE",)))
 
     def test_totaux_du_mois_precedent(self):
         data = self.client.get("/api/dashboard/kpis/").json()
@@ -82,6 +82,6 @@ class RepartitionCategorieTests(TestCase):
         article.save()
         f.mouvement(T.ENTREE, article, 5, destination=f.magasin("M1"))
         client = APIClient()
-        client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("CAT_LIRE",)))
+        client.force_authenticate(f.utilisateur("lecteur@test.mg", actions=("MOV_LIRE",)))
         data = client.get("/api/dashboard/repartition-categorie/").json()
         self.assertEqual(data, [{"categorie": "MB", "description": "Meuble du bureau", "stock": 5}])

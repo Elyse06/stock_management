@@ -32,17 +32,17 @@ export const PRESET_ROLES = [
   },
   {
     id: "VALIDATEUR_CMD",
-    label: "Validateur de Commandes",
-    description: "Approbation des commandes de matériel",
+    label: "Chef hiérarchique",
+    description: "Validation des commandes et demandes de retour ou transfert de sa direction",
     badgeColor: "#FFB300",
-    actions: ["CAT_LIRE", "MOV_LIRE", "COM_DEM", "COM_VAL"],
+    actions: ["CAT_LIRE", "COM_DEM", "COM_VAL"],
   },
   {
     id: "STANDARD",
     label: "Demandeur Standard",
-    description: "Consultation du catalogue et demandes d'articles",
+    description: "Catalogue, demandes de matériel et équipements attribués",
     badgeColor: "#FFCA28",
-    actions: ["CAT_LIRE", "MOV_LIRE", "COM_DEM"],
+    actions: ["CAT_LIRE", "COM_DEM"],
   },
   {
     id: "CUSTOM",

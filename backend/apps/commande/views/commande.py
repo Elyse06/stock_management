@@ -1,11 +1,13 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
 from apps.commande.access import (
     est_gestionnaire,
+    est_validateur,
     filtrer_commandes_visibles,
     verifier_commande_modifiable,
 )
@@ -24,15 +26,17 @@ from apps.common.permissions import HasAction
 from .permissions import CommandePermission
 
 _EMPLOYE = ("emp_serv_id__serv_dir_id", "emp_dir_id", "emp_site_id")
+COMMANDES_TRAITEES = (Commande.Statut.VALIDEE, Commande.Statut.REJETEE)
 
 
-class EstGestionnaireCommandes(BasePermission):
-    """Fiche PDF réservée au gestionnaire (droits « Valider commande » ET « Gérer catalogue »)."""
+class FichesCommandes(BasePermission):
+    """Fiche PDF : gestionnaire (toutes les commandes) ou chef hiérarchique (commandes déjà traitées de sa
+    direction : la visibilité est appliquée par ``get_object``, le statut dans la vue)."""
 
-    message = "Seul le gestionnaire peut télécharger les fiches des commandes."
+    message = "Seuls le gestionnaire et le chef hiérarchique peuvent télécharger les fiches des commandes."
 
     def has_permission(self, request, view):
-        return est_gestionnaire(request.user)
+        return est_gestionnaire(request.user) or est_validateur(request.user)
 
 
 class CommandeViewSet(viewsets.ModelViewSet):
@@ -73,9 +77,11 @@ class CommandeViewSet(viewsets.ModelViewSet):
         commande = self.get_queryset().get(pk=commande.pk)
         return Response(self.get_serializer(commande).data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["get"], url_path="pdf", permission_classes=[EstGestionnaireCommandes])
+    @action(detail=True, methods=["get"], url_path="pdf", permission_classes=[FichesCommandes])
     def pdf(self, request, pk=None):
         commande = self.get_object()
+        if not est_gestionnaire(request.user) and commande.statut not in COMMANDES_TRAITEES:
+            raise PermissionDenied("La fiche n'est disponible qu'une fois la commande traitée.")
         return reponse_pdf(generer_fiche_commande(commande), f"commande_{commande.pk}.pdf")
 
     @action(detail=True, methods=["get"], url_path="recapitulatif")

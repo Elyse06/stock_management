@@ -8,13 +8,41 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  IconButton,
   Chip,
   Alert,
 } from "@mui/material";
-import { Add as AddIcon, Remove as RemoveIcon, SwapHoriz as SwapHorizIcon } from "@mui/icons-material";
+import {
+  Add as AddIcon,
+  DeleteOutlined as SupprimerIcon,
+  Remove as RemoveIcon,
+  SwapHoriz as SwapHorizIcon,
+} from "@mui/icons-material";
 
 const ETATS_AJOUT = ["BON", "MOYEN", "MAUVAIS"];
 const ETATS_CHANGE = ["MOYEN", "MAUVAIS", "HORS_USAGE"];
+const LIBELLES_ETAT = { MOYEN: "Moyen", MAUVAIS: "Mauvais", HORS_USAGE: "Hors usage" };
+
+/** Répartition initiale (« 1 Moyen, 3 Mauvais ») reconstituée à partir de changements déjà saisis. */
+function repartitionInitiale(changements = []) {
+  const parEtat = {};
+  for (const c of changements) parEtat[c.etat] = (parEtat[c.etat] || 0) + 1;
+  const lignes = Object.entries(parEtat).map(([etat, quantite]) => ({ etat, quantite: String(quantite) }));
+  return lignes.length ? lignes : [{ etat: "MOYEN", quantite: "" }];
+}
+
+/** Changements d'état en quantité : plusieurs lignes « nombre → état », chacune sur des unités distinctes. */
+function changementsDepuisRepartition(repartition, unites) {
+  const changements = [];
+  let rang = 0;
+  for (const { etat, quantite } of repartition) {
+    const n = Number(quantite);
+    if (!(n > 0)) continue;
+    for (const u of unites.slice(rang, rang + n)) changements.push({ unite_id: u.unite_id, numero_serie: u.numero_de_serie, etat });
+    rang += n;
+  }
+  return changements;
+}
 
 export function PropositionsSeriesEditor({
   type,
@@ -27,9 +55,12 @@ export function PropositionsSeriesEditor({
   const [nouveauNs, setNouveauNs] = useState("");
   const [nouveauEtat, setNouveauEtat] = useState("BON");
   
-  // Pour le mode QUANTITE (changement d'état)
-  const [qteChangement, setQteChangement] = useState("");
+  // Mode QUANTITE : répartition des unités concernées par nouvel état (ex. 1 Moyen, 3 Mauvais, 1 Hors usage).
+  const [repartition, setRepartition] = useState(() => repartitionInitiale(value.changements_etat));
+  // Mode NUMERO_SERIE : état appliqué à l'unité choisie.
   const [etatChangement, setEtatChangement] = useState("MOYEN");
+  const totalReparti = repartition.reduce((somme, l) => somme + (Number(l.quantite) > 0 ? Number(l.quantite) : 0), 0);
+  const depassement = totalReparti > unitesExistantes.length;
 
   // --- Logique pour les AJOUTS (ecart > 0) ---
   const handleAddAjout = () => {
@@ -60,27 +91,23 @@ export function PropositionsSeriesEditor({
   };
 
   // --- Logique pour les CHANGEMENTS D'ÉTAT ---
-  // Si mode QUANTITE, on génère automatiquement la liste en prenant les N premières unités
+  // Mode QUANTITE : les changements sont générés à partir de la répartition (unités distinctes, dans l'ordre).
   useEffect(() => {
-    if (type === "CHANGEMENT_ETAT" && modeSuivi === "QUANTITE" && qteChangement && etatChangement) {
-      const qte = Number(qteChangement);
-      if (qte > 0 && qte <= unitesExistantes.length) {
-        const unitesSelectionnees = unitesExistantes.slice(0, qte);
-        const changements = unitesSelectionnees.map((u) => ({
-          unite_id: u.unite_id,
-          numero_serie: u.numero_de_serie,
-          etat: etatChangement,
-        }));
-        if (JSON.stringify(value.changements_etat || []) !== JSON.stringify(changements)) {
-          onChange({ ...value, changements_etat: changements });
-        }
-      } else {
-        if ((value.changements_etat || []).length > 0) {
-          onChange({ ...value, changements_etat: [] });
-        }
-      }
+    if (type !== "CHANGEMENT_ETAT" || modeSuivi !== "QUANTITE") return;
+    const changements = depassement ? [] : changementsDepuisRepartition(repartition, unitesExistantes);
+    if (JSON.stringify(value.changements_etat || []) !== JSON.stringify(changements)) {
+      onChange({ ...value, changements_etat: changements });
     }
-  }, [qteChangement, etatChangement, modeSuivi, unitesExistantes, type, value, onChange]);
+  }, [repartition, depassement, modeSuivi, unitesExistantes, type, value, onChange]);
+
+  const modifierRepartition = (index, patch) =>
+    setRepartition((lignes) => lignes.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  const ajouterEtat = () => {
+    const libre = ETATS_CHANGE.find((e) => !repartition.some((l) => l.etat === e)) ?? "MOYEN";
+    setRepartition((lignes) => [...lignes, { etat: libre, quantite: "" }]);
+  };
+  const retirerEtat = (index) =>
+    setRepartition((lignes) => (lignes.length > 1 ? lignes.filter((_, i) => i !== index) : [{ etat: "MOYEN", quantite: "" }]));
 
   const removeChange = (index) => {
     const list = [...(value.changements_etat || [])];
@@ -175,22 +202,38 @@ export function PropositionsSeriesEditor({
         </Typography>
 
         {modeSuivi === "QUANTITE" ? (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
-            <TextField
-              label="Nombre d'unités concernées"
-              type="number"
-              size="small"
-              value={qteChangement}
-              onChange={(e) => setQteChangement(e.target.value)}
-              inputProps={{ min: 1, max: unitesExistantes.length }}
-              sx={{ width: 180 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Nouvel état</InputLabel>
-              <Select value={etatChangement} onChange={(e) => setEtatChangement(e.target.value)} label="Nouvel état" inputProps={{ "aria-label": "Nouvel état" }}>
-                {ETATS_CHANGE.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
-              </Select>
-            </FormControl>
+          <Box>
+            {repartition.map((ligne, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <Box key={index} sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center", mb: 1 }}>
+                <TextField
+                  label="Nombre d'unités"
+                  type="number"
+                  size="small"
+                  value={ligne.quantite}
+                  onChange={(e) => modifierRepartition(index, { quantite: e.target.value })}
+                  slotProps={{ htmlInput: { min: 1, max: unitesExistantes.length } }}
+                  sx={{ width: 150 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Nouvel état</InputLabel>
+                  <Select value={ligne.etat} onChange={(e) => modifierRepartition(index, { etat: e.target.value })} label="Nouvel état"
+                    inputProps={{ "aria-label": `Nouvel état (ligne ${index + 1})` }}>
+                    {ETATS_CHANGE.map((e) => <MenuItem key={e} value={e}>{LIBELLES_ETAT[e]}</MenuItem>)}
+                  </Select>
+                </FormControl>
+                <IconButton size="small" onClick={() => retirerEtat(index)} aria-label={`Retirer la ligne ${index + 1}`}>
+                  <SupprimerIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+              <Button size="small" startIcon={<AddIcon />} onClick={ajouterEtat}>Ajouter un état</Button>
+              <Typography variant="caption" color={depassement ? "error" : "text.secondary"}>
+                {totalReparti} unité(s) sur {unitesExistantes.length}
+                {depassement && " : plus d'unités que dans ce lieu"}
+              </Typography>
+            </Box>
           </Box>
         ) : (
           <>
@@ -226,7 +269,7 @@ export function PropositionsSeriesEditor({
           </>
         )}
 
-        {value.changements_etat?.length > 0 && (
+        {modeSuivi !== "QUANTITE" && value.changements_etat?.length > 0 && (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
             {value.changements_etat.map((c, idx) => (
               <Chip

@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.employee.models import Direction, Site
+from apps.employee.models import Direction, Employer, Site
 
 from .magasin import Magasin
 from .salle import Salle
@@ -12,6 +12,10 @@ class InventaireSession(models.Model):
         EN_ATTENTE = "EN_ATTENTE", "En attente de validation"
         VALIDE = "VALIDE", "Validé (Stock mis à jour)"
         REJETE = "REJETE", "Rejeté"
+
+    class TypeArticles(models.TextChoices):
+        IMMOBILISATION = "IMMOBILISATION", "Immobilisations"
+        FOURNITURE = "FOURNITURE", "Fournitures"
 
     inventaire_id = models.BigAutoField(primary_key=True)
     code_reference = models.CharField(max_length=50, unique=True)
@@ -30,6 +34,11 @@ class InventaireSession(models.Model):
     salle = models.ForeignKey(
         Salle, on_delete=models.CASCADE, null=True, blank=True, related_name="sessions_inventaire"
     )
+    # Articles inventoriés : immobilisations ou fournitures (vide : sessions antérieures, tous types).
+    type_articles = models.CharField(max_length=20, choices=TypeArticles.choices, blank=True, default="")
+    # Signataires de la fiche PDF : qui a réalisé le comptage, qui l'a validé.
+    realise_par = models.ForeignKey(Employer, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    valide_par = models.ForeignKey(Employer, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         db_table = 't_inventaire_session'
