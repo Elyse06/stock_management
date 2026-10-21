@@ -157,7 +157,7 @@ export function ActivationPage() {
         </Typography>
       </Box>
       <Typography variant="body2" sx={{ mb: 2.5 }}>
-        Choisissez votre mot de passe. Vous l'utiliserez ensuite avec votre adresse électronique pour vous connecter.
+        Choisissez votre mot de passe.
       </Typography>
       <form onSubmit={envoyer} noValidate>
         <TextField fullWidth label="Mot de passe" type="password" autoComplete="new-password" required autoFocus

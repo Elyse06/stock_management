@@ -1,6 +1,5 @@
 import { Chair as ImmobilisationIcon, Inventory2 as FournitureIcon } from "@mui/icons-material";
 
-/** Types d'inventaire : l'URL de réalisation porte ``?type=immobilisation`` ou ``?type=fourniture``. */
 export const TYPES_INVENTAIRE = {
   immobilisation: {
     valeur: "IMMOBILISATION",
@@ -10,14 +9,13 @@ export const TYPES_INVENTAIRE = {
     Icon: ImmobilisationIcon,
   },
   fourniture: {
-    valeur: "FOURNITURE",
-    libelle: "Fournitures",
+    valeur: "NON IMMOBILISATION",
+    libelle: "Non immobilisation",
     description: "Consommables suivis en quantité : papier, cartouches, petites fournitures…",
     immobilisation: false,
     Icon: FournitureIcon,
   },
 };
 
-/** Libellé du type d'une session (``type_articles`` du backend) ; vide pour les sessions antérieures. */
 export const libelleTypeSession = (valeur) =>
   Object.values(TYPES_INVENTAIRE).find((t) => t.valeur === valeur)?.libelle ?? "Tous types";

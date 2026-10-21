@@ -2,7 +2,7 @@
 export const TYPE_ARTICLE_OPTIONS = [
   { value: "", label: "Tous les types" },
   { value: "true", label: "Immobilisations" },
-  { value: "false", label: "Fournitures" },
+  { value: "false", label: "Non immobilisation" },
 ];
 
 /** Garde les articles du type choisi (``type`` : "", "true" ou "false"), pour les listes déjà chargées. */
@@ -21,7 +21,7 @@ export function libelleCategorie(libelle, description) {
 }
 
 /** Groupe d'un article dans les listes de choix : immobilisations d'abord, puis fournitures. */
-export const groupeTypeArticle = (a) => (a?.is_immobilisation ? "Immobilisations" : "Fournitures");
+export const groupeTypeArticle = (a) => (a?.is_immobilisation ? "Immobilisations" : "Non immobilisation");
 
 /** Articles triés par type (pour ``groupBy`` des listes de choix MUI, qui exige des groupes contigus). */
 export const trierParType = (articles) =>

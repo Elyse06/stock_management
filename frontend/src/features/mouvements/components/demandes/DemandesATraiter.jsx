@@ -99,7 +99,7 @@ export function DemandesATraiter() {
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 1.5 }}>
-        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Demandeur, équipement, n° de série..." minWidth={260} />
+        <SearchField value={searchInput} onChange={setSearchInput} placeholder="Demandeur, équipement" minWidth={260} />
         <SelectFilter label="Statut" value={statut} onChange={setStatut} options={OPTIONS_STATUT} minWidth={180} />
         <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
       </Box>

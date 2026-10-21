@@ -3,7 +3,6 @@ import { Autocomplete, Box, TextField, Typography } from "@mui/material";
 
 import { groupeTypeArticle, trierParType } from "@/constants/articles";
 
-/** Sélecteur d'article (recherche par code ou désignation), groupé par type : immobilisations, fournitures. */
 export function ArticleAutocomplete({ articles, value, onChange, label = "Article", size = "small", ...props }) {
   const options = useMemo(() => trierParType(articles), [articles]);
   return (

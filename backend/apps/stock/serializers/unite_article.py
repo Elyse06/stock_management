@@ -15,6 +15,7 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
     article_categorie = serializers.CharField(source="article.categorie.cat_libelle", read_only=True, default=None)
     article_categorie_description = serializers.CharField(source="article.categorie.cat_description", read_only=True, default=None)
     site_beneficiaire_nom = serializers.CharField(read_only=True, allow_null=True)
+    site_beneficiaire_type = serializers.CharField(read_only=True, allow_null=True)
 
     message_plusieurs_beneficiaires = "Un seul bénéficiaire autorisé."
 
@@ -28,7 +29,7 @@ class UniteArticleSerializer(BeneficiaireWriteMixin, serializers.ModelSerializer
             "salle_beneficiaire", "site_beneficiaire",
             "employe_attribue_nom", "employe_attribue_matricule", "beneficiaire_type",
             "article_categorie", "article_categorie_description", "site_beneficiaire_nom",
-            "numero_immobilisation", "date_etiquette",
+            "site_beneficiaire_type", "numero_immobilisation", "date_etiquette",
         ]
         read_only_fields = [  # noqa: RUF012
             "unite_id", "date_creation", "mouvement_entree", "mouvement_sortie",
@@ -87,4 +88,10 @@ class EtiquetteSerializer(serializers.Serializer):
     """Informations saisies pour imprimer l'étiquette d'une unité."""
 
     numero_immobilisation = serializers.CharField(max_length=50, trim_whitespace=True)
+
+    def validate_numero_immobilisation(self, value):
+        # Dernier segment du code imprimé « Bénéficiaire/Site/Catégorie/mois/année/numéro ».
+        if "/" in value:
+            raise serializers.ValidationError("Le n° d'immobilisation ne peut pas contenir « / ».")
+        return value
     date_etiquette = serializers.DateField()

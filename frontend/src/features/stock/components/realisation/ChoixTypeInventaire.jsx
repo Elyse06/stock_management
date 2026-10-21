@@ -2,7 +2,6 @@ import { Box, ButtonBase, Typography } from "@mui/material";
 
 import { TYPES_INVENTAIRE } from "../../constants/typeInventaire";
 
-/** Deux grandes cartes : inventaire des immobilisations ou des fournitures. */
 export function ChoixTypeInventaire({ onChoisir }) {
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>

@@ -127,9 +127,6 @@ export function AIChatDrawer({ open, onClose, question }) {
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>Assistant Tahiry</Typography>
-          <Typography sx={{ fontSize: 11.5, color: "rgba(255,255,255,0.75)" }} noWrap>
-            Vos données et l'aide, selon vos droits
-          </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
           {ecranLarge && (

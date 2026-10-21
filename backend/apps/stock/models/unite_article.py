@@ -94,18 +94,29 @@ class UniteArticle(models.Model):
         return ""
 
     @property
-    def site_beneficiaire_nom(self):
-        """Site où se trouve l'unité attribuée (direct, via la salle ou via l'employé)."""
+    def site_beneficiaire(self):
+        """Site où se trouve l'unité attribuée (direct, via la salle ou via l'employé), sinon ``None``."""
         if not self.affectation_id:
             return None
         affectation, types = self.affectation, Affectation.BeneficiaireType
         if affectation.beneficiaire_type == types.SITE:
-            return affectation.site.site_nom
+            return affectation.site
         if affectation.beneficiaire_type == types.SALLE:
-            return affectation.salle.localite.site_nom
+            return affectation.salle.localite
         if affectation.beneficiaire_type == types.EMPLOYE and affectation.employe.emp_site_id_id:
-            return affectation.employe.emp_site_id.site_nom
+            return affectation.employe.emp_site_id
         return None
+
+    @property
+    def site_beneficiaire_nom(self):
+        site = self.site_beneficiaire
+        return site.site_nom if site else None
+
+    @property
+    def site_beneficiaire_type(self):
+        """« SIEGE » ou « AGENCE » (pour l'étiquette, où le siège s'écrit « SIEGE »)."""
+        site = self.site_beneficiaire
+        return site.site_type if site else None
 
     @property
     def beneficiaire_type(self):

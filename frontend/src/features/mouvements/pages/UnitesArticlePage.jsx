@@ -6,7 +6,6 @@ import { useTheme } from "@mui/material/styles";
 import { ErrorAlert } from "@/components/feedback/ErrorAlert";
 import { SearchField } from "@/components/forms/SearchField";
 import { SelectFilter } from "@/components/forms/SelectFilter";
-import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { ETATS_UNITE } from "@/constants/unites";
@@ -26,10 +25,6 @@ import { DetailBeneficiaire } from "../components/unites/DetailBeneficiaire";
 
 const OPTIONS_ETAT = [{ value: "", label: "Tous les états" }, ...ETATS_UNITE];
 
-/**
- * Unités attribuées : à gauche les bénéficiaires et leur nombre d'articles, à droite
- * le détail du bénéficiaire sélectionné (le premier de la liste par défaut).
- */
 export function UnitesArticlePage() {
   const { canManageInventaire } = usePermission();
   const [params, setParams] = useSearchParams();
@@ -41,13 +36,12 @@ export function UnitesArticlePage() {
   const [searchInput, setSearchInput] = useState("");
   const [type, setType] = useState("");
   const [etat, setEtat] = useState("");
-  const [typeArticle, setTypeArticle] = useState("");
   const [selectionId, setSelectionId] = useState(null);
   const [modal, setModal] = useState({ type: null, unite: null });
   const search = useDebouncedValue(searchInput.trim());
 
   // Mêmes filtres pour les deux tableaux : le nombre affiché correspond au détail.
-  const filtres = { search, beneficiaire_type: type, etat, is_immobilisation: typeArticle };
+  const filtres = { search, beneficiaire_type: type, etat};
   const groupes = usePaginatedList(["unites", "par-beneficiaire"], API_ENDPOINTS.UNITES_PAR_BENEFICIAIRE, filtres);
   // Sélection absente de la page affichée (filtre, dernier article retourné...) : le premier bénéficiaire.
   const beneficiaire = groupes.rows.find((g) => g.affectation_id === selectionId) ?? groupes.rows[0] ?? null;
@@ -68,7 +62,6 @@ export function UnitesArticlePage() {
     setSearchInput("");
     setType("");
     setEtat("");
-    setTypeArticle("");
   };
 
   const onglets = canManageInventaire && (
@@ -91,9 +84,8 @@ export function UnitesArticlePage() {
   return (
     <Box>
       {onglets}
-      <PageHeader onReset={reset} hasFilters={Boolean(searchInput || type || etat || typeArticle)}>
+      <PageHeader onReset={reset} hasFilters={Boolean(searchInput || type || etat)}>
         <SearchField value={searchInput} onChange={setSearchInput} placeholder="Bénéficiaire, article,..." minWidth={260} />
-        <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
         <SelectFilter label="État" value={etat} onChange={setEtat} options={OPTIONS_ETAT} minWidth={160} />
         <BeneficiaireTypeChips value={type} onChange={setType} />
       </PageHeader>

@@ -13,7 +13,7 @@ export function EcranAccueil({ nom, suggestions, onChoisir }) {
           {nom ? `Bonjour ${nom}` : "Bonjour"}
         </Typography>
         <Typography sx={{ mt: 0.5, fontSize: 13.5, color: GRIS, maxWidth: 340, lineHeight: 1.55 }}>
-          Posez une question sur le stock, les commandes ou les mouvements, ou demandez où trouver une page et comment faire une opération.
+          Posez une question sur le stock, les commandes ou les mouvements.
         </Typography>
       </Box>
       <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: GRIS, textTransform: "uppercase", letterSpacing: 0.4, mb: 1, px: 0.25 }}>

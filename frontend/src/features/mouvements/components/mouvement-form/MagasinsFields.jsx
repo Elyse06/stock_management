@@ -55,7 +55,6 @@ export function MagasinsFields({ form, magasinOptions }) {
             label="Origine (optionnel)"
             value={form.origine}
             onChange={(e) => form.setOrigine(e.target.value)}
-            placeholder="Ex: Réapprovisionnement, Ajustement..."
             slotProps={{ htmlInput: { maxLength: 100 } }}
           />
         )}

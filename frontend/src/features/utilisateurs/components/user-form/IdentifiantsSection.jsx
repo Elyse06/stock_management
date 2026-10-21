@@ -33,7 +33,6 @@ export function IdentifiantsSection({ form, disabled }) {
           size="small"
           type="email"
           label="Adresse email"
-          placeholder="prenom.nom@paositra.mg"
           value={form.mail}
           onChange={(e) => {
             form.setMail(e.target.value);
