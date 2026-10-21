@@ -1,0 +1,193 @@
+import django_filters
+from django.db import transaction
+from django.db.models import Count, F, Q
+from django.db.models.functions import Coalesce
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from apps.common.employees import get_request_employee
+from apps.common.localisation import filtre_direction, filtre_salle, filtre_site
+from apps.common.pagination import paginer
+from apps.common.params import filtre_type_article
+from apps.stock.models import DemandeUnite, Mouvement, UniteArticle
+from apps.stock.serializers import (
+    RetourUniteSerializer,
+    TransfertUniteSerializer,
+    UniteArticleSerializer,
+)
+from apps.stock.serializers.unite_article import EtiquetteSerializer
+from apps.stock.services.demandes_unites import cloturer_apres_mouvement, verrouiller_demande_a_traiter
+
+from .permissions import UnitePermission
+
+# Type de bénéficiaire -> relation de l'Affectation qui doit être renseignée
+CHAMP_PAR_TYPE = {"EMPLOYE": "employe", "DIRECTION": "direction", "SITE": "site", "SALLE": "salle"}
+
+
+def _donnees_unite(request, pk):
+    data = request.data.dict() if hasattr(request.data, "dict") else dict(request.data)
+    data["unite_id"] = pk
+    return data
+
+
+class UniteArticleFilter(django_filters.FilterSet):
+    beneficiaire_type = django_filters.CharFilter(method="filter_beneficiaire_type")
+
+    class Meta:
+        model = UniteArticle
+        fields = [  # noqa: RUF012
+            "article", "statut", "etat", "affectation",
+            "affectation__employe", "affectation__direction",
+            "affectation__salle", "affectation__site",
+        ]
+
+    def filter_beneficiaire_type(self, queryset, name, value):
+        champ = CHAMP_PAR_TYPE.get((value or "").upper())
+        if champ is None:
+            return queryset.none()
+        return queryset.filter(**{f"affectation__{champ}__isnull": False})
+
+
+class UniteArticleViewSet(viewsets.ModelViewSet):
+    serializer_class = UniteArticleSerializer
+    permission_classes = [UnitePermission]  # noqa: RUF012
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]  # noqa: RUF012
+    filterset_class = UniteArticleFilter
+    search_fields = [  # noqa: RUF012
+        "numero_de_serie", "article__designation", "article__code_article",
+        "affectation__employe__emp_nom", "affectation__employe__emp_matricule",
+        "affectation__direction__dir_libelle", "affectation__salle__nom",
+        "affectation__site__site_nom", "numero_immobilisation",
+    ]
+    ordering_fields = ["date_creation", "numero_de_serie", "etat", "article__designation"]  # noqa: RUF012
+    # unite_id départage les unités créées dans la même transaction -> pagination stable
+    ordering = ["-date_creation", "-unite_id"]  # noqa: RUF012
+
+    def get_queryset(self):
+        queryset = UniteArticle.objects.select_related(
+            "article__categorie", "affectation__employe__emp_site_id", "affectation__direction",
+            "affectation__salle__localite", "affectation__site",
+        )
+        params = self.request.query_params if self.request else {}
+        filtre = None
+        if params.get("localisation_site_id"):
+            filtre = filtre_site(params["localisation_site_id"])
+        elif params.get("localisation_direction_id"):
+            filtre = filtre_direction(params["localisation_direction_id"])
+        elif params.get("localisation_salle_id"):
+            filtre = filtre_salle(params["localisation_salle_id"])
+        if filtre is not None:
+            queryset = queryset.filter(filtre, statut=UniteArticle.Statut.ATTRIBUE)
+        # Type d'article (immobilisation / fourniture) : liste, regroupement par bénéficiaire et détail.
+        return queryset.filter(**filtre_type_article(params, "article__is_immobilisation"))
+
+    @action(detail=False, methods=["get"], url_path="par-beneficiaire")
+    def par_beneficiaire(self, request):
+        """Unités ATTRIBUÉES regroupées par bénéficiaire, avec leur nombre (liste paginée).
+
+        Les filtres de la liste s'appliquent (recherche, type de bénéficiaire, état) :
+        le nombre affiché correspond exactement au détail filtré par ``affectation``.
+        """
+        groupes = (
+            self.filter_queryset(self.get_queryset())
+            .filter(statut=UniteArticle.Statut.ATTRIBUE, affectation__isnull=False)
+            .order_by()  # l'ordre par défaut (date) casserait le regroupement
+            .values("affectation_id", "affectation__beneficiaire_type")
+            .annotate(
+                nb_unites=Count("unite_id"),
+                nom=Coalesce(
+                    "affectation__employe__emp_nom", "affectation__direction__dir_libelle",
+                    "affectation__salle__nom", "affectation__site__site_nom",
+                ),
+                matricule=F("affectation__employe__emp_matricule"),
+            )
+            .order_by("nom", "affectation_id")
+        )
+        page = paginer(groupes, request)
+        page["results"] = [
+            {
+                "affectation_id": g["affectation_id"],
+                "beneficiaire_type": g["affectation__beneficiaire_type"],
+                "beneficiaire_nom": g["nom"] or "—",
+                "matricule": g["matricule"],
+                "nb_unites": g["nb_unites"],
+            }
+            for g in page["results"]
+        ]
+        return Response(page)
+
+    @action(detail=False, methods=["get"], url_path="resume-stock")
+    def resume_stock(self, request):
+        etats = UniteArticle.Etat
+        resume = (
+            UniteArticle.objects.filter(statut=UniteArticle.Statut.EN_STOCK,
+                                        **filtre_type_article(getattr(request, "query_params", {}), "article__is_immobilisation"))
+            .values("article__code_article", "article__designation")
+            .annotate(
+                total=Count("unite_id"),
+                **{
+                    etat.lower(): Count("unite_id", filter=Q(etat=etat))
+                    for etat in etats.values
+                },
+            )
+            .order_by("article__designation", "article__code_article")
+        )
+        return Response([
+            {
+                "article_code": ligne["article__code_article"],
+                "article_designation": ligne["article__designation"],
+                "total": ligne["total"],
+                "etats": {etat: ligne[etat.lower()] for etat in etats.values},
+            }
+            for ligne in resume
+        ])
+
+    def _reponse_unite(self, pk, **extra):
+        unite = self.get_queryset().get(unite_id=pk)
+        return Response({**extra, "unite": UniteArticleSerializer(unite).data})
+
+    def _effectuer(self, request, pk, serializer_class, type_demande):
+        """Retour ou transfert, et clôture de la demande éventuelle (demande_id), en UNE transaction :
+        une demande ne peut pas être marquée traitée si le mouvement échoue, et inversement."""
+        serializer = serializer_class(data=_donnees_unite(request, pk))
+        serializer.is_valid(raise_exception=True)
+        demande_id = request.data.get("demande_id")
+        with transaction.atomic():
+            demande = verrouiller_demande_a_traiter(demande_id, pk, type_demande) if demande_id else None
+            resultat = serializer.save()
+            mouvement = resultat if type_demande == DemandeUnite.Type.RETOUR else resultat["sortie"]
+            mouvements = [resultat] if type_demande == DemandeUnite.Type.RETOUR else [resultat["retour"], resultat["sortie"]]
+            Mouvement.objects.filter(pk__in=[m.pk for m in mouvements]).update(realise_par=get_request_employee(request))
+            cloturer_apres_mouvement(pk, type_demande, get_request_employee(request), mouvement, demande,
+                                     serializer.validated_data.get("motif", ""))
+        return resultat
+
+    @action(detail=True, methods=["post"])
+    def etiquette(self, request, pk=None):
+        """Enregistre le n° d'immobilisation et la date saisis pour l'étiquette (gestionnaire du stock)."""
+        unite = self.get_object()
+        donnees = EtiquetteSerializer(data=request.data)
+        donnees.is_valid(raise_exception=True)
+        unite.numero_immobilisation = donnees.validated_data["numero_immobilisation"]
+        unite.date_etiquette = donnees.validated_data["date_etiquette"]
+        unite.save(update_fields=["numero_immobilisation", "date_etiquette"])
+        return Response(self.get_serializer(unite).data)
+
+    @action(detail=True, methods=["post"], url_path="retourner-stock")
+    def retourner_stock(self, request, pk=None):
+        mouvement = self._effectuer(request, pk, RetourUniteSerializer, DemandeUnite.Type.RETOUR)
+        return self._reponse_unite(
+            pk, message="Unité retournée au stock avec succès.", mouvement_id=mouvement.mouvement_id,
+        )
+
+    @action(detail=True, methods=["post"], url_path="transferer")
+    def transferer(self, request, pk=None):
+        mouvements = self._effectuer(request, pk, TransfertUniteSerializer, DemandeUnite.Type.TRANSFERT)
+        return self._reponse_unite(
+            pk,
+            message="Unité transférée avec succès.",
+            mouvement_retour_id=mouvements["retour"].mouvement_id,
+            mouvement_sortie_id=mouvements["sortie"].mouvement_id,
+        )

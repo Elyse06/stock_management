@@ -1,0 +1,4 @@
+* text=auto
+*.xlsx binary
+*.xls binary
+*.sh text eol=lf

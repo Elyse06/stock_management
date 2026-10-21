@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Django
+backend/staticfiles/
+backend/media/
+db.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Env
+.env
+!.env.example
+
+# Editeurs / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+*.log
+.github/workflows/
+
+# Fichiers générés
+logs/
+exports/
+media/
+staticfiles/
+*.log
+*.sqlite3
