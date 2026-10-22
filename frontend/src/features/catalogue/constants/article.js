@@ -4,6 +4,9 @@ export const UNITES = [
   { value: "Carton", label: "Carton" },
   { value: "Litre", label: "Litre" },
   { value: "Paquet", label: "Paquet" },
+  { value: "Sachet", label: "Sachet" },
+  { value: "Rouleau", label: "Rouleau" },
+  { value: "Ram", label: "Ram" },
 ];
 
 export { TYPE_ARTICLE_OPTIONS } from "@/constants/articles";
