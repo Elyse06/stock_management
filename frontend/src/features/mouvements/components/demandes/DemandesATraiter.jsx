@@ -6,7 +6,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SearchField } from "@/components/forms/SearchField";
 import { BoutonPdf } from "@/components/table/BoutonPdf";
 import { SelectFilter } from "@/components/forms/SelectFilter";
-import { TypeArticleFilter } from "@/components/forms/TypeArticleFilter";
 import { PaginatedDataGrid } from "@/components/table/PaginatedDataGrid";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -54,7 +53,6 @@ export function DemandesATraiter() {
   const fermer = () => setTraitement(null);
 
   const columns = [
-    { field: "demande_id", headerName: "N°", autoGrow: false, autoExtraWidth: 8, valueFormatter: (v) => `n°${v}` },
     { field: "date_demande", headerName: "Date", autoGrow: false, valueFormatter: date },
     { field: "demandeur_nom", headerName: "Demandeur" },
     { field: "type_demande", headerName: "Demande", getText: libelleDemande, renderCell: ({ row }) => libelleDemande(row) },
@@ -86,11 +84,9 @@ export function DemandesATraiter() {
               </Tooltip>
             </>
           ) : (
-            <Typography variant="caption" color="text.secondary">{row.traitant_nom || ""}</Typography>
-          )}
-          {/* Demande traitée : accusé de retour ou de transfert ; sinon, fiche de la demande. */}
-          <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`}
+            <BoutonPdf url={`${API_ENDPOINTS.DEMANDES_UNITES}${row.demande_id}/pdf/`} nomFichier={`demande_${row.demande_id}.pdf`}
             titre={row.statut === "TRAITEE" ? "Télécharger l'accusé (PDF)" : "Télécharger la fiche de la demande (PDF)"} />
+          )}
         </Box>
       ),
     },
@@ -101,7 +97,6 @@ export function DemandesATraiter() {
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 1.5 }}>
         <SearchField value={searchInput} onChange={setSearchInput} placeholder="Demandeur, équipement" minWidth={260} />
         <SelectFilter label="Statut" value={statut} onChange={setStatut} options={OPTIONS_STATUT} minWidth={180} />
-        <TypeArticleFilter value={typeArticle} onChange={setTypeArticle} />
       </Box>
       <PaginatedDataGrid {...liste.gridProps} columns={columns} getRowId={(r) => r.demande_id}
         noRowsLabel="Aucune demande" aria-label="Demandes de retour et de transfert" />

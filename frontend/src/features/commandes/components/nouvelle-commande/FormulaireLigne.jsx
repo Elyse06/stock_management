@@ -48,9 +48,6 @@ function ChoixArticle({ form, modifierForm, articles }) {
             <li key={key} {...rest}>
               <Box>
                 <Typography variant="body2" fontWeight={600}>{option.designation}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {option.code_article} · {option.categorie_nom || "Sans catégorie"} · Stock : {option.stock_calcule ?? 0}
-                </Typography>
               </Box>
             </li>
           );
@@ -62,7 +59,7 @@ function ChoixArticle({ form, modifierForm, articles }) {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
           <TypeArticleChip immobilisation={article.is_immobilisation} />
           <Typography variant="caption" color="text.secondary">
-            {article.categorie_nom || "Sans catégorie"} · Stock actuel : <strong>{article.stock_calcule ?? 0}</strong>
+            {article.categorie_nom || "Sans catégorie"}
           </Typography>
         </Box>
       )}
