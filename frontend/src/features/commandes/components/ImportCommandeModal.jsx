@@ -197,13 +197,6 @@ export function ImportCommandeModal({ isOpen, onClose }) {
           {fichier && <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>{fichier.name}</Typography>}
         </Box>
 
-        {!fichier && (
-          <Typography variant="body2" color="text.secondary">
-            Remplissez l'objet, puis une ligne par article : Article, Quantité, Bénéficiaire (vide : pour vous). Pour plusieurs
-            bénéficiaires, écrivez l'article une fois puis une ligne par bénéficiaire, ou répétez l'article.
-          </Typography>
-        )}
-
         {chargement && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <CircularProgress size={18} />
