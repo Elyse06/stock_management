@@ -24,7 +24,6 @@ class UniteArticle(models.Model):
     numero_de_serie = models.CharField(max_length=100, unique=True, null=True, blank=True)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_STOCK)
     etat = models.CharField(max_length=20, choices=Etat.choices, default=Etat.BON)
-    # Saisis à l'impression de l'étiquette (puis pré-remplis aux impressions suivantes).
     numero_immobilisation = models.CharField(max_length=50, blank=True, default="")
     date_etiquette = models.DateField(null=True, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)

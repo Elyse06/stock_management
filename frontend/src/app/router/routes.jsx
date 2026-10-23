@@ -7,7 +7,6 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { ROUTE_ACTIONS } from "./navigation";
 import { ProtectedRoute } from "./ProtectedRoute";
 
-/** Charge une page à la demande (un fichier JS par page au lieu d'un bundle unique). */
 const page = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
 
 const LoginPage = page(() => import("@/features/auth/pages/LoginPage"), "LoginPage");

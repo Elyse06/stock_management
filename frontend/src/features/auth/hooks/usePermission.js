@@ -4,11 +4,6 @@ import { ACTIONS as A } from "@/constants/permissions";
 
 import { useAuth } from "../context/AuthContext";
 
-/**
- * Droits dérivés des actions de l'utilisateur, alignés sur les permissions
- * du backend. Ils servent à MASQUER l'interface : la vérification réelle est
- * toujours faite par l'API.
- */
 export function usePermission() {
   const { hasAction, hasAnyAction, user } = useAuth();
 

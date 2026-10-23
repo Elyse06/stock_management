@@ -22,6 +22,7 @@ import { formatDateTime } from "@/utils/formatters";
 
 import { commandesApi } from "../api/commandesApi";
 import { CommandeDetailModal } from "../components/CommandeDetailModal";
+import { ImportCommandeModal } from "../components/ImportCommandeModal";
 import { bornesPeriode, PERIODES, STATUTS_COMMANDE } from "../constants/commande";
 import { useCommandeRoles } from "../hooks/useCommandeRoles";
 import { peutTelechargerFiche, TITRE_ACCUSE } from "../utils/fiche";
@@ -41,6 +42,7 @@ export function CommandesPage() {
   const [statut, setStatut] = useState("");
   const [periode, setPeriode] = useState("tous");
   const navigate = useNavigate();
+  const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
   const list = usePaginatedList(["commandes"], API_ENDPOINTS.COMMANDES, { statut });
@@ -118,6 +120,9 @@ export function CommandesPage() {
         actionLabel="Nouvelle demande"
         onAction={() => navigate("/commandes/nouvelle")}
         canAction={canCreateCommande}
+        secondaryActionLabel="Importer une commande"
+        onSecondaryAction={() => setImportOpen(true)}
+        canSecondaryAction={canCreateCommande}
         onReset={() => {
           setStatut("");
           setPeriode("tous");
@@ -138,6 +143,7 @@ export function CommandesPage() {
       <PaginatedDataGrid {...list.gridProps} rows={rows} columns={columns} getRowId={(row) => row.commande_id} noRowsLabel="Aucune commande trouvée" />
 
       <CommandeDetailModal commande={selected} isOpen={Boolean(selected)} onClose={() => setSelected(null)} onCommandeModifiee={setSelected} />
+      <ImportCommandeModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
       <ConfirmDialog {...dialogProps} />
     </Box>
   );

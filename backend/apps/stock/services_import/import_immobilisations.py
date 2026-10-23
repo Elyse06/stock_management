@@ -4,9 +4,14 @@ Une ligne = une unité d'immobilisation, toujours entrée au magasin du siège.
 - Affectation « Siège » (ou vide) : l'unité reste en stock au siège.
 - Sinon (salle, direction, agence, employé) : si la correspondance est
   CONFIRMÉE, sortie vers ce bénéficiaire ; sinon la ligne est mise de côté.
+
+Chaque ligne crée une unité ; les lignes d'un même article sont regroupées, où qu'elles soient dans le
+fichier : un détail d'ENTRÉE par article et par fournisseur, un détail de SORTIE par article et par
+bénéficiaire (quantité = nombre de lignes du groupe).
 """
 import pandas as pd
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.catalogue.models import Article, Categorie, Fournisseur
@@ -141,6 +146,29 @@ def get_or_create_article(designation, categorie, mode_suivi):
     return article, True
 
 
+def _detail_groupe(cache, mouvement, article, fournisseur=None, affectation=None):
+    """Détail de mouvement d'un groupe, créé à la première ligne puis complété (quantité + 1) aux suivantes.
+
+    Regroupement : entrée = un détail par article et par fournisseur ; sortie = un détail par article et par
+    bénéficiaire, quelle que soit la place des lignes dans le fichier. Une ligne = toujours une unité.
+
+    Le détail est recherché en base quand il n'est pas en cache : après une ligne en erreur (cache vidé,
+    éventuel détail créé dans son savepoint annulé), le regroupement reprend sur les détails réellement
+    enregistrés.
+    """
+    cle = ("detail", mouvement.pk, article.pk, getattr(fournisseur, "pk", None), getattr(affectation, "pk", None))
+    existant = cache.obtenir(cle, lambda: DetailMouvement.objects.filter(
+        mouvement=mouvement, article=article, fournisseur=fournisseur, affectation=affectation).first())
+    if existant is not None:
+        DetailMouvement.objects.filter(pk=existant.pk).update(quantite=F("quantite") + 1)
+        return existant
+    detail = DetailMouvement.objects.create(
+        mouvement=mouvement, article=article, quantite=1, fournisseur=fournisseur, affectation=affectation,
+    )
+    cache.remplacer(cle, detail)
+    return detail
+
+
 def _traiter_ligne(row, ligne_no, lignes_confirmees, mouvements, resolveur, cache):
     # 1. Analyse (lecture seule tant que la ligne n'est pas retenue)
     nature = texte_ou_vide(row.get("nature"))
@@ -183,9 +211,7 @@ def _traiter_ligne(row, ligne_no, lignes_confirmees, mouvements, resolveur, cach
             ("fournisseur", nom_fournisseur.lower()), lambda: get_or_create_fournisseur(nom_fournisseur)
         )
 
-        detail_entree = DetailMouvement.objects.create(
-            mouvement=mvt_entree, article=article, quantite=1, fournisseur=fournisseur,
-        )
+        detail_entree = _detail_groupe(cache, mvt_entree, article, fournisseur=fournisseur)
         unite = UniteArticle.objects.create(
             article=article, statut=UniteArticle.Statut.EN_STOCK, mouvement_entree=detail_entree,
         )
@@ -200,10 +226,7 @@ def _traiter_ligne(row, ligne_no, lignes_confirmees, mouvements, resolveur, cach
             "destination": f"En stock : {magasin.magasin_nom}",
         }
         if attribue:
-            detail_sortie = DetailMouvement.objects.create(
-                mouvement=mvt_sortie, article=article, quantite=1,
-                affectation=Affectation.resoudre(entite),
-            )
+            detail_sortie = _detail_groupe(cache, mvt_sortie, article, affectation=Affectation.resoudre(entite))
             unite.attribuer(beneficiaire=entite, mouvement_sortie=detail_sortie)
             resultat["attribue_a"] = f"{TYPES_ATTRIBUES[type_match]} : {nom_beneficiaire(type_match, entite)}"
             resultat["destination"] = f"Attribué — {resultat['attribue_a']}"
@@ -246,9 +269,14 @@ def importer_immobilisations(df, dry_run=True, lignes_confirmees=None) -> dict:
                 rapport["details"].append({"ligne": ligne_no, "statut": "OK", **resultat})
 
         restants = mouvements.finaliser()
+        ids = restants["entree_ids"] + ([restants["sortie_id"]] if restants["sortie_id"] else [])
+        details = DetailMouvement.objects.filter(mouvement_id__in=ids)
         rapport["mouvements"] = {
             "nb_entrees": len(restants["entree_ids"]),
             "nb_sorties": 1 if restants["sortie_id"] else 0,
+            # Lignes regroupées : un détail d'entrée par article et fournisseur, de sortie par article et bénéficiaire.
+            "nb_details_entree": details.filter(mouvement_id__in=restants["entree_ids"]).count(),
+            "nb_details_sortie": details.filter(mouvement_id=restants["sortie_id"]).count() if restants["sortie_id"] else 0,
             # En aperçu tout est annulé : les identifiants n'auraient aucun sens.
             "entree_ids": [] if dry_run else restants["entree_ids"],
             "sortie_id": None if dry_run else restants["sortie_id"],

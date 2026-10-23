@@ -1,7 +1,15 @@
+"""Regroupement des mouvements créés par un import (partagé par les deux imports)."""
 from apps.stock.models import Mouvement
 
 
 class MouvementsImport:
+    """Regroupe l'import en UN mouvement d'ENTRÉE par magasin et UN mouvement de SORTIE.
+
+    Chaque ligne du fichier n'est qu'un DetailMouvement. Les mouvements sont
+    créés à la demande, AVANT le savepoint de la ligne qui les utilise : une
+    ligne en erreur n'annule pas un mouvement partagé par les lignes suivantes.
+    """
+
     def __init__(self, origine, date, magasin_siege):
         self.origine = origine
         self.date = date
@@ -33,6 +41,7 @@ class MouvementsImport:
         return self._sortie
 
     def finaliser(self):
+        """Supprime les mouvements restés sans détail et retourne les identifiants restants."""
         candidats = list(self._entrees.values()) + ([self._sortie] if self._sortie else [])
         utilises = set(
             Mouvement.objects.filter(pk__in=[m.pk for m in candidats], details__isnull=False)
@@ -46,6 +55,12 @@ class MouvementsImport:
 
 
 class CacheReferentiels:
+    """Cache clé -> objet, vidé lorsqu'une ligne échoue.
+
+    Un objet créé dans le savepoint d'une ligne en erreur est annulé en base :
+    il ne doit pas rester en cache pour les lignes suivantes.
+    """
+
     def __init__(self):
         self._donnees = {}
 
@@ -53,6 +68,9 @@ class CacheReferentiels:
         if cle not in self._donnees:
             self._donnees[cle] = fabrique()
         return self._donnees[cle]
+
+    def remplacer(self, cle, valeur):
+        self._donnees[cle] = valeur
 
     def vider(self):
         self._donnees.clear()

@@ -17,7 +17,6 @@ from apps.stock.models import Magasin, UniteArticle
 from .traitement_detail import DetailTraitementSerializer
 from .validation_attribution import AttributionValidationSerializer
 
-#: Transitions autorisées selon le profil.
 TRANSITIONS_GESTIONNAIRE = {
     Commande.Statut.EN_COURS: (Commande.Statut.VALIDEE, Commande.Statut.REJETEE),
 }
@@ -27,8 +26,6 @@ TRANSITIONS_VALIDATEUR = {
 
 
 class SpecificationSerializer(serializers.Serializer):
-    """Correction, par le chef hiérarchique, de la spécification d'une ligne « nouvel article »."""
-
     detail_id = serializers.IntegerField()
     specification = serializers.CharField(max_length=255)
 
@@ -76,8 +73,6 @@ class CommandeTraitementSerializer(serializers.Serializer):
         if len(ids) != len(set(ids)):
             doublon = next(i for i in ids if ids.count(i) > 1)
             raise serializers.ValidationError({"validations": f"L'attribution #{doublon} est répétée."})
-        # Toujours vérifié : auparavant, hors validation finale, on pouvait
-        # modifier les attributions d'une autre commande.
         attributions = self._attributions_de_la_commande(commande, ids)
         self._attributions = attributions
         self._verifier_decisions(commande, nouveau_statut, validations, attributions)
@@ -284,8 +279,6 @@ class CommandeTraitementSerializer(serializers.Serializer):
     @transaction.atomic
     def save(self, **kwargs):
         request = self.context.get("request")
-        # Verrou : empêche deux traitements simultanés de la même commande
-        # (double sortie de stock).
         commande = Commande.objects.select_for_update().get(pk=self.context["commande"].pk)
         nouveau_statut = self.validated_data["statut"]
         statut_actuel = commande.statut
@@ -313,9 +306,8 @@ class CommandeTraitementSerializer(serializers.Serializer):
                 attribution.quantite_validee = None
                 attribution.motif_refus = validation.get("motif_refus") or ""
             elif validation["statut"] == "EN_ATTENTE":
-                continue  # en attente d'achat : rien ne change, la ligne reste à traiter
+                continue  
             elif statut_actuel == Commande.Statut.EN_ATTENTE:
-                # Pré-validation : la quantité peut être ajustée, la ligne reste en attente.
                 nouvelle_quantite = validation.get("quantite_validee")
                 if nouvelle_quantite:
                     attribution.quantite_demandee = nouvelle_quantite

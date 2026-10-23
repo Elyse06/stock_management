@@ -1,11 +1,13 @@
 from functools import partial
 
 from django.db import transaction
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
@@ -23,12 +25,15 @@ from apps.commande.serializers import (
     CommandeTraitementSerializer,
     RecapitulatifCommandeSerializer,
 )
-from apps.commande.services import livraisons_commande
+from apps.commande.services import import_commande, livraisons_commande
 from apps.commande.utils import QR_SELECT_RELATED
 from apps.common import actions
 from apps.common.employees import get_request_employee
+from apps.common.imports import FichierInvalide, valider_fichier
+from apps.common.params import parse_bool
 from apps.common.pdf import reponse_pdf
 from apps.common.permissions import HasAction
+from apps.common.throttling import ImportThrottle
 from apps.notifications.tasks import notifier_suppression_commande
 
 from .permissions import CommandePermission
@@ -147,6 +152,48 @@ class CommandeViewSet(viewsets.ModelViewSet):
             raise ValidationError({"livraison": "Cette livraison n'appartient pas à la commande."})
         nom = f"accuse_reception_commande_{commande.pk}" + (f"_livraison_{numero}" if len(sorties) > 1 else "") + ".pdf"
         return reponse_pdf(generer_accuse_reception(commande, sorties[numero - 1], numero, len(sorties)), nom)
+
+    @action(detail=False, methods=["get"], url_path="modele-import")
+    def modele_import(self, request):
+        """Modèle Excel vide : objet, puis « Article | Quantité | Bénéficiaire »."""
+        reponse = HttpResponse(
+            import_commande.generer_modele(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        reponse["Content-Disposition"] = 'attachment; filename="modele_import_commande.xlsx"'
+        return reponse
+
+    @action(detail=False, methods=["post"], url_path="importer", parser_classes=[MultiPartParser],
+            throttle_classes=[ImportThrottle])
+    def importer(self, request):
+        """Import d'une commande depuis le modèle Excel.
+
+        ``confirmer`` absent ou faux : aperçu seulement (rien n'est enregistré). ``confirmer=true`` : la
+        commande est créée si le fichier ne contient aucune erreur, exactement comme une commande saisie
+        (mêmes contrôles, même circuit de validation et mêmes notifications).
+        """
+        demandeur = get_request_employee(request)
+        if demandeur is None:
+            raise ValidationError({"detail": "Votre compte n'est lié à aucun employé : impossible de créer une commande."})
+        fichier = request.FILES.get("fichier")
+        try:
+            valider_fichier(fichier, (".xlsx",))
+            fichier.seek(0)
+            objet, lignes = import_commande.lire_fichier(fichier)
+        except (FichierInvalide, import_commande.FichierCommandeInvalide) as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        analyse = import_commande.analyser(objet, lignes, demandeur)
+        payload = analyse.pop("payload")
+        if not parse_bool(request.data.get("confirmer"), default=False):
+            return Response(analyse)
+        if payload is None:
+            return Response(analyse, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        commande = serializer.save()
+        commande = self.get_queryset().get(pk=commande.pk)
+        return Response({**analyse, "commande_creee": self.get_serializer(commande).data}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="recapitulatif")
     def recapitulatif(self, request, pk=None):
