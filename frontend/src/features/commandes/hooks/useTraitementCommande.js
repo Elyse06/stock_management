@@ -12,7 +12,14 @@ import { construirePayloadTraitement, estSuiviParSerie, validationsInitiales, ve
 
 import { useCommandeRoles } from "./useCommandeRoles";
 
-const SUCCES = { EN_COURS: "Commande pré-validée.", VALIDEE: "Commande validée.", REJETEE: "Commande rejetée." };
+/** Message selon le statut obtenu (une validation finale partielle laisse la commande « en cours »). */
+function messageSucces(demande, obtenu) {
+  if (obtenu === "REJETEE") return "Commande rejetée.";
+  if (demande === "EN_COURS") return "Commande pré-validée.";
+  if (demande === "REJETEE") return "Commande clôturée : le reste est refusé.";
+  if (obtenu === "EN_COURS") return "Livraison enregistrée : la commande reste en cours pour les lignes en attente d'achat.";
+  return "Commande validée.";
+}
 
 /**
  * État et envoi du traitement d'une commande dans la modale de détail. ``onCommandeModifiee`` reçoit la
@@ -64,10 +71,11 @@ export function useTraitementCommande({ commande, isOpen, onDone, onCommandeModi
   });
 
   const mutation = useMutation({
-    mutationFn: ({ statut, payload }) => traiterCommande(commande.commande_id, payload).then(() => statut),
-    onSuccess: (statut) => {
+    mutationFn: ({ statut, payload }) => traiterCommande(commande.commande_id, payload).then((reponse) => ({ statut, reponse })),
+    onSuccess: ({ statut, reponse }) => {
       COMMANDE_KEYS.forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
-      notify.success(SUCCES[statut]);
+      queryClient.invalidateQueries({ queryKey: ["commandes", "livraisons", commande.commande_id] });
+      notify.success(messageSucces(statut, reponse?.statut));
       onDone?.();
     },
     onError: (error) => notify.error(getErrorMessage(error, "Erreur lors du traitement.")),

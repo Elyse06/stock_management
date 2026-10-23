@@ -1,4 +1,5 @@
 from decimal import Decimal
+from functools import partial
 
 from django.db import transaction
 from django.utils import timezone
@@ -10,6 +11,7 @@ from apps.commande.models import AttributionDetailCommande, Commande, DetailComm
 from apps.commande.services import generer_sortie_stock_pour_commande
 from apps.common.employees import get_request_employee
 from apps.employee.models import Employer
+from apps.notifications.tasks import notifier_livraison_partielle
 from apps.stock.models import Magasin, UniteArticle
 
 from .traitement_detail import DetailTraitementSerializer
@@ -64,9 +66,10 @@ class CommandeTraitementSerializer(serializers.Serializer):
         nouveau_statut = attrs["statut"]
         validations = attrs.get("validations", [])
 
-        if nouveau_statut == Commande.Statut.VALIDEE and not attrs.get("magasin_source"):
+        livraison = any(v["statut"] == "VALIDEE" for v in validations)
+        if nouveau_statut == Commande.Statut.VALIDEE and livraison and not attrs.get("magasin_source"):
             raise serializers.ValidationError(
-                {"magasin_source": "Le magasin source est requis pour valider la commande."}
+                {"magasin_source": "Le magasin source est requis pour la sortie de stock."}
             )
 
         ids = [v["attribution_id"] for v in validations]
@@ -77,6 +80,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
         # modifier les attributions d'une autre commande.
         attributions = self._attributions_de_la_commande(commande, ids)
         self._attributions = attributions
+        self._verifier_decisions(commande, nouveau_statut, validations, attributions)
 
         self._specifications = self._valider_specifications(commande, nouveau_statut, attrs.get("specifications", []))
 
@@ -85,6 +89,7 @@ class CommandeTraitementSerializer(serializers.Serializer):
 
         self._verifier_nouveaux_articles_rattaches(commande, validations, attributions)
 
+        # Quantités livrées maintenant, par ligne (les unités suivies par n° de série en dépendent).
         quantites_par_detail = {}
         for validation in validations:
             if validation["statut"] != "VALIDEE":
@@ -97,15 +102,37 @@ class CommandeTraitementSerializer(serializers.Serializer):
                         f"La quantité validée de l'attribution #{attribution.id} doit être un nombre entier."
                     )
                 })
+            if quantite > attribution.quantite_demandee:
+                raise serializers.ValidationError({
+                    "validations": (
+                        f"La quantité livrée ({int(quantite)}) dépasse la quantité demandée "
+                        f"({int(attribution.quantite_demandee)}) pour {attribution.affectation.nom}."
+                    )
+                })
             detail_id = attribution.detail_commande_id
             quantites_par_detail[detail_id] = quantites_par_detail.get(detail_id, 0) + int(quantite)
-            if quantites_par_detail[detail_id] > attribution.detail_commande.quantite:
-                raise serializers.ValidationError({
-                    "validations": f"La quantité validée pour le détail #{detail_id} dépasse la quantité demandée."
-                })
 
         self._valider_unites(commande, attrs.get("details", []), quantites_par_detail)
         return attrs
+
+    @staticmethod
+    def _verifier_decisions(commande, nouveau_statut, validations, attributions):
+        """Seules les attributions encore en attente se décident : une ligne refusée (par exemple à la
+        pré-validation) ou déjà livrée ne revient pas dans le traitement. « En attente d'achat » n'a de
+        sens qu'à la validation finale."""
+        if nouveau_statut == Commande.Statut.REJETEE:
+            return
+        for validation in validations:
+            attribution = attributions[validation["attribution_id"]]
+            if attribution.statut != "EN_ATTENTE":
+                etat = "refusée" if attribution.statut == "REFUSEE" else "déjà livrée"
+                raise serializers.ValidationError({
+                    "validations": f"L'attribution #{attribution.id} ({attribution.affectation.nom}) est {etat}."
+                })
+            if validation["statut"] == "EN_ATTENTE" and commande.statut != Commande.Statut.EN_COURS:
+                raise serializers.ValidationError({
+                    "validations": "« En attente d'achat » ne se choisit qu'à la validation finale."
+                })
 
     @staticmethod
     def _valider_specifications(commande, nouveau_statut, specifications):
@@ -202,6 +229,58 @@ class CommandeTraitementSerializer(serializers.Serializer):
                 )})
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _livrer(attribution, validation):
+        """Livraison (validation finale) : si une partie seulement est livrée, la ligne est scindée ;
+        le reste devient une nouvelle attribution « en attente d'achat » ou « non accordée »."""
+        livree = validation["quantite_validee"]
+        reste = attribution.quantite_demandee - livree
+        if reste > 0:
+            refuse = validation.get("reste") == "REFUSEE"
+            AttributionDetailCommande.objects.create(
+                detail_commande=attribution.detail_commande, affectation=attribution.affectation,
+                quantite=reste, quantite_demandee=reste,
+                statut="REFUSEE" if refuse else "EN_ATTENTE",
+                motif_refus=(validation.get("motif_reste") or "Quantité non accordée") if refuse else None,
+            )
+            attribution.quantite = livree
+            attribution.quantite_demandee = livree
+        attribution.statut = "VALIDEE"
+        attribution.quantite_validee = livree
+        attribution.motif_refus = None
+
+    def _statut_final(self, commande, statut_actuel, nouveau_statut, livrees):
+        """Statut de la commande après le traitement.
+
+        - Pré-validation : tout refusé -> REJETEE (plus rien à transmettre au gestionnaire).
+        - Validation finale : reste-t-il des lignes en attente d'achat ? -> EN_COURS (livrée en partie) ;
+          sinon VALIDEE si quelque chose a été livré, REJETEE sinon.
+        - Rejet d'une commande déjà livrée en partie : seul le reste est refusé, elle est VALIDEE (clôturée).
+        """
+        attributions = AttributionDetailCommande.objects.filter(detail_commande__commande=commande)
+        if statut_actuel == Commande.Statut.EN_ATTENTE:
+            if nouveau_statut == Commande.Statut.EN_COURS and attributions.exists() \
+                    and not attributions.exclude(statut="REFUSEE").exists():
+                return Commande.Statut.REJETEE
+            return nouveau_statut
+
+        deja_livree = attributions.filter(statut="VALIDEE").exists()
+        if nouveau_statut == Commande.Statut.REJETEE:
+            if not deja_livree:
+                return Commande.Statut.REJETEE
+            motif = self.validated_data.get("commentaire_agent") or "Non livré : commande clôturée"
+            attributions.filter(statut="EN_ATTENTE").update(statut="REFUSEE", motif_refus=motif[:255])
+            return Commande.Statut.VALIDEE
+
+        decisions = self.validated_data.get("validations", [])
+        if not any(v["statut"] in ("VALIDEE", "REFUSEE") for v in decisions):
+            raise serializers.ValidationError(
+                {"validations": "Aucune livraison ni refus : rien à enregistrer."}
+            )
+        if attributions.filter(statut="EN_ATTENTE").exists():
+            return Commande.Statut.EN_COURS
+        return Commande.Statut.VALIDEE if deja_livree else Commande.Statut.REJETEE
+
     @transaction.atomic
     def save(self, **kwargs):
         request = self.context.get("request")
@@ -226,12 +305,15 @@ class CommandeTraitementSerializer(serializers.Serializer):
         if traitant is None:
             raise serializers.ValidationError({"employe_traitant": "Employé traitant requis."})
 
+        livrees = []
         for validation in self.validated_data.get("validations", []):
             attribution = self._attributions[validation["attribution_id"]]
             if validation["statut"] == "REFUSEE":
                 attribution.statut = "REFUSEE"
                 attribution.quantite_validee = None
                 attribution.motif_refus = validation.get("motif_refus") or ""
+            elif validation["statut"] == "EN_ATTENTE":
+                continue  # en attente d'achat : rien ne change, la ligne reste à traiter
             elif statut_actuel == Commande.Statut.EN_ATTENTE:
                 # Pré-validation : la quantité peut être ajustée, la ligne reste en attente.
                 nouvelle_quantite = validation.get("quantite_validee")
@@ -241,29 +323,34 @@ class CommandeTraitementSerializer(serializers.Serializer):
                 attribution.statut = "EN_ATTENTE"
                 attribution.motif_refus = None
             else:
-                attribution.statut = "VALIDEE"
-                attribution.quantite_validee = validation["quantite_validee"]
-                attribution.motif_refus = None
+                self._livrer(attribution, validation)
+                livrees.append(attribution.pk)
             attribution.save()
 
         for detail, specification in self._specifications.items():
             detail.specification = specification
             detail.save(update_fields=["specification"])
 
-        commande.statut = nouveau_statut
+        statut_final = self._statut_final(commande, statut_actuel, nouveau_statut, livrees)
+        commande.statut = statut_final
         commande.commentaire_agent = self.validated_data.get("commentaire_agent", "")
         commande.employe_traitant = traitant
         commande.date_traitement = timezone.now()
-        if nouveau_statut == Commande.Statut.EN_COURS:
+        if statut_actuel == Commande.Statut.EN_ATTENTE and nouveau_statut == Commande.Statut.EN_COURS:
             commande.employe_prevalidateur = traitant
             commande.date_prevalidation = commande.date_traitement
         commande.save()
 
-        if nouveau_statut == Commande.Statut.VALIDEE:
+        if livrees:
             sortie = generer_sortie_stock_pour_commande(
                 commande, self.validated_data.get("magasin_source"), self.validated_data.get("details", []),
+                attributions_ids=livrees,
             )
             if sortie is not None:
                 sortie.realise_par = traitant
                 sortie.save(update_fields=["realise_par"])
+                if statut_final == Commande.Statut.EN_COURS:
+                    # Livraison partielle : pas de changement de statut, donc pas de notification
+                    # automatique ; le demandeur est prévenu qu'il peut récupérer ce qui est livré.
+                    transaction.on_commit(partial(notifier_livraison_partielle.delay, commande.pk, sortie.pk))
         return commande

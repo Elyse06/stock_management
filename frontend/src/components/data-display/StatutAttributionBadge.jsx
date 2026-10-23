@@ -12,6 +12,13 @@ const STATUT_CONFIG = {
     icon: <ScheduleIcon />,
     variant: "outlined",
   },
+  // Commande livrée en partie : ligne pas encore livrée (achat en cours).
+  EN_ATTENTE_ACHAT: {
+    label: "En attente d'achat",
+    color: "warning",
+    icon: <ScheduleIcon />,
+    variant: "outlined",
+  },
   VALIDEE: {
     label: "Validée",
     color: "success",

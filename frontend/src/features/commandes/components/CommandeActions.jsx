@@ -5,6 +5,8 @@ import {
   HourglassEmpty as HourglassEmptyIcon,
 } from "@mui/icons-material";
 
+import { aDesDecisions, aDesLivraisons, DECIDEES } from "../utils/traitementCommande";
+
 export function CommandeActions({
   onClose,
   onTraiter,
@@ -15,14 +17,16 @@ export function CommandeActions({
   traitement,
   magasinSource,
   validations,
+  livreePartiellement = false,
 }) {
-  // Toutes les attributions ont-elles été décidées ?
+  // Toutes les lignes à traiter ont-elles une décision ?
   const decisions = Object.values(validations || {});
   const total = decisions.length;
-  const decidees = decisions.filter(
-    (v) => v.statut === "VALIDEE" || v.statut === "REFUSEE"
-  ).length;
+  const decidees = decisions.filter((v) => DECIDEES.includes(v.statut)).length;
   const allDecided = total > 0 && decidees === total;
+  // Validation finale : « Valider la sortie » s'il y a quelque chose à livrer, sinon on enregistre
+  // seulement les refus (le reste demeurant en attente d'achat).
+  const livraison = aDesLivraisons(validations);
 
   return (
     <Box
@@ -40,7 +44,7 @@ export function CommandeActions({
     >
       <Typography variant="caption" color="text.secondary">
         {peutTraiter && total > 0
-          ? `${decidees} / ${total} attribution(s) traitée(s)`
+          ? `${decidees} / ${total} ligne(s) décidée(s)`
           : ""}
       </Typography>
 
@@ -66,7 +70,8 @@ export function CommandeActions({
               disabled={traitement}
               startIcon={traitement ? <CircularProgress size={16} /> : <CancelIcon />}
             >
-              Rejeter
+              {/* Déjà livrée en partie : seul le reste est refusé, le matériel remis reste remis. */}
+              {isAgentPrincipal && livreePartiellement ? "Clôturer (refuser le reste)" : "Rejeter"}
             </Button>
 
             {isAgentSecondaire && statut === "EN_ATTENTE" && (
@@ -86,10 +91,10 @@ export function CommandeActions({
                 variant="contained"
                 color="success"
                 onClick={() => onTraiter("VALIDEE")}
-                disabled={traitement || !magasinSource || !allDecided}
+                disabled={traitement || !allDecided || !aDesDecisions(validations) || (livraison && !magasinSource)}
                 startIcon={traitement ? <CircularProgress size={16} /> : <CheckCircleIcon />}
               >
-                Valider la sortie
+                {livraison ? "Valider la sortie" : "Enregistrer les décisions"}
               </Button>
             )}
           </>

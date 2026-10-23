@@ -1,4 +1,3 @@
-"""Calcul des destinataires des notifications (adresse e-mail + nom de l'employé rattaché)."""
 from apps.common import actions
 from apps.common.emails import Destinataire
 from apps.employee.models import Employer
@@ -35,15 +34,17 @@ def gestionnaires():
     return _destinataires(ids_gestionnaires())
 
 
-def chefs_direction(direction_id):
-    """COM_VAL de la direction, gestionnaires exclus."""
+def chefs_direction(direction_id, sauf=None):
+    """COM_VAL de la direction, gestionnaires exclus ; ``sauf`` : employé à ne pas notifier (un chef qui
+    passe lui-même une commande n'est pas prévenu de sa propre demande)."""
     if direction_id is None:
         return []
     utilisateurs_direction = set(
         Employer.objects.filter(emp_dir_id=direction_id, emp_utilisateur_id__isnull=False)
         .values_list("emp_utilisateur_id_id", flat=True)
     )
-    return _destinataires((utilisateurs_direction & _utilisateurs_avec(actions.COM_VAL)) - ids_gestionnaires())
+    exclus = {sauf.emp_utilisateur_id_id} if sauf is not None and sauf.emp_utilisateur_id_id else set()
+    return _destinataires((utilisateurs_direction & _utilisateurs_avec(actions.COM_VAL)) - ids_gestionnaires() - exclus)
 
 
 def gestion_stock():

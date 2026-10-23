@@ -1,7 +1,9 @@
+from decimal import Decimal
+
 from django.db import transaction
 from rest_framework import serializers
 
-from apps.commande.access import est_validateur
+from apps.commande.access import est_gestionnaire, est_validateur
 from apps.commande.models import AttributionDetailCommande, Commande, DetailCommande
 from apps.common.employees import format_employee_data, get_request_employee
 from apps.common.serializers import BeneficiaireWriteMixin
@@ -15,13 +17,15 @@ class CommandeSerializer(serializers.ModelSerializer):
     demandeur = serializers.SerializerMethodField()
     traitant = serializers.SerializerMethodField()
     prevalidateur_nom = serializers.CharField(source="employe_prevalidateur.emp_nom", read_only=True, default=None)
+    # En cours mais déjà livrée en partie (le reste est en attente d'achat).
+    livree_partiellement = serializers.SerializerMethodField()
 
     class Meta:
         model = Commande
         fields = [  # noqa: RUF012
             "commande_id", "objet", "statut", "date_commande", "date_traitement", "commentaire_agent",
             "employe_demandeur", "demandeur", "employe_traitant", "traitant", "prevalidateur_nom",
-            "date_prevalidation", "details",
+            "date_prevalidation", "livree_partiellement", "details",
         ]
         # Le statut et le commentaire ne changent que via l'action « traiter ».
         read_only_fields = [  # noqa: RUF012
@@ -30,8 +34,40 @@ class CommandeSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {  # noqa: RUF012
             "employe_demandeur": {"required": False},
+            # Saisi librement par le demandeur (auparavant choisi dans une liste).
             "objet": {"required": True, "allow_blank": False, "max_length": 100},
         }
+
+    def get_livree_partiellement(self, obj):
+        if obj.statut != Commande.Statut.EN_COURS:
+            return False
+        return any(a.statut == "VALIDEE" for d in obj.details.all() for a in d.attributions.all())
+
+    def _masquer_refusees(self, obj):
+        """Le gestionnaire ne voit pas les lignes refusées (par le chef à la pré-validation, ou par lui-même) :
+        elles ne sont plus à traiter. Le demandeur et le chef hiérarchique les voient, avec leur motif."""
+        request = self.context.get("request")
+        if request is None or not est_gestionnaire(request.user):
+            return False
+        employe = get_request_employee(request)
+        return employe is None or obj.employe_demandeur_id != employe.pk
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self._masquer_refusees(instance):
+            details = []
+            for detail in data.get("details") or []:
+                attributions = detail.get("attributions") or []
+                visibles = [a for a in attributions if a.get("statut") != "REFUSEE"]
+                if attributions and not visibles:
+                    continue  # ligne entièrement refusée : retirée
+                ligne = {**detail, "attributions": visibles}
+                if visibles:
+                    # Quantité à traiter : sans la part refusée, après les ajustements du chef.
+                    ligne["quantite"] = str(sum(Decimal(str(a.get("quantite_demandee") or 0)) for a in visibles))
+                details.append(ligne)
+            data["details"] = details
+        return data
 
     def get_demandeur(self, obj):
         return format_employee_data(obj.employe_demandeur)

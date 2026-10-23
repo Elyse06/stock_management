@@ -100,6 +100,11 @@ export function CommandeArticlesTable({ commande, articles }) {
                         Demande d'origine : « {detail.specification} »
                       </Typography>
                     )}
+                    {!detail.article && (
+                      <Typography variant="caption" color="warning.dark" sx={{ display: "block" }}>
+                        Article à créer ou à choisir par le gestionnaire
+                      </Typography>
+                    )}
                   </Box>
 
                   <Box sx={{ textAlign: "center", flexShrink: 0 }}>
@@ -125,7 +130,8 @@ export function CommandeArticlesTable({ commande, articles }) {
                     {attributions.map((attr) => {
                       const meta = getBeneficiaireMeta(attr.beneficiaire_type);
                       const { Icon } = meta;
-                      const showStatut = attr.statut && attr.statut !== "EN_ATTENTE";
+                      const enAttenteAchat = commande.livree_partiellement && attr.statut === "EN_ATTENTE";
+                      const showStatut = enAttenteAchat || (attr.statut && attr.statut !== "EN_ATTENTE");
 
                       return (
                         <Box
@@ -155,7 +161,7 @@ export function CommandeArticlesTable({ commande, articles }) {
                           <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
                             × {quantiteLabel(attr)}
                           </Typography>
-                          {showStatut && <StatutAttributionBadge statut={attr.statut} />}
+                          {showStatut && <StatutAttributionBadge statut={enAttenteAchat ? "EN_ATTENTE_ACHAT" : attr.statut} />}
                         </Box>
                       );
                     })}

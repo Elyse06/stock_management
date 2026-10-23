@@ -3,6 +3,7 @@ import { Chip } from "@mui/material";
 const STATUS_LABELS = {
   EN_ATTENTE: "En attente",
   EN_COURS: "En cours",
+  LIVREE_PARTIELLEMENT: "Livrée partiellement",
   VALIDEE: "Validée",
   REJETEE: "Rejetée",
   VALIDE: "Validé",
@@ -24,6 +25,7 @@ export function StatusChip({ status, size = "small" }) {
   const getCustomStyle = (statut) => {
     switch (statut) {
       case "EN_ATTENTE":
+      case "LIVREE_PARTIELLEMENT":
         return PENDING;
       case "VALIDEE":
       case "VALIDE":

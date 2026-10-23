@@ -1,3 +1,6 @@
+from functools import partial
+
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -20,10 +23,13 @@ from apps.commande.serializers import (
     CommandeTraitementSerializer,
     RecapitulatifCommandeSerializer,
 )
+from apps.commande.services import livraisons_commande
 from apps.commande.utils import QR_SELECT_RELATED
 from apps.common import actions
+from apps.common.employees import get_request_employee
 from apps.common.pdf import reponse_pdf
 from apps.common.permissions import HasAction
+from apps.notifications.tasks import notifier_suppression_commande
 
 from .permissions import CommandePermission
 
@@ -63,7 +69,8 @@ class CommandeViewSet(viewsets.ModelViewSet):
                 "details__article",
                 *(f"details__attributions__{chemin}" for chemin in QR_SELECT_RELATED),
             )
-            .order_by("pk")
+            # Les plus récentes d'abord (à date égale, la dernière créée en premier).
+            .order_by("-date_commande", "-pk")
         )
         return filtrer_commandes_visibles(queryset, self.request)
 
@@ -73,7 +80,14 @@ class CommandeViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         verifier_commande_modifiable(instance, self.request)
-        instance.delete()
+        # Supprimable seulement en attente de pré-validation : les chefs de la direction, prévenus de la
+        # demande à sa création, sont informés qu'elle n'est plus à traiter.
+        numero, demandeur_id = instance.pk, instance.employe_demandeur_id
+        auteur = get_request_employee(self.request)
+        with transaction.atomic():
+            instance.delete()
+            transaction.on_commit(partial(notifier_suppression_commande.delay, numero, demandeur_id,
+                                          getattr(auteur, "pk", None)))
 
     @action(detail=True, methods=["post"], permission_classes=[HasAction.for_actions(actions.COM_VAL)])
     def traiter(self, request, pk=None):
@@ -105,12 +119,34 @@ class CommandeViewSet(viewsets.ModelViewSet):
         detail.save(update_fields=["article"])
         return Response(self.get_serializer(self.get_queryset().get(pk=commande.pk)).data)
 
+    @action(detail=True, methods=["get"], url_path="livraisons", permission_classes=[FichesCommandes])
+    def livraisons(self, request, pk=None):
+        """Livraisons (sorties de stock) d'une commande : une par validation, partielle ou finale."""
+        commande = self.get_object()
+        return Response([
+            {"numero": numero, "mouvement_id": sortie.pk, "date": sortie.date,
+             "quantite": sum(d.quantite for d in sortie.details.all()),
+             "realise_par": getattr(sortie.realise_par, "emp_nom", None)}
+            for numero, sortie in enumerate(livraisons_commande(commande).prefetch_related("details"), start=1)
+        ])
+
     @action(detail=True, methods=["get"], url_path="pdf", permission_classes=[FichesCommandes])
     def pdf(self, request, pk=None):
+        """Accusé de réception d'une livraison (``?livraison=<n° de mouvement>``, par défaut la dernière)."""
         commande = self.get_object()
-        if commande.statut != Commande.Statut.VALIDEE:
-            raise ValidationError({"detail": "L'accusé de réception n'existe que pour une commande validée."})
-        return reponse_pdf(generer_accuse_reception(commande), f"accuse_reception_commande_{commande.pk}.pdf")
+        if commande.statut not in (Commande.Statut.EN_COURS, Commande.Statut.VALIDEE):
+            raise ValidationError({"detail": "L'accusé de réception n'existe qu'une fois du matériel livré."})
+        sorties = list(livraisons_commande(commande))
+        if not sorties:
+            if commande.statut == Commande.Statut.VALIDEE:  # validée sans sortie enregistrée (anciennes données)
+                return reponse_pdf(generer_accuse_reception(commande), f"accuse_reception_commande_{commande.pk}.pdf")
+            raise ValidationError({"detail": "L'accusé de réception n'existe qu'une fois du matériel livré."})
+        demandee = request.query_params.get("livraison")
+        numero = next((i for i, s in enumerate(sorties, start=1) if str(s.pk) == demandee), None) if demandee else len(sorties)
+        if numero is None:
+            raise ValidationError({"livraison": "Cette livraison n'appartient pas à la commande."})
+        nom = f"accuse_reception_commande_{commande.pk}" + (f"_livraison_{numero}" if len(sorties) > 1 else "") + ".pdf"
+        return reponse_pdf(generer_accuse_reception(commande, sorties[numero - 1], numero, len(sorties)), nom)
 
     @action(detail=True, methods=["get"], url_path="recapitulatif")
     def recapitulatif(self, request, pk=None):

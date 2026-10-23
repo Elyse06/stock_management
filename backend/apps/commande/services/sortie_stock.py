@@ -71,17 +71,33 @@ def nombre_entier(valeur):
     return int(valeur) if valeur == int(valeur) else valeur
 
 
+def origine_commande(commande):
+    """Origine des sorties d'une commande (une par livraison) : « Commande #12 - RAKOTO Jean »."""
+    return f"Commande #{commande.pk} - {getattr(commande.employe_demandeur, 'emp_nom', '')}"[:100]
+
+
+def livraisons_commande(commande):
+    """Sorties de stock d'une commande, de la première à la dernière livraison."""
+    return (Mouvement.objects.select_related("magasin_source", "realise_par")
+            .filter(type_mouvement=Mouvement.Type.SORTIE, origine__startswith=f"Commande #{commande.pk} -")
+            .order_by("date", "pk"))
+
+
 @transaction.atomic
-def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_data=None):
-    """Crée le mouvement de SORTIE correspondant aux attributions validées."""
+def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_data=None, attributions_ids=None):
+    """Crée le mouvement de SORTIE d'une livraison : les attributions livrées maintenant
+    (``attributions_ids``), sinon toutes les attributions validées.
+
+    Une commande peut être livrée en plusieurs fois : une sortie par livraison. Le verrou posé sur la
+    commande et le statut des attributions (seules celles en attente peuvent être livrées) empêchent
+    de sortir deux fois la même attribution.
+    """
     magasin = magasin_source or Magasin.objects.order_by("magasin_id").first()
     if magasin is None:
         raise serializers.ValidationError("Aucun magasin disponible pour la sortie de stock.")
 
-    origine = f"Commande #{commande.pk} - {getattr(commande.employe_demandeur, 'emp_nom', '')}"[:100]
+    origine = origine_commande(commande)
     motif = (commande.objet or "Sortie pour attribution employés")[:255]
-    if Mouvement.objects.filter(origine=origine, motif=motif).exists():
-        return None
 
     unites_restantes = {
         d["detail_id"]: list(d.get("unites_a_attribuer") or [])
@@ -100,6 +116,7 @@ def generer_sortie_stock_pour_commande(commande, magasin_source=None, details_da
         for detail in details
         for attribution in detail.attributions.all()
         if attribution.statut == "VALIDEE" and detail.article_id is not None
+        and (attributions_ids is None or attribution.pk in attributions_ids)
     ]
     if not attributions:
         return None

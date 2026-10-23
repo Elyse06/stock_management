@@ -83,7 +83,9 @@ export function CommandesPage() {
       field: "statut",
       headerName: "Statut",
       autoExtraWidth: 40,
-      renderCell: ({ value }) => <StatusChip status={value === "VALIDEE" ? "TRAITE" : value} />,
+      renderCell: ({ row, value }) => (
+        <StatusChip status={row.livree_partiellement ? "LIVREE_PARTIELLEMENT" : value === "VALIDEE" ? "TRAITE" : value} />
+      ),
     },
     actionsColumn(
       ({ row }) => {

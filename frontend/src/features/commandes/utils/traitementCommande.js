@@ -1,58 +1,83 @@
-/** Règles du traitement d'une commande (pré-validation et validation finale). */
+/**
+ * Règles du traitement d'une commande (pré-validation et validation finale).
+ *
+ * Seules les attributions encore EN_ATTENTE se décident : une ligne refusée (par le chef à la
+ * pré-validation) ou déjà livrée ne revient pas dans le traitement.
+ *
+ * Décisions :
+ * - pré-validation (chef)      : VALIDEE (quantité ajustable) ou REFUSEE ;
+ * - validation finale (gest.)  : VALIDEE = « livrer maintenant » (une partie possible : le reste est
+ *   « en attente d'achat » ou « non accordé »), EN_ATTENTE = « en attente d'achat », ou REFUSEE.
+ */
 
 export const estSuiviParSerie = (article) => Boolean(article?.is_immobilisation && article?.mode_suivi === "NUMERO_SERIE");
 
-/** Décision initiale : chaque attribution en attente est proposée « validée » pour la quantité demandée. */
+export const DECIDEES = ["VALIDEE", "REFUSEE", "EN_ATTENTE"];
+
+const quantiteDemandee = (attr) => Number(attr.quantite_demandee ?? attr.quantite);
+
+/** Attributions à décider : celles encore en attente. */
+export const attributionsATraiter = (detail) => (detail.attributions || []).filter((a) => a.statut === "EN_ATTENTE");
+
+/** Décision initiale : chaque attribution en attente est proposée « validée / livrée » pour la quantité demandée. */
 export function validationsInitiales(commande) {
   const initial = {};
   commande?.details?.forEach((detail) =>
-    detail.attributions?.forEach((attr) => {
-      initial[attr.id] = {
-        statut: attr.statut === "EN_ATTENTE" ? "VALIDEE" : attr.statut,
-        quantite_validee: attr.quantite_demandee ?? attr.quantite,
-        motif_refus: attr.motif_refus ?? "",
-      };
+    attributionsATraiter(detail).forEach((attr) => {
+      initial[attr.id] = { statut: "VALIDEE", quantite_validee: quantiteDemandee(attr), motif_refus: "", reste: "EN_ATTENTE", motif_reste: "" };
     }),
   );
   return initial;
 }
 
 export function quantiteValidee(detail, validations) {
-  return (detail.attributions || []).reduce((total, attr) => {
+  return attributionsATraiter(detail).reduce((total, attr) => {
     const decision = validations[attr.id];
-    return decision?.statut === "VALIDEE"
-      ? total + Number(decision.quantite_validee || attr.quantite_demandee || attr.quantite)
-      : total;
+    return decision?.statut === "VALIDEE" ? total + Number(decision.quantite_validee || quantiteDemandee(attr)) : total;
   }, 0);
 }
 
+/** Y a-t-il quelque chose à livrer maintenant (et donc une sortie de stock) ? */
+export const aDesLivraisons = (validations) => Object.values(validations || {}).some((d) => d.statut === "VALIDEE");
+
+/** Y a-t-il au moins une livraison ou un refus (sinon rien à enregistrer) ? */
+export const aDesDecisions = (validations) => Object.values(validations || {}).some((d) => d.statut === "VALIDEE" || d.statut === "REFUSEE");
+
 /** Message d'erreur bloquant, ou ``null``. */
 export function verifierTraitement({ statut, commande, validations, magasinSource, unitesSelectionnees, getArticle, isAgentPrincipal, specifications = {} }) {
-  if (statut === "VALIDEE" && isAgentPrincipal && !magasinSource) {
-    return "Veuillez sélectionner un magasin source pour la sortie de stock.";
-  }
   if (statut === "REJETEE") return null;
+  const finale = statut === "VALIDEE";
+  if (finale && isAgentPrincipal) {
+    if (!aDesDecisions(validations)) return "Livrez ou refusez au moins une ligne (le reste peut rester en attente d'achat).";
+    if (aDesLivraisons(validations) && !magasinSource) return "Veuillez sélectionner un magasin source pour la sortie de stock.";
+  }
 
   for (const detail of commande.details || []) {
+    const aTraiter = attributionsATraiter(detail);
     if (detail.est_nouvel_article && !detail.article) {
       if (detail.id in specifications && !specifications[detail.id].trim()) {
         return "La spécification d'un nouvel article ne peut pas être vide.";
       }
-      const accordee = (detail.attributions || []).some((attr) => validations[attr.id]?.statut === "VALIDEE");
-      if (statut === "VALIDEE" && accordee) {
-        return `« ${detail.specification} » : créez l'article ou associez un article existant avant de valider (ou refusez la demande).`;
+      const accordee = aTraiter.some((attr) => validations[attr.id]?.statut === "VALIDEE");
+      if (finale && accordee) {
+        return `« ${detail.specification} » : créez l'article ou associez un article existant avant de le livrer (ou mettez-le en attente d'achat).`;
       }
     }
     const article = getArticle(detail.article);
     const nom = article?.designation ?? detail.libelle ?? detail.article_designation;
-    const toutesDecidees = (detail.attributions || []).every((attr) =>
-      ["VALIDEE", "REFUSEE"].includes(validations[attr.id]?.statut),
-    );
-    if (!toutesDecidees) return `Veuillez statuer (Valider ou Refuser) sur toutes les attributions pour « ${nom} ».`;
+    for (const attr of aTraiter) {
+      const decision = validations[attr.id];
+      if (!DECIDEES.includes(decision?.statut)) return `Veuillez statuer sur toutes les lignes pour « ${nom} ».`;
+      if (decision.statut === "REFUSEE" && !decision.motif_refus?.trim()) return `Indiquez le motif du refus pour « ${nom} ».`;
+      if (decision.statut === "VALIDEE") {
+        const q = Number(decision.quantite_validee);
+        if (!Number.isInteger(q) || q < 1) return `La quantité pour « ${nom} » doit être un nombre entier supérieur à 0.`;
+        if (q > quantiteDemandee(attr)) return `La quantité pour « ${nom} » dépasse la quantité demandée (${quantiteDemandee(attr)}).`;
+      }
+    }
 
-    if (statut === "VALIDEE" && estSuiviParSerie(article)) {
+    if (finale && estSuiviParSerie(article)) {
       const total = quantiteValidee(detail, validations);
-      if (!Number.isInteger(total)) return `La quantité validée pour « ${nom} » doit être entière.`;
       const selection = unitesSelectionnees[detail.id] || [];
       if (selection.length !== total) {
         return `Pour « ${nom} », veuillez sélectionner exactement ${total} unité(s) physique(s). Actuellement : ${selection.length} sélectionnée(s).`;
@@ -75,9 +100,10 @@ export function construirePayloadTraitement({ statut, commande, commentaire, val
       statut: d.statut,
       quantite_validee: d.statut === "VALIDEE" ? Number(d.quantite_validee) || null : null,
       motif_refus: d.statut === "REFUSEE" ? d.motif_refus || "" : null,
+      ...(d.statut === "VALIDEE" && statut === "VALIDEE" ? { reste: d.reste || "EN_ATTENTE", motif_reste: d.motif_reste || "" } : {}),
     }));
   }
-  if (statut === "VALIDEE" && magasinSource) {
+  if (statut === "VALIDEE" && magasinSource && aDesLivraisons(validations)) {
     payload.magasin_source = Number(magasinSource);
     payload.details = (commande.details || []).filter((detail) => detail.article).map((detail) => ({
       detail_id: detail.id,

@@ -15,6 +15,7 @@ import { peutTelechargerFiche, TITRE_ACCUSE } from "../utils/fiche";
 import { CommandeActions } from "./CommandeActions";
 import { CommandeArticlesTable } from "./CommandeArticlesTable";
 import { CommandeInfoSection } from "./CommandeInfoSection";
+import { LivraisonsCommande } from "./LivraisonsCommande";
 import { CommandeProgress } from "./CommandeProgress";
 import { CommandeTraitementSection } from "./CommandeTraitementSection";
 
@@ -44,7 +45,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onCommandeModif
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
-            <StatusChip status={commande.statut} />
+            <StatusChip status={commande.livree_partiellement ? "LIVREE_PARTIELLEMENT" : commande.statut} />
             {peutTraiter && (
               <Chip
                 label={preValidation ? "Pré-validation" : "Validation finale"}
@@ -69,6 +70,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onCommandeModif
         <CommandeProgress statut={commande.statut} />
         <CommandeInfoSection commande={commande} />
         <CommandeArticlesTable commande={commande} articles={t.articles} />
+        {peutTelechargerFiche(droits, commande) && <LivraisonsCommande commande={commande} />}
         {peutTraiter && (
           <CommandeTraitementSection
             commande={commande}
@@ -103,6 +105,7 @@ export function CommandeDetailModal({ commande, isOpen, onClose, onCommandeModif
         traitement={t.traitement}
         magasinSource={t.magasinSource}
         validations={t.validations}
+        livreePartiellement={commande.livree_partiellement}
       />
     </Dialog>
   );
